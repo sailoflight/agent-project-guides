@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sailoflight/agent-project-guides/schemas/catalog-entry.schema.json",
+  "title": "Agent Project Guides catalog entry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "title", "purpose", "path", "section", "hash", "bytes", "tokens"],
+  "properties": {
+    "id": {"type": "string", "minLength": 1},
+    "kind": {"enum": ["bootstrap", "role", "procedure", "profile", "template", "reference"]},
+    "title": {"type": "string", "minLength": 1},
+    "purpose": {"type": "string", "minLength": 1},
+    "path": {"type": "string", "minLength": 1},
+    "section": {"type": "string"},
+    "hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"},
+    "bytes": {"type": "integer", "minimum": 0},
+    "tokens": {"type": "integer", "minimum": 0},
+    "tags": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+  }
+}

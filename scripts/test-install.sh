@@ -2,6 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd -P)
+PACKAGE_REVISION=$(tr -d '\r\n' < "$ROOT/PACKAGE_VERSION")
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/agent-project-guides-test.XXXXXX")
 trap 'rm -rf "$TMP"' EXIT HUP INT TERM
 
@@ -27,7 +28,7 @@ assert_not_contains() {
 copy_package() {
   destination=$1
   mkdir -p "$destination"
-  cp -R "$ROOT/bootstrap" "$ROOT/routing" "$ROOT/scripts" "$ROOT/profiles" "$ROOT/templates" "$ROOT/roles" "$ROOT/procedures" "$destination/"
+  cp -R "$ROOT/bootstrap" "$ROOT/routing" "$ROOT/scripts" "$ROOT/profiles" "$ROOT/templates" "$ROOT/roles" "$ROOT/procedures" "$ROOT/lib" "$destination/"
   cp "$ROOT/PACKAGE_VERSION" "$ROOT/PACKAGE_REMOTE.json" "$destination/"
 }
 
@@ -82,7 +83,7 @@ assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'resolving both unde
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'never preload templates'
 routing_bytes=$(wc -c < "$ROOT/routing/planes.jsonl")
 routing_bytes=$((routing_bytes + $(wc -c < "$ROOT/routing/production.roles.jsonl") + $(wc -c < "$ROOT/routing/development.roles.jsonl")))
-[ "$routing_bytes" -le 2200 ] || fail 'plane and role registries exceeded token-oriented byte budget'
+[ "$routing_bytes" -le 2600 ] || fail 'plane and role registries exceeded token-oriented byte budget'
 maintainer_alias=$(grep -F '"仓库维护者"' "$ROOT/routing/development.roles.jsonl")
 printf '%s\n' "$maintainer_alias" | grep -Fq '"id":"maintainer"' || fail '仓库维护者 alias does not resolve directly to maintainer'
 [ "$(grep -Fc '"仓库维护者"' "$ROOT/routing/development.roles.jsonl")" -eq 1 ] || fail '仓库维护者 alias is not unique within development routing'
@@ -97,6 +98,9 @@ printf '%s\n' "$field_evaluator_alias" | grep -Fq '"id":"field-evaluator"' || fa
 for alias in '"实战评估者"' '"实战探索者"' '"探索评估者"'; do
   [ "$(grep -Fc "$alias" "$ROOT/routing/development.roles.jsonl")" -eq 1 ] || fail "field-evaluator alias is not unique: $alias"
 done
+verifier_alias=$(grep -F '"测试工程师"' "$ROOT/routing/development.roles.jsonl")
+printf '%s\n' "$verifier_alias" | grep -Fq '"id":"verifier"' || fail 'test engineer alias does not resolve directly to verifier'
+[ -f "$ROOT/roles/development/VERIFIER.md" ] || fail 'Verifier guide is missing'
 [ "$(wc -c < "$ROOT/routing/project-types.jsonl" | tr -d '[:space:]')" -le 1200 ] || fail 'project type registry exceeded token-oriented byte budget'
 project_type_ids=$(node -e 'const fs=require("fs"); const rows=fs.readFileSync(process.argv[1],"utf8").trim().split(/\n/).map(JSON.parse); process.stdout.write(rows.map(r=>r.id).join(","))' "$ROOT/routing/project-types.jsonl")
 [ "$project_type_ids" = 'mcp,library,cli,service,application-ui,data-automation,monorepo' ] || fail 'project type registry is not the exact ordered closed set'
@@ -166,7 +170,7 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 assert_managed_first "$PROJECT_ONE/AGENTS.md"
 assert_original_suffix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.4.3; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" "status=pending; package_revision=$PACKAGE_REVISION; verified_at=never; scope=repo; reason=not_adapted"
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 assert_contains "$PROJECT_ONE/AGENTS.md" 'Routing/state and `pending/stale` are not triggers'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
@@ -204,14 +208,15 @@ assert_original_suffix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 
 # Cloud freshness checks are read-only and distinguish current, differing, and unavailable sources.
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
-current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.4.3%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
+current=$(AGENT_PROJECT_GUIDES_VERSION_URL="data:text/plain,$PACKAGE_REVISION%0A" "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$current" | grep -Fq '"status":"current"' || fail 'check-update did not report current remote revision'
 different=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,9.9.9%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$different" | grep -Fq '"status":"remote_differs"' || fail 'check-update did not report differing remote revision'
 unavailable=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,not%20a%20revision' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$unavailable" | grep -Fq '"status":"unavailable"' || fail 'check-update did not report invalid remote metadata as unavailable'
 mkdir -p "$TMP/fake-bin"
-printf '#!/bin/sh\nprintf "MS40LjM=\\n"\n' > "$TMP/fake-bin/gh"
+encoded_revision=$(printf '%s\n' "$PACKAGE_REVISION" | base64 | tr -d '\r\n')
+printf '#!/bin/sh\nprintf "%s\\n"\n' "$encoded_revision" > "$TMP/fake-bin/gh"
 chmod 0755 "$TMP/fake-bin/gh"
 private=$(PATH="$TMP/fake-bin:$PATH" "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$private" | grep -Fq '"transport":"gh"' || fail 'check-update did not use authenticated gh fallback for a private repository'
@@ -260,12 +265,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.4.3; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" "status=partial; package_revision=$PACKAGE_REVISION; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules"
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.4.3; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" "status=blocked; package_revision=$PACKAGE_REVISION; verified_at=never; scope=repo; reason=missing_owner_decision"
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.4.3; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" "status=pending; package_revision=$PACKAGE_REVISION; verified_at=never; scope=repo; reason=retry_requested"
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -282,7 +287,7 @@ assert_original_suffix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.4.3; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" "status=stale; package_revision=$PACKAGE_REVISION; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation"
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 assert_managed_first "$PROJECT_TWO/AGENTS.md"

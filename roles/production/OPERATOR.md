@@ -1,8 +1,6 @@
 # 生产运维 Agent 指南
 
 > 适用角色：在 Production plane 管理已部署系统的配置、生命周期、可观察性、事件响应、备份、恢复和回滚。
->
-> Operator 不是 User、Developer 或 Maintainer。它维护生产运行态，不使用产品完成业务任务，也不在生产任务中修改源码。
 
 ## 1. 子模式
 
@@ -16,6 +14,8 @@
 只有项目存在部署或长期运行态时才启用 Operator。
 
 ## 2. 读取入口
+
+Operator 不是 User、Developer 或 Maintainer。它维护生产运行态，不使用产品完成业务任务，也不在生产任务中修改源码。
 
 ```text
 项目 operations/runbook

@@ -1,0 +1,37 @@
+{
+  "schema_version": 1,
+  "id": "small-cli",
+  "source_relative": "cc-teamwatch",
+  "project_id": "pilot.cc-teamwatch",
+  "facets": ["cli"],
+  "overlays": [],
+  "mandatory": ["profile:cli#5-verification-preset"],
+  "task": {
+    "plane": "development",
+    "role": "maintainer",
+    "mode": "code",
+    "text": "Resolve exact governance sources for a CLI behavior fix without changing the public contract"
+  },
+  "baseline": {
+    "governance_release": "1.4.3",
+    "legacy_route_token_threshold": 2364,
+    "token_estimate_method": "utf8-bytes/4-ceiling",
+    "maximum_route_tokens": 1650,
+    "required_exact_ids": [
+      "role:development/maintainer#1-角色边界",
+      "role:development/maintainer#2-开工任务卡",
+      "role:development/maintainer#3-最小读取顺序",
+      "role:development/maintainer#4-bug-和回归处理",
+      "role:development/maintainer#5-测试维护",
+      "role:development/maintainer#6-整理和重构",
+      "role:development/maintainer#7-改进建议",
+      "role:development/maintainer#8-文档与契约",
+      "role:development/maintainer#9-完成定义",
+      "role:development/maintainer#10-禁止事项",
+      "profile:cli#3-evidence-map",
+      "profile:cli#4-cli-contract",
+      "profile:cli#5-verification-preset"
+    ],
+    "maximum_unplanned_interventions": 0
+  }
+}

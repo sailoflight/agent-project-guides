@@ -1,0 +1,11 @@
+{"id":"production-action","tier":"R2","description":"Production or customer-visible action"}
+{"id":"credentials","tier":"R2","description":"Credential, secret, identity, or authorization boundary"}
+{"id":"durable-data","tier":"R2","description":"Persistent user, production, or shared-data mutation"}
+{"id":"durable-migration","tier":"R2","description":"Migration across durable schemas or stores"}
+{"id":"security-privacy","tier":"R2","description":"Security, privacy, legal, or regulatory impact"}
+{"id":"destructive","tier":"R3","description":"Irreversible or destructive behavior"}
+{"id":"public-compatibility","tier":"R2","description":"Public or contractual compatibility/release"}
+{"id":"material-cost","tier":"R2","description":"Material real cost, quota, or shared resource"}
+{"id":"physical-interface","tier":"R2","description":"Physical interface, tolerance, manufacture, or field use"}
+{"id":"safety-critical","tier":"R3","description":"Safety-critical or regulated consequence"}
+{"id":"weak-recovery-material","tier":"R2","description":"Weak observation/recovery combined with material consequence"}

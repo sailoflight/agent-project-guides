@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "id": "complex-content-package",
+  "source_relative": "MSP/Core",
+  "project_id": "pilot.msp-core",
+  "facets": ["content-package"],
+  "overlays": ["agent-governance"],
+  "mandatory": ["profile:content-package#5-verification-preset"],
+  "task": {
+    "plane": "development",
+    "role": "maintainer",
+    "mode": "code",
+    "text": "Resolve exact governance sources for a module governance update while preserving package ownership boundaries"
+  },
+  "baseline": {
+    "governance_release": "1.4.3",
+    "legacy_route_token_threshold": 2046,
+    "token_estimate_method": "utf8-bytes/4-ceiling",
+    "maximum_route_tokens": 1660,
+    "required_exact_ids": [
+      "role:development/maintainer#1-角色边界",
+      "role:development/maintainer#2-开工任务卡",
+      "role:development/maintainer#3-最小读取顺序",
+      "role:development/maintainer#4-bug-和回归处理",
+      "role:development/maintainer#5-测试维护",
+      "role:development/maintainer#6-整理和重构",
+      "role:development/maintainer#7-改进建议",
+      "role:development/maintainer#8-文档与契约",
+      "role:development/maintainer#9-完成定义",
+      "role:development/maintainer#10-禁止事项",
+      "profile:content-package#3-evidence-map",
+      "profile:content-package#4-contract-triggers",
+      "profile:content-package#5-verification-preset",
+      "profile:content-package#6-cold-start-acceptance",
+      "overlay:agent-governance"
+    ],
+    "maximum_unplanned_interventions": 0
+  }
+}
