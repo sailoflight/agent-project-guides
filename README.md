@@ -2,7 +2,7 @@
 
 > Harness 中立的治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
 
-当前版本：`3.0.7`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
+当前版本：`3.0.8`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
 ## 1. 互信与责任
 
@@ -24,7 +24,7 @@
   "schema_version": 2,
   "project_id": "example.project",
   "variant": "selected-inline.none",
-  "release": {"policy": "pinned", "version": "3.0.7", "digest": "sha256:<64 lowercase hex>"},
+  "release": {"policy": "pinned", "version": "3.0.8", "digest": "sha256:<64 lowercase hex>"},
   "documents": {
     "placement": "selected-local",
     "lifecycle": "maintenance",
@@ -108,7 +108,7 @@ explicit plane/role/mode (no inference) or bounded lexical classification
 
 默认 `context` 隐藏哈希，shared 用免落盘短票据续接；JSON 保留诊断。见 [V3 契约](docs/V3_MINIMAL_SLICE.md)；schema 1 见 [V2 契约](docs/V2_CONTRACT.md)。歧义不并集加载，`provider resolve/load` 不变。禁止 profile 复述 subtype 章节。
 
-`project validate` 预检 selected view 的全 role/mode 与两种输出预算；任一路由失败都不得返回 ready。`3.0.7` bootstrap remains prompt-level, not a host tool gate.
+`project validate` 预检 selected view 的全 role/mode 与两种输出预算；任一路由失败都不得返回 ready。`3.0.8` bootstrap remains prompt-level, not a host tool gate.
 
 ## 6. 角色和验证
 
