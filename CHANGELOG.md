@@ -60,9 +60,25 @@ over-refusing.**
   source at HEAD declares `v7`, and `slb` writes `.cursorrules`, not `AGENTS.md`.
   `frankenterm`'s released v0.15.1 was built without the agent-config feature at
   all, so that row is now marked unmeasured. `scripts/test-interop-writers.sh`
-  gained section D asserting the observed facts against those binaries; it reports
-  one GAP when `APG_EXTERNAL_BIN` is unset. Record and security posture:
+  gained section D asserting the observed facts against those binaries. Section D
+  is driven by default - it falls back to `.agent-scratch/external-test/bin` when
+  `APG_EXTERNAL_BIN` is unset - and each component whose binary is absent costs
+  exactly one GAP, so a checkout without the staged binaries reports gaps rather
+  than silently skipping. Record and security posture:
   `.agent-scratch/external-test/SECURITY-REPORT.md`.
+- Repository-side (not distributed): the project-memory index stops churning on
+  reads. `.mnemon/documents/index.json` records `lastAccessedAt` for every
+  document, so merely recalling a document dirtied the working tree. A
+  `.gitattributes` rule plus a per-clone opt-in clean filter
+  (`scripts/git-filter-mnemon-index.mjs`, registered by
+  `scripts/setup-git-filters.sh`) rewrites that one field to the record's own
+  `updatedAt` on the way into git, leaving the on-disk file untouched and the
+  field still a string - the runtime silently drops any document whose
+  `lastAccessedAt` is not a string, so the field is normalized rather than
+  removed. `scripts/test-mnemon-index-filter.mjs` pins the rewrite, the fallback
+  sentinel, byte-identical passthrough for anything that is not the expected
+  shape, and idempotence. The filter is opt-in: a clone without it behaves
+  exactly as before.
 
 ## 3.0.9
 

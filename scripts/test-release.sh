@@ -32,10 +32,17 @@ node scripts/test-genericity.mjs
 # with the bytes the UBS installer actually appends. Both SKIP cleanly when their
 # third-party inputs are absent - the writers harness needs the checkouts listed in
 # decisions/0006, not a toolchain. Its section D additionally drives the writers'
-# released binaries and asserts the observed facts from ADR 0006; set
-# APG_EXTERNAL_BIN to the extracted release payloads to run it, or it reports a
-# single GAP so this runner stays usable with no network and no large local files.
+# released binaries and asserts the observed facts from ADR 0006. Section D is
+# driven BY DEFAULT, not on request: the harness already defaults APG_EXTERNAL_BIN
+# to .agent-scratch/external-test/bin, so installing the verified payloads there
+# is all it takes. Each component that is absent costs exactly one GAP, so this
+# runner stays usable with no network and no large local files.
 node scripts/test-boundary.mjs
+# Project memory is tracked in git, and the index that makes it searchable
+# rewrites an access timestamp on every read, so the file went dirty after almost
+# any session. This gate pins the clean filter that removes the churn without
+# removing the field the documents plugin requires.
+node scripts/test-mnemon-index-filter.mjs
 ./scripts/test-interop-writers.sh
 node scripts/apg.mjs catalog check
 node scripts/apg.mjs project validate --target .

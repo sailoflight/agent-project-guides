@@ -1525,9 +1525,9 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | 12 | `.agent-scratch/` 外部试验区的去留 | `.agent-scratch/external-test/repos`（39 checkout，约 2.9 G）+ `external-verify`（普查原始证据，含 SHA256SUMS）已有生命周期标注（§13.13.8） | 是否点名删除（我保留原始证据以便复核） | 未删 |
 | 13 | 新 harness 的**长期证据**怎么保住 | `scripts/test-interop-writers.sh` 的输入是 gitignored 的 39 个 checkout，缺失时**干净 SKIP** ⇒ scratch 一删它就静默不跑了（§13.16.5） | 是否固定**最小子集**（`ultimate_bug_scanner` + `agentic_coding_flywheel_setup` + 已有 `br` 二进制）的获取方式：提交"从哪来/什么版本/sha256"清单，**不提交组件字节**（NOASSERTION 红线） | 未固定；harness 只写明了预期路径与 SKIP 行为 |
 | 14 | `frankenterm` 这一行是否值得换成"可观测" | 发布的 v0.15.1 根本没编进 agent 检测功能（二进制内 `ft-agent-config-`/`frankenterm:start` 出现 0 次，`robot agents configure` 返回 `feature_not_available`）；要测只能换构建（§13.17.3） | 是否批准装 Rust 工具链 + 大幅构建去测这一行；不批就让它**永久保持"未观测"标注** | 未构建；ADR 里已标成"未观测行，不得当作已测负例" |
-| 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） |
-| 16 | `APG_EXTERNAL_BIN` 是否纳入 `test-release.sh` 默认 | 现在默认**不带**，`test-release.sh` 保持无网、无大件也能跑；真实二进制断言要显式给环境变量（§13.17.4） | 是否让默认 runner 也驱动真实二进制（会让 CI 依赖 287.5 MiB 本地件） | 未改默认；section D 缺输入时只报 1 条 GAP |
-| 17 | 被 git 跟踪的 `.mnemon/documents/index.json` 每次**读取**都会改（`lastAccessedAt`） | 本轮只是读了一次托管文档，`git status` 就多出一份纯时间戳 diff（内容 hash 与 `revision` 都没变）。每读一次脏一次，是台 treadmill | 二选一：把 `lastAccessedAt` 从跟踪面里去掉（改 `.gitignore` 或让工具别写它），或接受每次读完要提交一次纯时间戳 diff | 本轮按第二选项提交了（否则树不干净），但**没有改跟踪策略**——那是契约变更 |
+| 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） → **已裁定：保留**，交给系统清理（§13.18.3） |
+| 16 | `APG_EXTERNAL_BIN` 是否纳入 `test-release.sh` 默认 | 现在默认**不带**，`test-release.sh` 保持无网、无大件也能跑；真实二进制断言要显式给环境变量（§13.17.4） | 是否让默认 runner 也驱动真实二进制（会让 CI 依赖 287.5 MiB 本地件） | 未改默认；section D 缺输入时只报 1 条 GAP → **已改：默认即驱动**；并更正为「每缺一件记一条 GAP」（§13.18.2） |
+| 17 | 被 git 跟踪的 `.mnemon/documents/index.json` 每次**读取**都会改（`lastAccessedAt`） | 本轮只是读了一次托管文档，`git status` 就多出一份纯时间戳 diff（内容 hash 与 `revision` 都没变）。每读一次脏一次，是台 treadmill | 二选一：把 `lastAccessedAt` 从跟踪面里去掉（改 `.gitignore` 或让工具别写它），或接受每次读完要提交一次纯时间戳 diff | 本轮按第二选项提交了（否则树不干净），但**没有改跟踪策略**——那是契约变更 → **已修**：`.gitattributes` + 每 clone opt-in 的 clean filter（§13.18.1） |
 
 ---
 
@@ -1626,3 +1626,66 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 - **`ft` 是否值得换构建再测**：需要 Rust 工具链 + 大幅构建，才能把这一行从"源码测量"变成"观测"。不做也行，但那一行必须保持"未观测"的标注。
 - **沙箱证据的长期存活**：`/tmp/apg-external-sandbox/`（`_bin` 暂存 + run 窗口）与 `.agent-scratch/external-test/`（287.5 MiB 归档 + 解包件）都是**临时物**。scratch 一删，section D 就只剩一条 GAP。与 §13.16.5 是同一个问题的两面：要么固定"从哪来、什么版本、sha256 多少"的清单，要么接受这些断言会静默退化为 SKIP。
 - **是否把 `APG_EXTERNAL_BIN` 纳入 `scripts/test-release.sh` 的默认路径**：现在默认 `test-release.sh` 不带它（保持 CI 无网、无大件可跑），要跑真实二进制得显式给环境变量。
+
+---
+
+## 13.18 第四轮：读取抖动修掉 + 第 14–17 行的裁定落地（2026-09-20）
+
+放行口径原文：「（ft）后者就装……副本留着等系统自己删吧，默认驱动，去掉跟踪，然后继续你的计划」。§13.15 的第 14–17 行因此全部有了裁定。本节记实施证据；第 14 行因需要一次源码构建而单列，进度见 §13.18.4。
+
+### 13.18.1 第 17 行：`lastAccessedAt` 的读取抖动（已修，带回滚点）
+
+**问题**：`.mnemon/documents/index.json` 被 git 跟踪，而 Mnemon 的 documents 插件在**每次读取**时都会重写每条记录的 `lastAccessedAt`。于是「读一次托管文档」就让工作树变脏，提交里全是无意义的时间戳 diff。这是台 treadmill，不是配置问题。
+
+**先排除的两条显然修法**（都实测过，都不行）：
+
+| 想法 | 实测结果 | 结论 |
+|---|---|---|
+| 把 index.json 移出跟踪（`.gitignore`） | 移动文件后立刻 `mnemon_document_search` → `Error: ENOENT: no such file or directory, stat '.../.mnemon/documents/index.json'`，而且**索引不会被重建** | 索引是权威件，不能移出跟踪 |
+| 让过滤器**删掉** `lastAccessedAt` 字段 | 读插件源码 `dsh-mnemon-source-documents/lib/index.js:157`：`parseRecord` 在 `typeof value.lastAccessedAt !== "string"` 时 `return void 0`，调用方把 undefined 当「这条不是文档」直接丢弃 | 删字段 = **静默丢掉全部 14 篇文档** |
+
+**落地方案**：保留字段、只在**进入对象库的那条路径上**把它的值改写成该记录自己的 `updatedAt`。
+
+- `.gitattributes`：恰好一条规则 `.mnemon/documents/index.json filter=apg-mnemon-index`；
+- `scripts/git-filter-mnemon-index.mjs`：clean 过滤器。`JSON.parse` 失败、或顶层没有 `documents` 数组 → **逐字节原样透传**（不猜、不改）；否则把每条记录的 `lastAccessedAt` 设成自己的 `updatedAt`（缺失时退回固定哨兵 `1970-01-01T00:00:00.000Z`），再以 `JSON.stringify(parsed, null, 2) + "\n"` 写回；
+- `scripts/setup-git-filters.sh`：git 没有随 clone 走的仓级配置，所以过滤器**天生是每 clone 自行 opt-in**。不跑这个脚本的 clone 会忽略该 attribute，行为与改动前完全一致——这是**去抖动**，不是正确性要求。
+
+**验证链**：暂存 blob 与「过滤器作用于工作树文件」的输出**逐字节同哈希**（`ad317d40…8f84b`）；`git status` 对 index.json 显示 `M `（已暂存、工作树无差异），即真实访问时间留在盘上、进库的是归一化值。
+
+**不破坏可复现性**：`.gitattributes` 不在分发面（`DIST_DIRS`/`DIST_FILES` 都不含它）；`test-boundary.mjs` 仍报 81 个分发文件 / 9 个命令组 PASS。
+
+**门禁**：新增 `scripts/test-mnemon-index-filter.mjs`，并挂进 `scripts/test-release.sh`（`test-boundary.mjs` 与 `test-interop-writers.sh` 之间）。断言：attribute 恰好一条且指向本过滤器；`lastAccessedAt`→`updatedAt` 的改写；`updatedAt` 缺失时的哨兵；输出中每条 `lastAccessedAt` 仍是字符串（插件硬要求）；其余字段不变；**幂等**；`''`、`'not json at all\n'`、`'{"version":1,"documents":{}}'`、`'[]'` 四种非目标输入逐字节透传；当 `.mnemon/documents/index.json` 存在时每条记录的 `lastAccessedAt` 必须是字符串。
+
+**回滚点**：`git config --unset filter.apg-mnemon-index.clean`（`setup-git-filters.sh` 内亦写明）。撤销后工作树立刻回到改动前行为。
+
+**序列化细节（踩过，值得记）**：过滤器必须与插件用同一种序列化。第一次用 Python 默认 `ensure_ascii=True` 重写，中文被转义成 `\uXXXX`，`git status` 仍显示脏（`MM`）；改成 `ensure_ascii=False` 后 A/B 对照才干净（`-c filter.apg-mnemon-index.clean=cat` → `MM`，装过滤器 → `M `）。故过滤器用 Node 的 `JSON.stringify`，与插件同源。
+
+### 13.18.2 第 16 行：默认驱动真实二进制（已改，含一处旧认知更正）
+
+口径是「默认驱动」。核验后：`test-release.sh` **本来就**默认驱动 section D——`scripts/test-interop-writers.sh` 内 `EXT="${APG_EXTERNAL_BIN:-$ROOT/.agent-scratch/external-test/bin}"`，环境变量缺省时回落到仓内已暂存的解包目录。§13.15 第 16 行原来那句「现在默认不带」以及 `test-release.sh` 里的对应注释都是**写反了的旧认知**，本轮按实际行为改正。
+
+同时把「缺件」语义写准：section D 里每个组件若二进制不存在，记**一条** GAP（`note_gap`），不是整段 SKIP。所以没有暂存二进制的 checkout 会报多条 GAP，而不是静默跳过——这正是「断言退化为 SKIP 必须看得见」的要求（§13.16.5）。
+
+实测：`sh scripts/test-release.sh` → exit 0，`== writers result: 65 passed, 0 failed, 1 gaps ==`（那 1 条 GAP 就是第 14 行的 ft）。
+
+### 13.18.3 第 15 行：暂存副本保留（已裁定）
+
+口径是「副本留着等系统自己删吧」。因此 `.agent-scratch/external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`.agent-scratch/external-test/repos/`、`/tmp/apg-external-sandbox/` 与 `/tmp/apg-ft-build/` **都不点名清理**：`/tmp` 下的交给操作系统按自己的策略回收，仓内 `.agent-scratch/` 的保持原样以便复核。获取与校验流程已脚本化（`probe-releases.py` / `install-components.py` / `minisign_verify.py` / `sandbox-run.sh`），真删了也能再生。
+
+代价照旧记账：这些目录一旦被系统清掉，section D 的相应断言就会变成 GAP（见 §13.16.5 与第 13 行）。这是被接受的取舍，不是遗漏。
+
+### 13.18.4 第 14 行：ft 换构建（进行中）
+
+预编译件路线对 ft **确认无效**，证据如下表。因此这一行只能从源码构建，构建与实测进度在本小节续写。
+
+| 检查 | 结果 |
+|---|---|
+| release 列表 | `v0.15.1` 为最新（2026-08-21），无更新 |
+| linux/amd64 资产 | 仅 `ft-linux-amd64.tar.xz`（19,789,208 B），已下载并验过 |
+| 是否有第二个构建变体（full / all-features） | **无**；资产表只有 darwin-arm64 / linux-amd64 / linux-arm64 / windows-amd64 |
+| 源码仓 CI 产物 | **无**；clone 内不存在 `.github/workflows/`（单条压扁提交） |
+| 该发布件的 feature 状态 | `agent-detection` 未编入；`robot agents list/detect/configure` 全部返回 `robot.feature_not_available`，hint 明写 "Rebuild ft with filesystem agent detection enabled." |
+
+源码侧已确认的事实（供实测对照，仍属 scan 而非 observed）：marker 常量 `<!-- frankenterm:start -->` / `<!-- frankenterm:end -->`；`codex`/`gemini`/`cline`/`windsurf`/`opencode` → `AGENTS.md`，`claude` → `CLAUDE.md`，`cursor` → `.cursorrules`，`aider` → `CONVENTIONS.md`，`github_copilot` → `.github/copilot-instructions.md`；备份族前缀 `.ft-agent-config-`、后缀 `.backup`，并带 claim/ack 事务协议；`--scope` 默认 `Project`；`--agent` 省略时解析为**全部** inventory slug。
+
+**构建的资源教训（值得留在仓内）**：首次用 `-j 16` 跑，把 23 GB 内存吃到只剩 1 GB 可用、swap 被吃掉 5–7 GB、两个 rustc 各占 7.7 GB（load 17.3），而本机还常驻其他 agent。改为 `-j 1` + `nice -n 19` + 内存看门狗（`MemAvailable < 4 GB` 即中止）后，可用内存稳定在 ~17 GB。另记一条：**cargo 被中断后下一轮会从头重编**（两次中断都观察到了），所以限流构建不能靠反复打断来"省资源"。
