@@ -35,6 +35,10 @@ over-refusing.**
   writer emits**, so the narrow scope is pinned in both directions.
 - The census measured four real grammar gaps and one over-refusal; reverting to
   the previous grammar makes exactly those five rows fail.
+- Repository-side (not distributed): `scripts/test-release.sh` now invokes
+  `test-genericity.mjs` and `test-interop-br.sh`. ADR 0005's genericity gate had
+  existed since 3.0.7 with no runner calling it, so the cross-harness contract had
+  a covering test that nothing invoked.
 
 ## 3.0.9
 

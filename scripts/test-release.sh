@@ -18,6 +18,13 @@ node scripts/test-v2.mjs
 node scripts/test-v3.mjs
 node scripts/test-context-state.mjs
 node scripts/test-context-choice.mjs
+# ADR 0005's genericity gate was written but never wired into a runner, so the
+# cross-harness contract had a covering test that nothing invoked - it could rot
+# silently. Both of these belong in the release runner: the genericity gate scans
+# every shipped markdown surface for client names, and the interop harness SKIPs
+# cleanly when the `br` binary is absent (it needs no network and no toolchain).
+node scripts/test-genericity.mjs
+./scripts/test-interop-br.sh
 node scripts/apg.mjs catalog check
 node scripts/apg.mjs project validate --target .
 node scripts/apg.mjs release verify-source

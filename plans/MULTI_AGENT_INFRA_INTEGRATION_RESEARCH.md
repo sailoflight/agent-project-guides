@@ -1456,3 +1456,47 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | `.agent-scratch/external-verify/census.json`、`evidence/` | 本次普查的原始证据（17 写入记录 / 51 语法结果 / 28 无写入方 + SHA256SUMS） | 已在 `decisions/0006` 与本节落成可读记录；**当 `.agent-scratch/external-test/repos/` 被删除时同步失效**；点名删除 `rm -rf .agent-scratch/external-verify`（不用通配符） |
 | `.agent-scratch/external-test/repos/`（39 checkout，约 2.9 G） | 只读普查输入 | 与上同批；点名删除 |
 | `.agent-scratch/consumer-gate/` | 现场语法扫描脚本 + 结果 | 结论已进 13.13.4；点名删除三个文件各自的名字 |
+
+---
+
+## 13.14 决策 11 第 6 步：五项合同的"有无承重"审计（2026-09-20）
+
+§13.5 把"其余 5 项缺口"排在第 6 步（外部实测**之后**）。外部实测已完成（§13.13），故第 6 步开工。
+
+第一步**不是造东西，而是核对链路**：§10.3 的表已经把结论写在"APG"这一列——五项**全部是 ✓**。所以这里的"缺口"指**生态缺口**（别人没有、只有 APG 有），不是"APG 没做"。真正值得查的是这五项各自那条链是否完整：
+
+> **声明点（文档/ADR）→ 强制点（代码）→ 覆盖测试（断言）→ 被某个 runner 调用**
+
+四项都能走通，**第五项断在最后一环**。
+
+| 合同 | 强制点（代码） | 覆盖测试（具体断言） | 挂到 runner？ | 判定 |
+|---|---|---|---|---|
+| ① 主体权威合成（role→authority，低层不得降低高层 effect） | `lib/risk.mjs` 的 `composeRisk` / `maximumTier`（单调取最大）+ `routing/protected-effects.jsonl` + descriptor 的 `protected_effects` | `test-v2.mjs:373-378`（routine / material / destructive 三级合成）、`:615`（缺 descriptor → 直接 R3 fail-closed） | ✓ `test-release.sh` | **承重** |
+| ② 项目 policy 的可复现身份（digest + 受管 marker + 内容 hash） | `lib/descriptor.mjs`（digest 字段校验）、`lib/block-integrity.mjs` + `lib/bootstrap.mjs`（锚）、`release manifest` / `verify-source`（逐文件 sha256） | `test-v2.mjs`（schema-1 锚三条：篡改 / 删 integrity 行 / 连锚一起删）、`test-install.sh`（guard 与 integrity）、`release verify-source` | ✓ | **承重**（3.0.9 加锚、3.0.10 加文法，两轮都在加固它） |
+| ③ 证据与验收合同（非作者评审 / peer vs formal IV&V / `ready_for_verification`） | `lib/memory.mjs:89`（评审人必须非作者 → `memory_independence`）、`:112` 与 `:169`（评审绑定 digest、supersede 不可换锚） | `test-v2.mjs:451`（描述符变化后 `memory review` → `cas_conflict`） | ✓ | **承重** |
+| ④ 观测分级（intended / host-observed / model_effective） | `lib/context.mjs:241`、`:315`、`:557`（`source_observation` 三元组，`model_effective` 恒为 `unknown`） | `test-v2.mjs:194`、`:385`（所有 dsh 源必须 `intended && !host_observed && model_effective==='unknown'`） | ✓ | **承重** |
+| ⑤ 跨 harness 契约（harness-neutral + pinned release） | `scripts/test-genericity.mjs`（扫 39 个分发引导面找客户端词）+ `decisions/0005` | `test-genericity.mjs` 自身 | **✗ 没有** → **已修** | **承重，但此前空转** |
+
+### 13.14.1 本轮唯一真发现：一份"有测试、没跑者"的合同
+
+`scripts/test-genericity.mjs` 是 `decisions/0005-harness-neutral-core.md` 明文写的 gate（"a new genericity gate keeps guidance surfaces client-neutral"），`plans/DEVELOPMENT_ROADMAP.md` 也把它列为 R6-A 的交付物，历史交接记录甚至写着"每次改动后均跑"。但——**仓库里唯一枚举 gate 的入口 `scripts/test-release.sh` 从未调用它**，仓内也没有 `.github/workflows`。
+
+⇒ 这个测试**当前 PASS**，但**没有任何机制会在回归时跑它**。合同 ⑤ 的"声明点"与"强制点"都在、"覆盖测试"也在，唯独**最后一环断**：测试不会被跑，所以合同会静默腐烂（这正是 ADR 0005 立它时要防的事）。
+
+**已修**：`scripts/test-release.sh` 增加两行——
+
+- `node scripts/test-genericity.mjs`（补上缺失的一环）；
+- `./scripts/test-interop-br.sh`（P5 互操作；无 `br` 二进制时干净 SKIP，不需网络、不需工具链，所以对全新 clone 无副作用）。
+
+修复本身**不进分发面**（`scripts/test-*` 不在 `SCRIPT_FILES`），因此**不需要升版本号、不动 manifest**：`sh scripts/test-release.sh` 全绿（含新挂的两道，P5 = 19/19）。
+
+**教训（可复用判据）**："有覆盖测试"与"覆盖测试会被跑"是两件事。对**声明式合同**（本项目这五张底牌全是声明式的）尤其容易退化：文档里写着 gate，runner 里没有它。一个合同只有在**声明点、强制点、被调用的测试**三者同时成立时才算承重。
+
+### 13.14.2 第 6 步仍未做（如实列出）
+
+- **五项合同本身没有被改**：审计结论是四项承重、一项补挂载，所以本轮**没有**为它们新增任何公共契约面（也就不需要主人签字）。
+- 剩下的"设计与回归"候选都**需要公共契约变更或主人裁定**，故停在门口：
+  - ④ 是否引入新术语 **`declaration-observed`**（决策 8 已给建议，明确标注"进正式词表需主人签字"）；
+  - ③ 是否把"peer review vs formal IV&V"从角色文档升级为**机器可判**的形态；
+  - ⑤ 是否把 "harness-neutral" 从**门禁**升级为**声明式清单**（与决策 6 的能力词表同源，落地面仍卡在决策 2——主人已裁定"暂不开"）。
+- **P6**（观测账本）与 **P7**（APG 自身块 2,062 B vs 消费者 731–758 B）仍未批准。
