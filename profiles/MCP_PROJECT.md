@@ -39,9 +39,9 @@ Never hand-maintain complete tools, parameters or schemas in README, usage, arch
 
 ## 4. MCP contract
 
-Architecture/module authorities identify registry/schema/handler ownership, external versus internal calls, transport/session/state ownership, client capability behavior, and credential/network/confirmation/dry-run/budget/retry/idempotency rules.
+Architecture/module authorities identify registry/schema/handler ownership, external vs internal calls, transport/session/state ownership, client capability behavior, and credential/network/confirmation/dry-run/budget/retry/idempotency rules.
 
-Every MCP also owns one bounded canonical runtime prompt with actionable `Production / User` and `Production / Operator` routing, authority and transition rules. Each supported client must make it model-visible after initialization and before its first tool decision. It is not a product introduction, README, tool description or repository root instruction. A working tool catalog without that prompt fails compatibility; unsupported clients require an install-time companion generated from the same source/revision.
+Every MCP owns one bounded canonical runtime prompt with actionable `Production / User` and `Production / Operator` routing, authority and transition rules; each supported client must surface it after initialization and before the first tool decision. It is not a product introduction, README, tool description or root instruction. A working catalog without it fails compatibility; unsupported clients require an install-time companion from the same source/revision.
 
 When tool volume materially affects context:
 
@@ -53,7 +53,7 @@ Candidate results carry identity, intent and compact risk; full schemas enter co
 
 ## 5. Verification preset
 
-Verify unique tool names, registry/schema/handler correspondence, generated-reference drift, protocol-clean stdout, capability negotiation, canonical prompt initialization and model visibility in every supported client. Tool descriptions alone do not pass. Mutations require confirmation and applicable dry-run or a documented impossibility; live tools require a hard request budget and stop condition.
+Verify unique tool names, registry/schema/handler correspondence, generated-reference drift, protocol-clean stdout, capability negotiation, canonical prompt initialization and model visibility per supported client. Tool descriptions alone do not pass. Mutations require confirmation and applicable dry-run or documented impossibility; live tools require a hard request budget and stop condition.
 
 ## 6. Cold-start acceptance
 

@@ -4,12 +4,12 @@
 
 ## 1. 子模式
 
-Reviewer 默认 report-only，不实施修复。Reviewer 可执行静态分析和隔离环境动态分析，但不得使用生产环境、真实凭据或未脱敏生产数据。需要真实场景评估时切换 Field Evaluator，需要修复时按问题性质切换 Maintainer 或 Developer。
+Reviewer 默认 report-only，不实施修复；可执行静态分析和隔离环境动态分析，但不用生产环境、真实凭据或未脱敏生产数据。真实场景评估切 Field Evaluator，修复按问题性质切 Maintainer 或 Developer。
 
 - **Static Review**：审查 diff、源码、契约、依赖、配置和文档。
-- **Sandbox Dynamic Analysis**：在 development/test/sandbox 使用 synthetic、fixture 或 mock 数据运行确定性测试、模拟和复现。
+- **Sandbox Dynamic Analysis**：在 dev/test/sandbox 用 synthetic/fixture/mock 数据运行确定性测试、模拟和复现。
 
-运行测试不会自动把 Reviewer 变成 Field Evaluator；区分标准是环境与数据权限，而不是是否执行了命令。
+运行测试不会自动把 Reviewer 变成 Field Evaluator；区分标准是环境与数据权限，不是是否执行了命令。
 
 ## 2. 最小读取顺序
 
@@ -22,7 +22,7 @@ Reviewer 默认 report-only，不实施修复。Reviewer 可执行静态分析�
   -> docs/verification/MATRIX.md
 ```
 
-不要预读 Package Adaptation、User usage 或 operations runbook。角色或审查范围不清楚时先询问用户。
+不预读 Package Adaptation、User usage 或 operations runbook；角色或审查范围不清先询问用户。
 
 ## 3. 审查重点
 
@@ -35,7 +35,7 @@ Reviewer 默认 report-only，不实施修复。Reviewer 可执行静态分析�
 5. 配置、生成物和文档漂移；
 6. 会造成实际维护成本的复杂度和重复。
 
-不把纯风格偏好当作高严重度 finding。
+纯风格偏好不算高严重度 finding。
 
 ## 4. 动态分析边界
 
@@ -55,9 +55,9 @@ Reviewer 默认 report-only，不实施修复。Reviewer 可执行静态分析�
 
 ## 5. 输出
 
-发现优先，按严重度排序。每项包含：证据位置、触发条件、实际风险和缺失验证。未发现问题时明确说明，并列出未运行验证和剩余风险。
+发现优先、按严重度排序；每项含证据位置、触发条件、实际风险与缺失验证。无发现时明确说明，并列出未运行验证与剩余风险。
 
-Reviewer 发现问题后不自动切换角色。用户明确授予 Reviewer+Maintainer 或 Reviewer+Developer 时，可以按指定顺序审查并修复，但必须区分独立发现和自行修复后的复核结果。
+发现问题后不自动切换角色。用户明确授予 Reviewer+Maintainer 或 Reviewer+Developer 时，可按指定顺序审查并修复，但必须区分独立发现与自行修复后的复核结果。
 
 ## 6. 子 agent
 

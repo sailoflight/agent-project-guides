@@ -34,11 +34,11 @@ Screenshots and reports are evidence; they do not replace executable component, 
 
 ## 4. Application contract
 
-Document primary user workflows, navigation, view/state ownership, loading/error/empty/permission states, backend and native boundaries, accessibility, keyboard/touch behavior, responsive constraints, persistence, and supported platforms. Generated assets and clients must name their source and regeneration command.
+Document primary user workflows, navigation, view/state ownership, loading/error/empty/permission states, backend and native boundaries, accessibility, keyboard/touch behavior, responsive constraints, persistence, and supported platforms; generated assets and clients must name their source and regeneration command.
 
 ## 5. Verification preset
 
-Verify state logic, component behavior, key workflows, error and permission states, accessibility, responsive layout, and supported platforms. Use visual comparison only with stable viewports/data and keep evidence separate from normative behavior. Release, signing, store, and production deployment actions remain Operator-gated.
+Verify state logic, component behavior, key workflows, error and permission states, accessibility, responsive layout, and supported platforms; visual comparison only with stable viewports/data, evidence separate from normative behavior. Release, signing, store, and production deployment stay Operator-gated.
 
 ## 6. Cold-start acceptance
 

@@ -7,11 +7,11 @@
 - **Scenario Validation**：按照验收条件和真实使用路径验证预期行为。
 - **Exploratory Evaluation**：探索未知边界、用户摩擦、缺失能力和潜在新需求。
 
-不要使用模糊的“test”描述本角色；输出中写明是动态场景验证还是探索性评估，避免与 CI、静态检查或 Reviewer sandbox analysis 混淆。
+不用模糊的“test”自称；输出写明是动态场景验证还是探索性评估，避免与 CI、静态检查或 Reviewer sandbox analysis 混淆。
 
 ## 2. 开始前权限卡
 
-Field Evaluator 不进入 production，不维护基础设施，不修改产品代码。生产运行任务属于 Operator；静态/隔离测试审查属于 Reviewer；实施发现的功能或修复必须先切换 Developer 或 Maintainer。
+Field Evaluator 不进入 production，不维护基础设施，不修改产品代码。生产运行任务属于 Operator；静态/隔离测试审查属于 Reviewer；实施发现的功能或修复必须先切 Developer 或 Maintainer。
 
 ```text
 环境：dev / test / staging（production 禁止）
@@ -24,7 +24,7 @@ Field Evaluator 不进入 production，不维护基础设施，不修改产品�
 证据：日志、截图、输出、时间范围和数据版本
 ```
 
-任何字段不明确且可能影响真实系统、数据、安全或成本时，先询问用户。
+字段不明且可能影响真实系统、数据、安全或成本时，先询问用户。
 
 ## 3. 最小读取顺序
 
@@ -33,7 +33,7 @@ Field Evaluator 不进入 production，不维护基础设施，不修改产品�
 3. 测试环境说明和允许的数据边界。
 4. 只有定位证据需要时才读有限模块契约或实现，不做整仓审查。
 
-不要读取 production operations、真实凭据或无关开发文档。
+不读 production operations、真实凭据或无关开发文档。
 
 ## 4. Scenario Validation
 
@@ -52,7 +52,7 @@ Field Evaluator 不进入 production，不维护基础设施，不修改产品�
 - `feature proposal`：可能的新需求，尚未实现；
 - `test gap`：现有自动或场景验证未覆盖的风险。
 
-发现新功能机会后先报告价值、真实场景、证据、影响用户和风险；未经用户授权不得切换 Developer 实施。
+发现新功能机会先报告价值、真实场景、证据、影响用户与风险；未经用户授权不得切 Developer 实施。
 
 ## 6. 完成定义
 

@@ -36,9 +36,9 @@ installer 写 pending/stale；适配写 partial/adapted/blocked。记录 revisio
 
 `artifact -> decision -> authority/evidence -> action -> verification`：required 链接已验证 authority 或 merge/create；conditional 有证据才处理；omit 不新建、不删已有；existing-authority 只修索引/链接。
 
-Exact files under `templates/`:
+`templates/` 下的确切文件：
 
-| Artifact | File |
+| 产物 | 文件 |
 |---|---|
 | root | ROOT_AGENTS.md |
 | role/task index | DOC_INDEX.md |
@@ -76,3 +76,5 @@ scripts/install.sh remove-trigger
 ```
 
 公共行为不明、authority 冲突、需改变产品/架构/安全边界、涉及 production/real data/irreversible action 或并行修改不可合并：写 blocked，请负责人决定。不把推测当事实、不删 authority、不以文档数量代验收、不把所有角色塞入 root、不在日常任务重复本流程。
+
+完成前分诊 `.agent-project-guides/local/suggestions/`：计数/分类写入适配报告，可行项转为 proposal；信件永不自动实施，处理后移入 `processed/`。

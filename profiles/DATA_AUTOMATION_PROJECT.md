@@ -38,7 +38,7 @@ Document source, format, version, license, validation, transformations, output l
 
 ## 5. Verification preset
 
-Verify schema and fixture consistency, deterministic replay where applicable, idempotent resume, overwrite protection, bounded samples, failure-stop behavior, checkpoint recovery, and output validation. Backfills, live connectors, paid services, and production writes require explicit environment, scope, budget, backup, and stop conditions.
+Verify schema/fixture consistency, deterministic replay where applicable, idempotent resume, overwrite protection, bounded samples, failure-stop behavior, checkpoint recovery, and output validation; backfills, live connectors, paid services, and production writes require explicit environment, scope, budget, backup, and stop conditions.
 
 ## 6. Cold-start acceptance
 
