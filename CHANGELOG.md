@@ -39,6 +39,16 @@ over-refusing.**
   `test-genericity.mjs` and `test-interop-br.sh`. ADR 0005's genericity gate had
   existed since 3.0.7 with no runner calling it, so the cross-harness contract had
   a covering test that nothing invoked.
+- Repository-side (not distributed): two more declared validations became
+  executable. `scripts/test-boundary.mjs` pins ADR 0007's boundary - the exact
+  top-level command set, the absence of any retrieval/scheduling/execution/store
+  mechanism, the manifest equalling the packer allowlist, and no third-party
+  component path in the distribution surface. `scripts/test-interop-writers.sh`
+  re-checks ADR 0006's census against the real components: all 20 recorded marker
+  literals, the two safe real write paths (`ubs --dry-run` zero writes; `acfs
+  --output`/`deploy`), and the UBS block extracted verbatim from its own heredoc
+  driven through the shipped `guard-prefix`. Both SKIP when their third-party
+  inputs are absent; both have measured negative proofs.
 
 ## 3.0.9
 
