@@ -17,7 +17,7 @@
 
 进入本流程前必须已精确解析 Developer/`initialize` 或 Maintainer/`readapt`。不要重新读取 plane registry、重新发现角色或同时读取两个角色指南。trigger 对未分配角色先用有界证据判断新/已有项目；显式角色或 literal alias 在任何仓库发现前直接胜出。
 
-角色记录的 `guide`、`procedure_by_mode` 和项目类型记录的 `profile` 全部相对治理包根目录解析，不相对 registry 或 cwd。精确读取失败是包完整性错误，禁止用 glob 猜路径。
+角色记录的 `guide`、`procedure_by_mode`、项目类型记录的 `profile` 和条件子类型记录的 `spec` 全部相对治理包根目录解析，不相对 registry 或 cwd。精确读取失败是包完整性错误，禁止用 glob 猜路径。
 
 ## 2. 任务卡和事实等级
 
@@ -62,6 +62,8 @@
 先按当前 scope，再按主要消费者入口和运行形态判断；不要按语言、框架或目录名判断。CLI 调用 library、UI 依赖 service、MCP 使用内部 package 都不自动构成混合类型。monorepo 根选择 `monorepo`；后续 package-scoped pass 再单独选择该 package 的一个类型。
 
 对 `routing/project-types.jsonl` exact grep 一个 quoted `id`，只读命中 profile，且不得预读多个 profile 比较。没有精确类型，或一个不可拆 scope 实质匹配多个主类型时，使用根结构化问答协议和稳定 ID `project_type`，让用户确认最近类型、缩小/拆分 scope、更新包类型定义或判定不适用，并等待。
+
+命中 `mcp` 后才允许按 profile 指示检查条件架构子类型。只在拓扑证据精确匹配时 exact grep `routing/mcp-subtypes.jsonl` 的一个 quoted `id` 并读取其 `spec`；不匹配时不读 subtype。项目必须把通用 subtype 映射到自己的架构文件，不能复制出另一套冲突规范。
 
 ## 5. 产物预设和逐项创建
 
@@ -113,7 +115,7 @@ Generated       -> 从 executable/schema authority 派生的参考
 
 ## 7. 验证和冷启动
 
-至少验证：JSONL 语法、ID/profile 唯一性和包根路径，所选根 marker/state/UTF-8/体积，重复 managed 候选，新增/修改链接和命令，generated-source 一致性，秘密扫描，profile required 产物的 authority/omit 决策，公共/高风险模块契约，当前架构真实性，并行修改保留，以及 trigger 模式最终无 trigger。
+至少验证：JSONL 语法、ID/profile/spec 唯一性和包根路径，所选根 marker/state/UTF-8/体积，重复 managed 候选，新增/修改链接和命令，generated-source 一致性，秘密扫描，profile required 产物和条件 subtype 的 authority/omit/conformance 决策，公共/高风险模块契约，当前架构真实性，并行修改保留，以及 trigger 模式最终无 trigger。
 
 让无历史上下文 agent 在不读完整治理包时完成：
 

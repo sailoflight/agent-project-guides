@@ -9,6 +9,7 @@ const files = {
   production: 'routing/production.roles.jsonl',
   development: 'routing/development.roles.jsonl',
   projectTypes: 'routing/project-types.jsonl',
+  mcpSubtypes: 'routing/mcp-subtypes.jsonl',
 };
 
 function fail(message) {
@@ -45,6 +46,7 @@ const planes = readJsonl(files.planes);
 const production = readJsonl(files.production);
 const development = readJsonl(files.development);
 const projectTypes = readJsonl(files.projectTypes);
+const mcpSubtypes = readJsonl(files.mcpSubtypes);
 
 const expectedPlanes = new Map([['production', files.production], ['development', files.development]]);
 if (planes.length !== expectedPlanes.size) fail('planes registry must contain exactly production and development');
@@ -104,6 +106,24 @@ for (const record of projectTypes) {
   safePath(record.profile, `project type ${record.id}.profile`);
   seenProjectTypes.add(record.id);
   seenProfiles.add(record.profile);
+}
+
+if (mcpSubtypes.length !== 1) fail('MCP subtype registry must contain exactly the supported subtype');
+const mcpSubtype = mcpSubtypes[0];
+if (mcpSubtype.id !== 'windows-wsl-bridge' || typeof mcpSubtype.when !== 'string' || !mcpSubtype.when.trim() ||
+    mcpSubtype.spec !== 'profiles/mcp/WINDOWS_WSL_BRIDGE.md') {
+  fail(`invalid MCP subtype record: ${JSON.stringify(mcpSubtype)}`);
+}
+safePath(mcpSubtype.spec, `MCP subtype ${mcpSubtype.id}.spec`);
+const mcpSubtypeText = fs.readFileSync(path.join(packageRoot, mcpSubtype.spec), 'utf8');
+for (const marker of [
+  '## 2. 角色与职责（核心契约）',
+  '## 4. 双生产角色运行时提示（强制）',
+  '## 5. 运行时提示的权威和投递路径',
+  '## 8. 项目实例映射（必填）',
+  '## 9. 验收检查清单（通用）',
+]) {
+  if (!mcpSubtypeText.includes(marker)) fail(`MCP subtype spec is missing contract marker: ${marker}`);
 }
 
 const profileHeadings = [
@@ -169,4 +189,4 @@ if (!remote || Array.isArray(remote) || typeof remote !== 'object' ||
   fail('PACKAGE_REMOTE.json must contain trusted repository and version_url fields');
 }
 
-console.log('Routing JSONL and package remote metadata are valid.');
+console.log('Routing JSONL, MCP subtype specifications, and package remote metadata are valid.');

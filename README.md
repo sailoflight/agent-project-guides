@@ -27,9 +27,10 @@ routing/planes.jsonl
 routing/production.roles.jsonl
 routing/development.roles.jsonl
 routing/project-types.jsonl
+routing/mcp-subtypes.jsonl
 ```
 
-每行都是完整 JSON object，角色记录包含全局唯一 `aliases`。例如 `grep -F '"仓库维护者"' routing/development.roles.jsonl` 直接返回 Maintainer；明确标签时禁止 Read/cat 整个 registry，也不读取 plane registry。记录内 `guide`、`profile` 和 `procedure_by_mode` 全部相对治理包根目录解析，不相对 registry 或 cwd；读取失败是包完整性问题，不能用 glob 猜路径。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID/alias、plane、role、project type、mode、profile 和包内路径。
+每行都是完整 JSON object，角色记录包含全局唯一 `aliases`。例如 `grep -F '"仓库维护者"' routing/development.roles.jsonl` 直接返回 Maintainer；明确标签时禁止 Read/cat 整个 registry，也不读取 plane registry。记录内 `guide`、`profile`、`spec` 和 `procedure_by_mode` 全部相对治理包根目录解析，不相对 registry 或 cwd；读取失败是包完整性问题，不能用 glob 猜路径。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID/alias、plane、role、project type、MCP subtype、mode、profile/spec 和包内路径。
 
 ## Plane、角色和子模式
 
@@ -60,7 +61,7 @@ routing/project-types.jsonl
 永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.4.0; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.4.1; verified_at=never; scope=repo; reason=not_adapted
 ```
 
 - `pending/stale`：安装器管理。
@@ -189,6 +190,10 @@ node scripts/validate-routing.mjs
 
 每个 profile 统一提供 selection boundary、artifact preset、evidence map、类型专属契约、verification preset 和 cold-start acceptance。`required` 表示必须链接现有权威或合并/创建，`conditional` 只在条件有证据成立时处理，`omit` 不创建空投递面，`existing-authority` 只链接不复制。
 
+MCP 还支持精确的条件子类型。当前 `routing/mcp-subtypes.jsonl` 只定义 `windows-wsl-bridge` -> `profiles/mcp/WINDOWS_WSL_BRIDGE.md`：适用于 WSL/Linux 客户端通过薄 MCP Facade 调用持有 Windows 原生资源和持久状态的 Engine。主类型命中 `mcp` 后才按有界拓扑证据 exact grep；不匹配则不读取 subtype。该规范强制 Windows Engine 提供双 Production 角色 runtime prompt、Facade 完整转发、受支持 client 在首次工具决策前注入模型提示，并要求项目 `bridge/ARCHITECTURE.md` 填写具体映射。
+
+所有 MCP 项目都必须把 `Production / User` 与 `Production / Operator` 的可执行角色路由、权限边界和转换规则放入受支持客户端实际可见的 MCP runtime prompt；产品简介、工具 description、README 或仓库 `AGENTS.md` 不能替代。不能原生消费 MCP instructions 的客户端，安装时必须附带由同一 canonical source/revision 生成的 companion prompt，并通过外部无 `AGENTS.md` 环境验收。
+
 类型不是按语言、框架或目录名选择。CLI 包含内部 library、UI 调用 service、MCP 使用共享 package 都可以按当前主要 scope 选择一个类型；monorepo 只用于仓库根组合治理，后续 package-scoped pass 再为单个 package 精确选择一个非 monorepo 类型。分类后只读取命中 profile；不可拆的实质混合 scope 通过结构化问答选择最近类型、拆分 scope、更新定义或判定不适用。
 
 ## 包结构
@@ -205,6 +210,7 @@ agent-project-guides/
     development/
   procedures/
   profiles/
+    mcp/
   templates/
   scripts/
 ```
@@ -219,6 +225,7 @@ agent-project-guides/
 - 临时 trigger：不超过 3,000 bytes
 - plane 和 role JSONL 合计：不超过 2,200 bytes
 - project type JSONL：不超过 1,200 bytes
+- MCP subtype JSONL：不超过 400 bytes
 - Developer guide：不超过 4,000 bytes
 - Package adaptation procedure：不超过 10,500 bytes
 
