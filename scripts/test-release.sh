@@ -14,6 +14,7 @@ for (const file of fs.readdirSync("routing").filter((name) => name.endsWith(".js
 python3 scripts/test-schema.py
 node scripts/validate-routing.mjs
 ./scripts/test-install.sh
+node scripts/test-local-write-safety.mjs
 node scripts/test-determinism.mjs
 node scripts/test-v2.mjs
 node scripts/test-v3.mjs
