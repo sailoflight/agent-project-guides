@@ -49,7 +49,11 @@ do
   [ ! -e "$ROOT/$obsolete" ] || fail "obsolete preload-prone path remains: $obsolete"
 done
 [ "$(wc -c < "$ROOT/bootstrap/AGENTS.routing-block.md" | tr -d '[:space:]')" -le 1600 ] || fail 'per-step routing block exceeded token-oriented byte budget'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'ask_user_question'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'Never just list blocking questions in prose'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'parent/captain, never the end user'
 [ "$(wc -c < "$ROOT/bootstrap/AGENTS.adapter-trigger.md" | tr -d '[:space:]')" -le 1600 ] || fail 'temporary trigger exceeded token-oriented byte budget'
+assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" "structured question tool"
 routing_bytes=$(wc -c < "$ROOT/routing/planes.jsonl")
 routing_bytes=$((routing_bytes + $(wc -c < "$ROOT/routing/production.roles.jsonl") + $(wc -c < "$ROOT/routing/development.roles.jsonl")))
 [ "$routing_bytes" -le 2200 ] || fail 'JSONL registries exceeded token-oriented byte budget'
@@ -70,7 +74,7 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 "$PACKAGE_ONE/scripts/install.sh" merge
 assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.1.0; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.1.1; verified_at=never; scope=repo; reason=not_adapted'
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
 "$PACKAGE_ONE/scripts/install.sh" check
@@ -117,12 +121,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.1.0; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.1.1; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.1.0; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.1.1; verified_at=never; scope=repo; reason=missing_owner_decision'
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.1.0; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.1.1; verified_at=never; scope=repo; reason=retry_requested'
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -140,7 +144,7 @@ assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.1.0; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.1.1; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 [ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'
