@@ -2453,9 +2453,7 @@ digest，`conflicted_packages: []`。硬链接仍在：`cass` 条目 `links=2`�
   `source-worktree` 模式、从不经过 materializer，于是「照政策写信」这件事本身就把工作树弄脏。另加
   `.agent-teams/`（团队状态是每机运行时，不是源码）。两者都**不在分发面**（`.gitignore` 不在 `DIST_FILES`/
   `DIST_DIRS`），所以 85 文件不变、digest 不受影响。该信按 Triage 约定移入 `processed/`，附一行结论。
-- `0001-routing-gap-chinese-task-nouns.md`：**仍未处理，故意留在箱子里**（中文动作名词 `收口`/`清单`/`复核`/`补齐`
-  等仍不命中，信里的提议是「只加词、不动状态机」）。它改的是 `routing/context-classifier.json`，**属于分发面**——
-  移进 `processed/` 会让「还需要一次改动」这个信号消失，所以留在原地，等真正改词表时再收口。
+- `0001-routing-gap-chinese-task-nouns.md`：同一批处理掉了，见下面的 F。
 
 **E. 门禁与证据纪律。** `scripts/test-component-store.mjs` 的断言从 **64 条增到 103 条**（静态计数，与 ADR 0010
 验证行一致），新增覆盖：身份映射三段（映射到达 `available`、`asserted_identity` 永不 `available`、`stop` 只收
@@ -2463,3 +2461,41 @@ digest，`conflicted_packages: []`。硬链接仍在：`cass` 条目 `links=2`�
 digest 判 `conflict` 且 builder 只报不删、显式删掉陈旧目录后冲突消失且原判决保留）。反证按老规矩跑：把 `applyRequirements` 的降级分支临时短路
 （`if (!checked?.unmet?.length) return verdict;` 后直接 `return verdict;`），门禁立刻红在
 `expected: 'degraded'`，库恢复后立即绿——**证明「要求真的走到了 CLI 的判决里」，而不只是库函数里有个分支**。全程唯一跑法是 `scripts/test-release.sh`，逐个门禁不替代它。
+
+**F. 建议信 0001 的修法比信里写得更深一层：词必须进「角色 patterns」，不只是「delivery patterns」。**
+
+复现：`apg context --target . --task "落地主人裁定的13项并收口owner queue"` 返回
+`clarification_required`、理由 `no lexical routing rule matched the request`——与写信时一致。但读代码发现信的提议
+**不足以修好它**：角色排序读的是 `routing/context-classifier.json` 里 `roles[].patterns`（`lib/context.mjs:122`
+`rankRoles`），而 `maintenance_delivery_patterns` 只喂两条判定——「assessment 与 delivery 同时命中 ⇒ 要求显式选路」
+（`:480`）和否定规则（`:468`）。只往 delivery 表加词，角色排序依旧一条不中，任务照样 `clarification_required`。
+所以这批词加了两处：角色 patterns（真正决定路由）与 delivery 表（让混合意图与否定判定也看得见）。
+
+加词（**只加词，不动状态机**，与信里「只加词」的提议一致）：maintainer ← `收口`/`收尾`/`补齐`/`整理`/`清理`；
+reviewer ← `复核`/`清单`；developer ← `新增`/`新命令`；delivery 表 ← 上述全部加 `落地`。
+
+**一处刻意的偏差**：`落地` **没有**进 maintainer 的角色 patterns，只进了 delivery 表。原因是 `落地` 是 developer
+自己那条 `落地修复方案` 的前缀——把裸名词给 maintainer，会把「落地修复方案」（= 把修复方案做出来，属 developer）
+**从 developer 抢到 maintainer**，那不是补缺口而是制造新缺口。门禁为此专门写了一条反向断言。
+
+实测（同一台机器、同一 descriptor，改动前后各跑一遍）：
+
+| 任务 | 改前 | 改后 |
+|---|---|---|
+| `落地主人裁定的13项并收口owner queue` | `clarification_required` | **`ready` maintainer/code** |
+| `落地修复方案` | `clarification_required` | `clarification_required`（**未回归**） |
+| `修复缺陷并保持行为` | maintainer/code | maintainer/code |
+| `分析当前项目的缺点和不足` | reviewer/static | reviewer/static |
+| `不要实现修复方案` | reviewer/static | reviewer/static |
+| `分析项目缺点和不足并实现新功能` | `clarification_required` | `clarification_required` |
+| `分析并准备修复方案后实施修复` | `clarification_required` | `clarification_required` |
+| `收口待拍板清单并整理文档` | `clarification_required` | **`ready` maintainer/code** |
+| `复核这份变更` | `clarification_required` | **`ready` reviewer/static** |
+| `新增一个命令` | `clarification_required` | **`ready` developer/feature** |
+
+三条新增断言进 `scripts/test-v2.mjs`（与既有的中文路由夹具同处）：名词任务必须 `ready` 到 maintainer/code；
+`新增一个命令` 必须到 developer/feature；`落地修复方案` **不得**被判给 maintainer。反证已跑：把
+`收口`/`收尾`/`补齐`/`整理`/`清理` 从 maintainer patterns 撤掉，`test-v2` 立刻红在
+`actual: 'clarification_required'` vs `expected: 'ready'`，恢复后绿。词表改动在**分发面**，因此 catalog（253 条，
+内容不变——它编目路由条目而不是路由文件哈希）与 manifest 一并重算，digest 由 `sha256:3c935f4b…` 走到
+`sha256:f4d86ec0…`。该信移入 `processed/` 并附一行结论。

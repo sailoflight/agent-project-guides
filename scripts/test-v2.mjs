@@ -261,6 +261,21 @@ const featureNegationRepair = run(['context', '--target', thin, '--task', '不�
 assert.equal(featureNegationRepair.status, 'ready');
 assert.equal(featureNegationRepair.role, 'maintainer');
 assert.equal(featureNegationRepair.mode, 'code');
+// The gap the project's own suggestion letter 0001 measured: a task described with Chinese
+// action NOUNS matched no rule at all, returned `clarification_required`, and the session had
+// to route by hand. The nouns now reach the role patterns too (the router ranks roles from
+// those, not from the delivery lists). `落地` deliberately stays out of them: it prefixes the
+// developer's own `落地修复方案`, so handing the maintainer the bare noun would pull "land the
+// fix plan" away from the developer instead of closing the gap - hence the guard below.
+const chineseActionNouns = run(['context', '--target', thin, '--task', '落地主人裁定的13项并收口owner queue', '--format', 'json'], { home: thinHome });
+assert.equal(chineseActionNouns.status, 'ready');
+assert.equal(chineseActionNouns.role, 'maintainer');
+assert.equal(chineseActionNouns.mode, 'code');
+const chineseImplementFixPlan = run(['context', '--target', thin, '--task', '落地修复方案', '--format', 'json'], { home: thinHome });
+assert.notEqual(chineseImplementFixPlan.role, 'maintainer', 'the bare noun `落地` must not outrank the developer pattern it prefixes');
+const chineseNewCommand = run(['context', '--target', thin, '--task', '新增一个命令', '--format', 'json'], { home: thinHome });
+assert.equal(chineseNewCommand.role, 'developer');
+assert.equal(chineseNewCommand.mode, 'feature');
 const continuedLegacyChoice = spawnSync('sh', ['-c', legacyAmbiguous.choices[0].next_command], {
   cwd: temporary,
   encoding: 'utf8',

@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "assessment_patterns": ["review", "audit", "analyze", "analysis", "assess", "assessment", "weakness", "shortcoming", "fix plan", "repair plan", "plan only", "审查", "评审", "分析", "评估", "缺点", "不足", "修复方案", "只提出方案"],
-  "implementation_delivery_patterns": ["implement and", "and implement", "then implement", "implement after", "build and", "and build", "并实现", "再实现", "然后实现", "同时实现", "实现新功能", "落地修复方案", "实施修复", "执行修复", "落实修复", "并修复", "再修复", "然后修复"],
-  "maintenance_delivery_patterns": ["only fix", "fix bug", "fix defect", "repair bug", "repair defect", "只修复", "仅修复", "实施修复", "执行修复", "落实修复", "并修复", "再修复", "然后修复", "修复缺陷"],
+  "implementation_delivery_patterns": ["implement and", "and implement", "then implement", "implement after", "build and", "and build", "并实现", "再实现", "然后实现", "同时实现", "实现新功能", "落地修复方案", "实施修复", "执行修复", "落实修复", "并修复", "再修复", "然后修复", "新增", "新命令"],
+  "maintenance_delivery_patterns": ["only fix", "fix bug", "fix defect", "repair bug", "repair defect", "只修复", "仅修复", "实施修复", "执行修复", "落实修复", "并修复", "再修复", "然后修复", "修复缺陷", "落地", "收口", "收尾", "补齐", "整理", "清理", "复核", "清单"],
   "negated_maintenance_patterns": ["do not fix", "don't fix", "do not repair", "不要修复", "不修复", "无需修复"],
   "negated_implementation_patterns": ["do not implement", "don't implement", "without implementation", "do not build", "plan only", "不要实现", "不实现", "无需实现", "不要实施", "不实施", "只提出方案"],
   "protected_patterns": [
@@ -12,17 +12,17 @@
     {
       "id": "development/developer",
       "default_mode": "feature",
-      "patterns": ["implement", "build", "create", "add feature", "new feature", "initialize", "scaffold", "implement fix plan", "implement repair plan", "开发", "实现", "新增功能", "初始化", "创建", "实现修复方案", "落地修复方案"]
+      "patterns": ["implement", "build", "create", "add feature", "new feature", "initialize", "scaffold", "implement fix plan", "implement repair plan", "开发", "实现", "新增功能", "初始化", "创建", "实现修复方案", "落地修复方案", "新增", "新命令"]
     },
     {
       "id": "development/maintainer",
       "default_mode": "code",
-      "patterns": ["fix", "bug", "repair", "maintain", "refactor", "update test", "preserve behavior", "修复", "缺陷", "维护", "重构", "保持行为"]
+      "patterns": ["fix", "bug", "repair", "maintain", "refactor", "update test", "preserve behavior", "修复", "缺陷", "维护", "重构", "保持行为", "收口", "收尾", "补齐", "整理", "清理"]
     },
     {
       "id": "development/reviewer",
       "default_mode": "static",
-      "patterns": ["review", "audit", "inspect change", "finding", "code review", "analyze", "analysis", "assess", "assessment", "weakness", "shortcoming", "fix plan", "repair plan", "propose a fix", "plan only", "do not implement", "审查", "评审", "检查变更", "发现问题", "分析", "评估", "缺点", "不足", "准备修复方案", "修复方案", "只提出方案", "不要实现", "不实现", "不要实施", "不实施"]
+      "patterns": ["review", "audit", "inspect change", "finding", "code review", "analyze", "analysis", "assess", "assessment", "weakness", "shortcoming", "fix plan", "repair plan", "propose a fix", "plan only", "do not implement", "审查", "评审", "检查变更", "发现问题", "分析", "评估", "缺点", "不足", "准备修复方案", "修复方案", "只提出方案", "不要实现", "不实现", "不要实施", "不实施", "复核", "清单"]
     },
     {
       "id": "development/verifier",
