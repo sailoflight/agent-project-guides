@@ -1,0 +1,177 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sailoflight/agent-project-guides/schemas/project-v3.schema.json",
+  "title": "Agent Project Guides 3.0 project descriptor",
+  "$defs": {
+    "projectRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\/$)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*//).+$"
+    },
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "role": {
+      "enum": [
+        "development/developer",
+        "development/maintainer",
+        "development/reviewer",
+        "development/verifier",
+        "development/field-evaluator",
+        "production/user",
+        "production/operator"
+      ]
+    },
+    "base": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema_version",
+        "project_id",
+        "variant",
+        "release",
+        "documents",
+        "router",
+        "context",
+        "containment",
+        "integrity",
+        "protected_effects",
+        "policy",
+        "layout"
+      ],
+      "properties": {
+        "schema_version": {"const": 2},
+        "project_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
+        "variant": {"enum": ["selected-inline.none", "shared-runtime.pinned"]},
+        "release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["policy", "version", "digest"],
+          "properties": {
+            "policy": {"const": "pinned"},
+            "version": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+            "digest": {"$ref": "#/$defs/digest"},
+            "runtime_digest": {"$ref": "#/$defs/digest"}
+          }
+        },
+        "documents": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["placement", "lifecycle", "roles", "profiles", "overlays"],
+          "properties": {
+            "placement": {"enum": ["selected-local", "shared-packed"]},
+            "lifecycle": {"enum": ["active-development", "maintenance", "operations-only", "frozen-reference", "release-build"]},
+            "roles": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/role"}},
+            "profiles": {"type": "array", "uniqueItems": true, "items": {"enum": ["mcp", "library", "cli", "service", "application-ui", "data-automation", "content-package", "monorepo-composition"]}},
+            "overlays": {"type": "array", "uniqueItems": true, "items": {"enum": ["mechanical-modeling", "agent-governance", "research-reproducibility"]}}
+          }
+        },
+        "router": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["strategy", "executable"],
+          "properties": {
+            "strategy": {"enum": ["inline-route", "cli-context"]},
+            "executable": {"enum": ["none", "shared-cli"]}
+          }
+        },
+        "context": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["max_tokens", "clarification_max_tokens"],
+          "properties": {
+            "max_tokens": {"type": "integer", "minimum": 256, "maximum": 4096},
+            "clarification_max_tokens": {"type": "integer", "minimum": 32, "maximum": 256}
+          },
+          "not": {
+            "required": ["max_tokens", "clarification_max_tokens"],
+            "properties": {"max_tokens": {"const": 256}, "clarification_max_tokens": {"const": 256}}
+          }
+        },
+        "containment": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["workspace", "host_corpus_exposure"],
+          "properties": {
+            "workspace": {"enum": ["physical-selected", "no-generic-corpus", "transitional"]},
+            "host_corpus_exposure": {"enum": ["observed-full", "unknown"]}
+          }
+        },
+        "integrity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["manifest_digest", "root_block_hash"],
+          "properties": {
+            "manifest_digest": {"$ref": "#/$defs/digest"},
+            "root_block_hash": {"$ref": "#/$defs/digest"}
+          }
+        },
+        "migration": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "from_schema_version", "legacy_provider"],
+          "properties": {
+            "state": {"const": "reversible-transition"},
+            "from_schema_version": {"const": 1},
+            "legacy_provider": {"enum": ["thin-bootstrap", "embedded-local", "source-worktree"]}
+          }
+        },
+        "protected_effects": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}
+        },
+        "policy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["root", "mandatory"],
+          "properties": {
+            "root": {"enum": ["AGENTS.md", "CLAUDE.md"]},
+            "mandatory": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+          }
+        },
+        "layout": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["guides", "scratch", "memory"],
+          "properties": {
+            "guides": {"const": ".agent-guides"},
+            "scratch": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/projectRelativePath"}},
+            "memory": {"$ref": "#/$defs/projectRelativePath"}
+          }
+        }
+      }
+    }
+  },
+  "allOf": [
+    {"$ref": "#/$defs/base"},
+    {
+      "oneOf": [
+        {
+          "properties": {
+            "variant": {"const": "selected-inline.none"},
+            "release": {"not": {"required": ["runtime_digest"]}},
+            "documents": {"properties": {"placement": {"const": "selected-local"}}},
+            "router": {"properties": {"strategy": {"const": "inline-route"}, "executable": {"const": "none"}}},
+            "containment": {"properties": {"workspace": {"enum": ["physical-selected", "transitional"]}, "host_corpus_exposure": {"const": "unknown"}}}
+          }
+        },
+        {
+          "properties": {
+            "variant": {"const": "shared-runtime.pinned"},
+            "release": {"required": ["runtime_digest"]},
+            "documents": {"properties": {"placement": {"const": "shared-packed"}}},
+            "router": {"properties": {"strategy": {"const": "cli-context"}, "executable": {"const": "shared-cli"}}},
+            "containment": {"properties": {"workspace": {"enum": ["no-generic-corpus", "transitional"]}, "host_corpus_exposure": {"const": "observed-full"}}}
+          }
+        }
+      ]
+    },
+    {
+      "if": {"properties": {"containment": {"properties": {"workspace": {"const": "transitional"}}}}},
+      "then": {"required": ["migration"]},
+      "else": {"not": {"required": ["migration"]}}
+    }
+  ]
+}

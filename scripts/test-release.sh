@@ -6,7 +6,7 @@ cd "$ROOT"
 
 node -e '
 const fs = require("fs");
-for (const file of ["schemas/project.schema.json", "schemas/catalog-entry.schema.json", "schemas/context-route.schema.json", "PACKAGE_REMOTE.json"]) JSON.parse(fs.readFileSync(file, "utf8"));
+for (const file of ["schemas/project.schema.json", "schemas/project-v3.schema.json", "schemas/catalog-entry.schema.json", "schemas/context-route.schema.json", "PACKAGE_REMOTE.json", "routing/context-classifier.json"]) JSON.parse(fs.readFileSync(file, "utf8"));
 for (const file of fs.readdirSync("routing").filter((name) => name.endsWith(".jsonl"))) {
   fs.readFileSync(`routing/${file}`, "utf8").split(/\r?\n/).filter(Boolean).forEach((line) => JSON.parse(line));
 }
@@ -15,6 +15,7 @@ python3 scripts/test-schema.py
 node scripts/validate-routing.mjs
 ./scripts/test-install.sh
 node scripts/test-v2.mjs
+node scripts/test-v3.mjs
 node scripts/apg.mjs catalog check
 node scripts/apg.mjs project validate --target .
 node scripts/apg.mjs release verify-source

@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "protected_patterns": [
+    "production", "prod", "deploy", "deployment", "rollback", "incident", "credential", "credentials", "secret", "private data", "customer data", "payment", "purchase", "delete", "destructive", "migration", "migrate", "release", "publish", "promotion", "physical", "safety", "生产", "部署", "回滚", "事故", "凭据", "密钥", "私有数据", "客户数据", "付款", "购买", "删除", "破坏性", "迁移", "发布", "晋升", "物理", "安全关键"
+  ],
+  "roles": [
+    {
+      "id": "development/developer",
+      "default_mode": "feature",
+      "patterns": ["implement", "build", "create", "add feature", "new feature", "initialize", "scaffold", "开发", "实现", "新增功能", "初始化", "创建"]
+    },
+    {
+      "id": "development/maintainer",
+      "default_mode": "code",
+      "patterns": ["fix", "bug", "repair", "maintain", "refactor", "update test", "preserve behavior", "修复", "缺陷", "维护", "重构", "保持行为"]
+    },
+    {
+      "id": "development/reviewer",
+      "default_mode": "static",
+      "patterns": ["review", "audit", "inspect change", "finding", "code review", "审查", "评审", "检查变更", "发现问题"]
+    },
+    {
+      "id": "development/verifier",
+      "default_mode": "dynamic-verification",
+      "patterns": ["verify", "verification", "run tests", "test candidate", "validate contract", "验证", "运行测试", "测试候选", "验证合约"]
+    },
+    {
+      "id": "development/field-evaluator",
+      "default_mode": "scenario-validation",
+      "patterns": ["explore staging", "field evaluation", "scenario validation", "workflow trial", "现场评估", "场景验证", "探索测试", "工作流试用"]
+    },
+    {
+      "id": "production/user",
+      "default_mode": "end-user",
+      "patterns": ["use product", "business result", "public api", "public cli", "public mcp", "使用产品", "业务结果", "公开 api", "公开 cli", "公开 mcp"]
+    },
+    {
+      "id": "production/operator",
+      "default_mode": "observe-health",
+      "patterns": ["observe health", "backup", "recover", "production operator", "health check", "观察健康", "备份", "恢复", "生产运维", "健康检查"]
+    }
+  ]
+}
