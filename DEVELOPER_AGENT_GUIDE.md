@@ -2,18 +2,18 @@
 
 > 适用角色：初始化新项目的开发 agent，以及项目完成治理后的日常开发 agent。
 >
-> 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以自动入口记录的治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
+> 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以当前治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
 >
 > 新项目初始化时执行第 0-8 节；日常开发主要执行第 9-13 节。不要预读已有项目的维护迁移指南。
 
-## 0. 自动入口和首轮接管
+## 0. 加载机制和接入方式
 
 兼容 harness 会在首轮前加载项目根到当前工作目录路径上的精确指令文件，例如 `AGENTS.md` 或 `CLAUDE.md`，并在后续 model step 重新探测 baseline。根 README 和任意嵌套治理目录不会因为存在或被链接而自动加载；新出现的后代目录规则仍需文件工具触碰对应路径后注入。
 
-本包放入项目子目录后，必须通过以下一种方式接入项目根 `AGENTS.md`：
+接入方式二选一：
 
-- 人工将 `bootstrap/AGENTS.merge-block.md` 合并进已有根入口，并替换包路径占位符；
-- 从包内运行 `scripts/install.sh handoff`，将已有根入口原样保存为 `AGENTS_origin.md`，把原内容镜像进临时入口保持约束生效，再安装 `bootstrap/AGENTS.handoff.md` 的接管指令。
+- 人工方式不注入任何治理提示词。负责人或明确承担初始化任务的 agent 主动读取本指南，按模板直接创建或合并最终项目根 `AGENTS.md` 和必要文档；完成后日常 agent 只看到项目专属规则。
+- 自动 handoff 从包内运行 `scripts/install.sh handoff`，将已有根入口原样保存为 `AGENTS_origin.md`，把原内容镜像进临时入口保持约束生效，再安装 `bootstrap/AGENTS.handoff.md` 的一次性接管指令。
 
 若本次 session 由临时 handoff 启动，必须先执行其中的合并门：读取 `AGENTS_origin.md`（若存在）、本指南第 0-8 节、匹配 profile 和必要模板小节；生成最终项目入口；确认原约束已保留后删除 handoff/origin-mirror 标记，但保留未修改的精确备份供人工复核；重新读取最终 `AGENTS.md` 后才开始产品修改。不得把临时接管文件当作最终项目规范。
 
@@ -72,7 +72,7 @@ docs/verification/MATRIX.md      修改类型到验证方式
 
 实际写入时，按需读取 `templates/CORE_DOCUMENT_TEMPLATES.md` 的精确小节。根 `AGENTS.md` 必须包含实际生效的硬约束和最小路由，不能只写“请先读 README”。
 
-很小的纯函数库可以把 INDEX、架构和验证矩阵合并进一份开发文档，但必须明确回答这些契约问题。不要为不适用的角色创建空目录。最终入口生成后删除 `manual-merge`、`handoff` 和 `origin-mirror` 临时标记；handoff 的 `AGENTS_origin.md` 必须保持未修改并报告供人工复核。
+很小的纯函数库可以把 INDEX、架构和验证矩阵合并进一份开发文档，但必须明确回答这些契约问题。不要为不适用的角色创建空目录。handoff 的最终入口生成后删除 `handoff` 和 `origin-mirror` 临时标记；`AGENTS_origin.md` 必须保持未修改并报告供人工复核。人工方式直接交付不含任何治理 bootstrap 的最终入口。
 
 ## 5. 根 `AGENTS.md` 规则
 
@@ -148,7 +148,7 @@ Documentation triggers
 - 配置、状态、生成物和秘密归属明确；
 - 消费者或运维角色只在实际存在时建立对应入口；
 - 没有手工复制可生成的工具、接口或参数清单；
-- 根 `AGENTS.md` 不再包含 `manual-merge`、`handoff` 或 `origin-mirror` 标记；handoff 的 `AGENTS_origin.md` 保持未修改并已报告供人工复核；
+- handoff 的根 `AGENTS.md` 不再包含 `handoff` 或 `origin-mirror` 标记，且 `AGENTS_origin.md` 保持未修改并已报告供人工复核；人工入口不存在治理包跳转或临时提示词；
 - 一个无历史上下文的 agent 能在没有额外“先读文档”提示词的情况下定位首个功能及其测试。
 
 初始化产物应与首批代码一起演进，不应先写一套脱离实现的完整未来架构。

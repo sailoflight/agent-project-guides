@@ -56,7 +56,7 @@
 - 小项目可以缩短分类和优先级，但不能删除风险、验证和证据顺序。
 - MCP 消费说明、完整 API 表、部署教程和 roadmap 不得放入此文件。
 - 目录级 `AGENTS.md` 只增加必须在进入目录时生效的局部覆盖，并链接详细模块契约；不得重复根规则。
-- 最终根入口不得保留本包的 `manual-merge`/`handoff`/`origin-mirror` 标记；自动 handoff 留下的 `AGENTS_origin.md` 必须保持未修改并报告供人工复核。
+- 最终根入口不得保留本包的 `handoff`/`origin-mirror` 标记或治理包永久跳转；自动 handoff 留下的 `AGENTS_origin.md` 必须保持未修改并报告供人工复核。
 
 ## 2. `docs/INDEX.md` 模板
 

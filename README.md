@@ -14,9 +14,9 @@ DeepSeek Harness 的项目指令加载基于文件名和目录链，不基于 RE
 - DSH code preset 的自动指令总预算当前为 65,536 bytes，超出后可能截断，因此根入口仍应保持精简；
 - 此机制要求 preset 启用 `dsh-agent-instructions`；DSH 自带的 minimal preset 不启用该插件，不能承诺零提示词加载。
 
-所以本包使用“项目根自动入口 + 包内按角色文档”的两层结构。安装后不需要再由用户发送“请先读治理包”之类的提示词；根入口会在第一次请求前完成投递。Harness 仍不能从任意嵌套目录无条件自动加载所有角色文档，根入口只强制 agent 选择并读取一个匹配入口。
+所以本包提供两种交付：方案一由负责人直接写成最终项目根入口；方案二用一次性根 bootstrap 强制首个 agent 选择并读取匹配指南。只有方案二会把治理提示词注入自动上下文；两种方案完成后，日常 agent 都只接收项目专属规则。
 
-## 放入项目并安装
+## 放入项目与接入
 
 在启动新的 agent session 前，先将本目录放在目标项目内部，例如：
 
@@ -26,26 +26,19 @@ DeepSeek Harness 的项目指令加载基于文件名和目录链，不基于 RE
   AGENTS.md                 # 已有或待生成的项目根入口
 ```
 
-脚本全部位于包内，不在目标项目额外投放安装程序。
+方案二使用的脚本全部位于包内，不在目标项目额外投放安装程序。
 
-### 方式一：人工合并根入口（保守方式）
+### 方式一：人工合并最终项目入口（不注入提示词）
 
-1. 查看 `bootstrap/AGENTS.merge-block.md`。
-2. 将 `{{GUIDES_PATH}}` 替换为本包相对项目根的路径，例如 `agent-project-guides`。
-3. 把该临时 block 合并进项目根 `AGENTS.md`，保留原有项目约束。
-4. 项目入口治理完成后，从根 `AGENTS.md` 删除整个 `manual-merge` 标记区块。
+方案一不向项目根 `AGENTS.md` 写入治理包路径、角色判断、自删除 block 或其他临时提示词。由负责人或明确承担初始化/治理任务的 agent 主动完成一次最终合并：
 
-也可让包内脚本只渲染已替换路径的 block，再人工审阅合并：
+1. 新项目读取 `DEVELOPER_AGENT_GUIDE.md` 第 0-8 节；已有项目治理读取 `MAINTAINER_AGENT_GUIDE.md`。只选择一个角色指南和匹配 profile。
+2. 读取现有的 `AGENTS.md`、`CLAUDE.md` 及 local overlay，明确必须保留和需要人工协调的规则。
+3. 按 `templates/CORE_DOCUMENT_TEMPLATES.md` 第 1 节，直接创建或修改最终的项目根 `AGENTS.md`；写入项目专属约束和路由，不写入本治理包的跳转。
+4. 创建并验证项目实际需要的 `docs/INDEX.md`、验证矩阵和模块契约。
+5. 启动或继续兼容 session，确认最终根入口能自动加载并通过冷启动验收。
 
-```bash
-./agent-project-guides/scripts/install.sh render-manual
-```
-
-该命令只输出文本，不修改项目文件。人工合并后可运行：
-
-```bash
-./agent-project-guides/scripts/install.sh check-manual
-```
+方案一完成后没有 bootstrap 需要保留或删除，日常 agent 只会看到最终项目规则。本包可以继续作为人工治理参考留在项目内，也可以在交付后移除；两种情况都不影响最终根入口。
 
 ### 方式二：临时接管并由首个 agent 自行合并（零额外提示词）
 
@@ -70,7 +63,7 @@ DeepSeek Harness 的项目指令加载基于文件名和目录链，不基于 RE
 ./agent-project-guides/scripts/install.sh restore
 ```
 
-handoff 仅处理单一根 `AGENTS.md`。若根目录还存在 `CLAUDE.md`、`AGENTS.local.md` 或 `CLAUDE.local.md`，安装器会拒绝接管，避免重复或覆盖优先级不明的指令，此时使用人工合并。临时根入口必须是有效 UTF-8 且不超过 16,384 bytes；超过时同样回退到 `render-manual`，为全局和目录级 authority instructions 保留预算。
+handoff 仅处理单一根 `AGENTS.md`。若根目录还存在 `CLAUDE.md`、`AGENTS.local.md` 或 `CLAUDE.local.md`，安装器会拒绝接管，避免重复或覆盖优先级不明的指令，此时按方案一人工生成最终入口。临时根入口必须是有效 UTF-8 且不超过 16,384 bytes；超过时同样回退到方案一，为全局和目录级 authority instructions 保留预算。
 
 `restore` 只在根文件仍包含完整 handoff 标记时执行；一旦 agent 已写成最终项目入口，脚本拒绝覆盖它。`AGENTS_origin.md` 本身不属于 harness 自动加载候选，所以安装器将其内容镜像进临时根入口，并由临时指令要求 agent 显式读取备份后再合并。自动 handoff 不删除该精确备份；由负责人复核最终入口后决定何时清理。
 
@@ -100,7 +93,6 @@ agent-project-guides/
   DEVELOPER_AGENT_GUIDE.md
   bootstrap/
     AGENTS.handoff.md
-    AGENTS.merge-block.md
   scripts/
     install.sh
     test-install.sh
@@ -112,10 +104,9 @@ agent-project-guides/
     APPLICATION_SERVICE_MONOREPO.md
 ```
 
-- `bootstrap/AGENTS.handoff.md`：临时接管项目根入口的首轮自合并模板，不应在包内改名为 `AGENTS.md`。
-- `bootstrap/AGENTS.merge-block.md`：人工合并进已有根入口的临时 block。
-- `scripts/install.sh`：渲染、安装、检查和回滚根入口；不覆盖未完成的备份或已合并的最终入口。
-- `scripts/test-install.sh`：验证有/无原入口时的安装、幂等拒绝、检查、回滚和人工 block 渲染。
+- `bootstrap/AGENTS.handoff.md`：仅供方案二临时接管项目根入口的首轮自合并模板，不应在包内改名为 `AGENTS.md`。
+- `scripts/install.sh`：安装、检查和回滚方案二的临时根入口；不覆盖未完成的备份或已合并的最终入口。
+- `scripts/test-install.sh`：验证方案二的约束镜像、投递顺序、候选冲突拒绝、编码/预算检查和回滚。
 - `MAINTAINER_AGENT_GUIDE.md`：治理已有项目的混合、缺失或失效文档。
 - `DEVELOPER_AGENT_GUIDE.md`：新项目初始化和后续日常开发纪律。
 - `templates/CORE_DOCUMENT_TEMPLATES.md`：只有实际创建项目文档时才读取；包含应写入项目指定位置的内嵌模板。
@@ -123,11 +114,11 @@ agent-project-guides/
 
 ## 使用规则
 
-1. 自动入口只负责确定角色和强制最小读取顺序，不把整个治理包复制进根上下文。
+1. 只有方案二使用自动 bootstrap；它只负责确定角色和强制最小读取顺序，不把整个治理包复制进根上下文。方案一直接交付最终项目入口。
 2. 先确定角色，再打开一份角色指南；不要把整个目录加入每轮上下文。
 3. 角色指南要求创建项目文档时，再读取模板文件中的精确小节。
 4. 识别项目类型后，只打开匹配的 profile。
-5. 本文档包只指导初始化和治理。项目完成初始化后，删除临时 bootstrap；日常 agent 由项目自己的精简 `AGENTS.md` 路由。
+5. 本文档包只指导初始化和治理。项目完成初始化后，方案二删除临时 bootstrap；日常 agent 由项目自己的精简 `AGENTS.md` 路由。
 6. 生产消费者和运维人员不应直接使用本治理包；初始化或维护 agent 应为他们生成独立的 usage/operations 文档或协议投递面。
 7. 任何模板都允许按项目规模裁剪；不得为不适用的角色创建空目录或空文档。
 8. 结论只能标记为 `verified`、`inferred` 或 `unknown`；不得将猜测写成当前事实。
@@ -142,4 +133,4 @@ agent-project-guides/
 4. 修改后运行哪些验证？
 5. 哪些变化需要更新公共契约、架构、运行手册或经验？
 
-不能回答上述问题，或根 `AGENTS.md` 仍包含 `manual-merge`/`handoff`/`origin-mirror` 标记，说明项目内的开发入口仍未完成。
+不能回答上述问题，或方案二的根 `AGENTS.md` 仍包含 `handoff`/`origin-mirror` 标记，说明项目内的开发入口仍未完成。

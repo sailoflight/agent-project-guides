@@ -23,6 +23,8 @@ copy_package() {
   cp "$ROOT/README.md" "$ROOT/DEVELOPER_AGENT_GUIDE.md" "$ROOT/MAINTAINER_AGENT_GUIDE.md" "$destination/"
 }
 
+"$ROOT/scripts/install.sh" --help >/dev/null
+
 # Existing instructions are preserved byte-for-byte through install and restore.
 PROJECT_ONE="$TMP/existing project"
 PACKAGE_ONE="$PROJECT_ONE/tools/agent project guides"
@@ -121,18 +123,10 @@ fi
 [ -f "$PROJECT_SIX/AGENTS.md" ] || fail 'UTF-8 refusal moved original instructions'
 [ ! -e "$PROJECT_SIX/AGENTS_origin.md" ] || fail 'UTF-8 refusal created an origin backup'
 
-# Manual rendering substitutes the package path without modifying project files.
-MANUAL_OUTPUT="$TMP/manual-block.md"
-"$PACKAGE_ONE/scripts/install.sh" render-manual > "$MANUAL_OUTPUT"
-assert_contains "$MANUAL_OUTPUT" 'tools/agent project guides/DEVELOPER_AGENT_GUIDE.md'
-if grep -Fq '{{GUIDES_PATH}}' "$MANUAL_OUTPUT"; then
-  fail 'manual block retained an unresolved path placeholder'
-fi
-printf '\n' >> "$PROJECT_ONE/AGENTS.md"
-cat "$MANUAL_OUTPUT" >> "$PROJECT_ONE/AGENTS.md"
-"$PACKAGE_ONE/scripts/install.sh" check-manual
+# Legacy temporary manual prompts cannot be nested into a handoff.
+printf '\n<!-- agent-project-guides:manual-merge:start -->\n' >> "$PROJECT_ONE/AGENTS.md"
 if "$PACKAGE_ONE/scripts/install.sh" handoff >/dev/null 2>&1; then
-  fail 'handoff nested itself inside an existing manual-merge block'
+  fail 'handoff nested itself inside a legacy manual-merge block'
 fi
 
-printf 'PASS: handoff safety, restore, candidate refusal, budget cap, and manual validation\n'
+printf 'PASS: handoff safety, restore, candidate refusal, encoding, and budget cap\n'
