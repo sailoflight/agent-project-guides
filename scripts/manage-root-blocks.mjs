@@ -48,8 +48,56 @@ function strip(buffer, markerPairs) {
   return result;
 }
 
+// P3 (decisions/0006, narrow scope). APG never reorders another writer's managed
+// block. Once APG's own regions exist, a recognisable foreign marker block above
+// them must make the merge refuse and ask for reconciliation rather than be
+// silently relocated below APG's prefix - the regression measured by
+// test-interop-br.sh case B. Project prose above the prefix is deliberately NOT
+// refused: that is the pre-scheme-1 tail-position layout that `merge` still
+// migrates (test-install.sh), and it moves no third party's block.
+//
+// The grammar is ADR 0006 P2's: a namespaced marker whose namespace is not
+// `agent-project-guides`. Only start markers count - an end marker with no start
+// above it is malformed input for its own writer, not a block APG could reorder.
+const FOREIGN_MARKER = /^<!--\s*(?!agent-project-guides:)[a-z0-9_.:-]*(?:[.:-](?:start|begin)\b|-agent-instructions-v\d+\b)/i;
+
+function foreignBlockAbove(buffer, markerPairs) {
+  let first = -1;
+  for (const [start] of markerPairs) {
+    const at = buffer.indexOf(Buffer.from(start));
+    if (at !== -1 && (first === -1 || at < first)) first = at;
+  }
+  if (first <= 0) return undefined;
+  const lines = buffer.subarray(0, first).toString('utf8').split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
+    const text = line.trim();
+    if (FOREIGN_MARKER.test(text)) return { line: index + 1, text };
+  }
+  return undefined;
+}
+
 const argv = process.argv.slice(2);
 const command = argv[0];
+
+if (command === 'guard-prefix') {
+  const [file, ...pairs] = argv.slice(1);
+  if (!file || pairs.length === 0 || pairs.length % 2 !== 0) {
+    fail('usage: manage-root-blocks.mjs guard-prefix FILE START END [START END ...]');
+  }
+  if (!fs.existsSync(file)) {
+    console.error(`note: ${file} does not exist; nothing to guard`);
+    process.exit(0);
+  }
+  const markerPairs = [];
+  for (let index = 0; index < pairs.length; index += 2) markerPairs.push([pairs[index], pairs[index + 1]]);
+  const foreign = foreignBlockAbove(fs.readFileSync(file), markerPairs);
+  if (foreign) {
+    console.error(`error: another writer's managed block sits above APG's regions (line ${foreign.line}): ${foreign.text}`);
+    console.error('note: APG does not reorder foreign blocks. Move that block below the APG regions, or remove it and let its own tool re-add it, then re-run. The file was not modified.');
+    process.exit(1);
+  }
+  process.exit(0);
+}
 
 if (command === 'verify') {
   const [, file, startText, endText] = argv;
@@ -78,7 +126,7 @@ if (command === 'verify') {
 
 const [inputPath, outputPath, ...args] = argv.slice(1);
 if (!command || !inputPath || !outputPath) {
-  fail('usage: manage-root-blocks.mjs <strip|stamp|replace> INPUT OUTPUT ... | verify FILE START END');
+  fail('usage: manage-root-blocks.mjs <strip|stamp|replace> INPUT OUTPUT ... | guard-prefix FILE START END ... | verify FILE START END');
 }
 
 const input = fs.readFileSync(inputPath);

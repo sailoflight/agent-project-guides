@@ -1224,10 +1224,10 @@ exit=1
 | `br` 区块逐字节不变、块数恰好 1、无重复 | 通过 |
 | APG routing / adapter-trigger 标记各仍恰好出现 1 次 | 通过 |
 | 连续合成两次逐字节相同（幂等） | 通过 |
-| **P3 缺口**：写在 APG 前缀**之前**的第三方块被静默从第 1 行挪到第 29 行 | **确认** |
+| **P3 缺口**：写在 APG 前缀**之前**的第三方块被静默从第 1 行挪到第 29 行 | **确认**（后已闭合，见下） |
 | **P9 缺口**：`replace` 把手改过的管理块**静默覆盖**，无哈希校验、无拒绝 | **确认** |
 
-**最重要的正面结论**：在**现实顺序**下（先装 APG，`br` 后来追加），两者的共存**今天就成立**——APG 占字节 0，`br` 追加在尾部，双方字节零损失。ADR 0006 的 P1/P2/P4 因此从「设计意图」升为「已实测」。P3 / P8 / P9 则从推测升为**确证的活缺口**。
+**最重要的正面结论**：在**现实顺序**下（先装 APG，`br` 后来追加），两者的共存**今天就成立**——APG 占字节 0，`br` 追加在尾部，双方字节零损失。ADR 0006 的 P1/P2/P4 因此从「设计意图」升为「已实测」。P3 / P8 / P9 则从推测升为**确证的活缺口**；三者此后均已闭合（P8/P9 见 ADR 0006 的对应小节，P3 见下方「P3 后续」）。
 
 **实测中发现的第三条隐患（原 ADR 未覆盖）**：`br` 的发现逻辑 `detect_agent_file_in_project`（:377-400）只向上走到 `find_agent_search_root`（:348-368）认定的「项目根」——即含 `.git` / `.beads/` / `_beads/` 的最近目录。因此**嵌在被管理仓库内部的临时目录对 `br` 而言不是独立项目**：在那种目录里跑 `br agents --add`，它会去改**外层仓库**的根指令文件。本仓库 2026-09-19 实测中即触发了这一行为（改动了根 `AGENTS.md` 并生成 `AGENTS.md.bak`）。已即时恢复（与 HEAD 逐字节一致）并点名删除 `.bak`。
 
@@ -1279,8 +1279,10 @@ exit=1
 
 **P5 结果更新**：`scripts/test-interop-br.sh` 从 **13 通过 / 0 失败 / 2 缺口** 变为 **18 通过 / 0 失败 / 1 缺口** —— P9 缺口闭合，只剩 P3（内容被静默挪位，不在本次批准范围）。
 
+**P3 后续（已闭合，口径经主人裁定收窄）**：P3 已实现，harness 现为 **19 通过 / 0 失败 / 0 缺口**。实现时发现 ADR 原文与既有测试冲突：P3 字面要求「区域之上有任何内容就 fail」，而 `scripts/test-install.sh:230-239` 有意把「项目自撰正文在 routing 块之上」的 pre-scheme-1 尾置布局**迁移到前缀**并断言成功——两者不能同时成立。经主人裁定取**窄口径**：只有当区域之上存在**其他写入方的受管 marker 块**（命名空间非 `agent-project-guides`，即 `br-agent-instructions-v{n}`、legacy `bv-agent-instructions-v{n}`、`ee:agentsmd:begin`）时才拒绝并请求人工 reconcile；项目自撰正文仍照旧迁移。新增原语 `manage-root-blocks.mjs guard-prefix`（由 `install.sh` 与 harness 共用），`rebuild_root_prefix` 在 strip 之前前置调用它，拒绝时不落盘。**已记录的边界**：guard 只在 APG 区域已存在时生效；根上还没有 APG 区域时仍按 P1 抢占字节 0，把既有内容整体下移（字节与顺序无损），属前缀保留而非搬移外部块。非空证明两条：harness 用 pre-P3 算法对同一输入复现 1→30 行的真实搬移；`test-install.sh` 中把 `guard-prefix` 调用置空会使套件以 `FAIL: P3: merge relocated a foreign block above the prefix instead of refusing` 失败，恢复即通过。完整证据见 `decisions/0006` 的「P3: implemented and measured」。
+
 **一处必须说清的边界**：`docs/memory/finding.h1.bootstrap-token-only-validation.json`（confidence=high）记录的是**另一个块**——`lib/bootstrap.mjs` 的 `inspectBootstrap`（:97-108）对 schema-1 的 **v2 bootstrap 块**只做「字节 0 + 三个 `includes`」校验，**完全不比 hash**，所以块内其余治理指令可被改写而 `project validate` 仍报 ready。schema 2 用 `integrity.root_block_hash`（`schemas/project-v3.schema.json`，与 `manifest_digest` 同为必填）在设计上回答了这个问题，但 **schema-1 路径仍是 token-only**。
 
 **P9 没有闭合那条 finding**——它管的是 `install.sh` 写进消费者根的 `routing:start|end` 块，不是 `inspectBootstrap` 检查的 `v2:start|end` 块。但 P9 给出了**已经测过的机制**：把 `stamp`/`verify` 用到 `V2_START`/`V2_END` 上、让 `inspectBootstrap` 比对记录的 hash，现在是一个小改动而不是设计问题。这是一条明确的后续项。
 
-**ADR 0006 中仍未闭合的**：P3（前缀之上的内容被静默挪位，已由 P5 case B 实测定位）、P6（观测账本未实现）、P7（APG 自身块仍 1,706 B，消费者用的是 731–758 B）。
+**ADR 0006 中仍未闭合的**：P6（观测账本未实现）、P7（APG 自身块仍 1,706 B，消费者用的是 731–758 B）。P3 已按上述收窄口径闭合。
