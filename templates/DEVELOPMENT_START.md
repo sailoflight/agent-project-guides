@@ -1,42 +1,57 @@
-# `docs/development/START.md` 模板
+# `docs/development/START.md` template
 
-目标位置：`<project>/docs/development/START.md`
+Target: `<project>/docs/development/START.md`. This is the executable Development entry, not a second architecture or usage guide.
 
-```markdown
+````markdown
 # Development start
 
-## Prerequisites
+## Supported environments
 
-- <语言、运行时和版本>
-- <依赖安装命令>
-- <平台限制>
+| Runtime/platform | Supported range | Evidence |
+|---|---|---|
+| <language/tool/platform> | <version/range> | <CI/build config> |
+
+## Bootstrap
+
+```text
+<dependency/bootstrap command>
+```
+
+State working-directory requirements, offline/network behavior, and where secrets must come from. Never embed credentials.
 
 ## Entrypoints
 
-| Purpose | Entrypoint | Notes |
-|---|---|---|
-| Run | `<command/path>` | <是否有副作用> |
-| Test | `<command/path>` | <默认是否离线> |
-| Build | `<command/path>` | <输出目录> |
-| Generate | `<command/path>` | <权威来源> |
-
-## Development workflow
-
-1. 从 `docs/INDEX.md` 选择任务入口。
-2. 读取相关模块契约和匹配测试。
-3. 形成任务卡并确认风险权限。
-4. 修改后按验证矩阵执行。
-5. 检查文档和生成物触发条件。
-
-## Configuration and data ownership
-
-| Item | Owner module/path | Committed? | Notes |
+| Purpose | Command/path | Scope/output | Side effects |
 |---|---|---|---|
-| <config/state/cache/secret> | <path> | yes/no | <规则> |
+| Run | `<command/path>` | <scope> | <none/network/write> |
+| Fast check | `<command/path>` | <scope> | <none> |
+| Test | `<command/path>` | <scope> | <fixture/mock/live gate> |
+| Build | `<command/path>` | <output> | <generated writes> |
+| Generate | `<command/path>` | <output> | source: `<authority>` |
+
+## Task routing
+
+| Change area | Contract/entry | Matching verification |
+|---|---|---|
+| <module/package> | `<exact path>` | `../verification/MATRIX.md#<entry>` |
+
+## Configuration, state, and data
+
+| Item | Owner/source | Committed? | Local/test rule |
+|---|---|---|---|
+| <config/cache/state/fixture/secret> | <path/system> | yes/no | <rule> |
+
+## Generated artifacts
+
+| Output | Source | Regenerate | Check drift |
+|---|---|---|---|
+| <path> | <authority> | `<command>` | `<command>` |
 
 ## Common failures
 
-| Symptom | Cheapest check | Exact runbook/detail |
+| Symptom | Cheapest check | Exact detail/runbook |
 |---|---|---|
-| <问题> | <检查> | <链接> |
-```
+| <symptom> | `<check>` | `<link>` |
+````
+
+Commands must be taken from current executable/build/CI evidence and tested at the documented working directory. Do not duplicate public usage steps or operator procedures here.

@@ -1,67 +1,70 @@
-# 模块契约模板
+# Module contract template
 
-目标位置：`<project>/docs/modules/<module>.md`
+Target: `<project>/docs/modules/<module>.md`. Create for public, high-risk, cross-boundary, externally integrated, generated, state-owning, or frequently changed modules; do not create one per directory.
 
 ```markdown
 # <Module> contract
 
 Status: verified | inferred | mixed
+Scope: `<paths/packages>`
+Architecture parent: `<architecture link>`
 
 ## Owns
 
-- <职责>
+- <Responsibility, state, or contract owned here>.
 
 ## Does not own
 
-- <明确排除的职责及其所有者>
+- <Excluded responsibility> -> owner: `<module/authority>`.
 
-## Entrypoints
+## Public surface and entrypoints
 
-| Kind | Path/symbol | Purpose |
-|---|---|---|
-| Runtime/public/test/generate | `<entry>` | <说明> |
+| Kind | Path/symbol/schema | Consumer | Stability |
+|---|---|---|---|
+| runtime/public/test/generate | `<entry>` | <caller> | <internal/public/generated> |
 
 ## Contracts and invariants
 
-- <输入、输出、公共行为和不可破坏的不变量>
+- <Input/output, ordering, compatibility, concurrency, or lifecycle invariant>.
 
 ## Dependencies
 
-- Allowed: <依赖>
-- Forbidden: <依赖>
+- Allowed: <dependency and reason>.
+- Forbidden: <dependency and owner to use instead>.
 
-## Data, configuration and generated files
+## State, data, configuration, and generated files
 
-| Item | Owner | Read/write behavior | Source of truth |
+| Item | Authority/owner | Read/write behavior | Lifecycle/regeneration |
 |---|---|---|---|
-| <item> | <owner> | <行为> | <权威来源> |
+| <item> | <source> | <behavior> | <rule/command> |
 
-## Verification
+## Side effects and failure behavior
 
-| Change | Required verification |
-|---|---|
-| <变化> | `<command/test>` |
+| Action/failure | Effect | Idempotency/retry | Required gate |
+|---|---|---|---|
+| <network/file/process/data/error> | <effect> | <rule> | <permission/validation> |
 
-## Documentation triggers
+## Verification and change impact
 
-- <哪些变化更新 usage/architecture/operations/knowledge/generated>
+| Change | Required check | Other authority to update |
+|---|---|---|
+| <contract/dependency/state change> | `<MATRIX entry or command>` | <usage/architecture/operations/generated/none> |
 
 ## Unknowns
 
-- <未确认内容及需要的证据>
+- <Unverified claim and evidence needed>.
 ```
 
-只有以下信息必须在 agent 第一次触碰模块文件时生效，才同时创建 `<project>/<module>/AGENTS.md`：
+Only when a rule must apply before an agent reads files in the module, also create `<project>/<module>/AGENTS.md`:
 
 ```markdown
 # <Module> local agent instructions
 
 - Scope: this directory and descendants only.
-- Read the authoritative contract: `docs/modules/<module>.md`.
-- Must: <进入模块前必须执行的局部红线>。
-- Must not: <禁止依赖、写入或副作用>。
-- Ownership: <局部数据、配置、生成物所有权摘要>。
-- Verify: `<最小必须验证命令或 MATRIX 精确入口>`。
+- Authority: `docs/modules/<module>.md`.
+- Must: <immediate local rule>.
+- Must not: <forbidden dependency/write/effect>.
+- Verify: `<minimum check or exact MATRIX entry>`.
 ```
 
-局部入口依靠 harness 的目录链注入，不要求根入口提前读取。只保留立即可执行的差异；详细职责、证据、动态接口和解释继续放在模块契约或代码权威来源，避免双份漂移。
+The local file contains only immediate differences and never repeats root routing, explanations, dynamic inventories, or the full module contract.

@@ -44,7 +44,8 @@ for obsolete in \
   DEVELOPER_AGENT_GUIDE.md MAINTAINER_AGENT_GUIDE.md REVIEWER_AGENT_GUIDE.md \
   FIELD_EVALUATOR_AGENT_GUIDE.md USER_AGENT_GUIDE.md OPERATOR_AGENT_GUIDE.md \
   PACKAGE_ADAPTATION_PROCEDURE.md routing/PRODUCTION_ROLES.md routing/DEVELOPMENT_ROLES.md \
-  templates/CORE_DOCUMENT_TEMPLATES.md
+  templates/CORE_DOCUMENT_TEMPLATES.md profiles/LIBRARY_AND_CLI_PROJECT.md \
+  profiles/APPLICATION_SERVICE_MONOREPO.md
 do
   [ ! -e "$ROOT/$obsolete" ] || fail "obsolete preload-prone path remains: $obsolete"
 done
@@ -81,7 +82,32 @@ maintainer_procedure=$(node -e 'const r=JSON.parse(process.argv[1]); process.std
 [ -f "$ROOT/$maintainer_procedure" ] || fail 'maintainer procedure did not resolve from package root'
 [ ! -e "$ROOT/routing/$maintainer_guide" ] || fail 'test fixture accidentally permits registry-relative guide resolution'
 [ ! -e "$ROOT/routing/$maintainer_procedure" ] || fail 'test fixture accidentally permits registry-relative procedure resolution'
-[ "$(wc -c < "$ROOT/routing/project-types.jsonl" | tr -d '[:space:]')" -le 700 ] || fail 'project type registry exceeded token-oriented byte budget'
+[ "$(wc -c < "$ROOT/routing/project-types.jsonl" | tr -d '[:space:]')" -le 1200 ] || fail 'project type registry exceeded token-oriented byte budget'
+project_type_ids=$(node -e 'const fs=require("fs"); const rows=fs.readFileSync(process.argv[1],"utf8").trim().split(/\n/).map(JSON.parse); process.stdout.write(rows.map(r=>r.id).join(","))' "$ROOT/routing/project-types.jsonl")
+[ "$project_type_ids" = 'mcp,library,cli,service,application-ui,data-automation,monorepo' ] || fail 'project type registry is not the exact ordered closed set'
+assert_not_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'library-cli'
+assert_not_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'application-service-monorepo'
+for profile in MCP_PROJECT LIBRARY_PROJECT CLI_PROJECT SERVICE_PROJECT APPLICATION_UI_PROJECT DATA_AUTOMATION_PROJECT MONOREPO_PROJECT
+do
+  file="$ROOT/profiles/$profile.md"
+  [ -f "$file" ] || fail "missing project profile: $profile"
+  assert_contains "$file" '## 1. Selection boundary'
+  assert_contains "$file" '## 2. Artifact preset'
+  assert_contains "$file" '## 3. Evidence map'
+  assert_contains "$file" '## 5. Verification preset'
+  assert_contains "$file" '## 6. Cold-start acceptance'
+done
+assert_contains "$ROOT/templates/ROOT_AGENTS.md" '## Repository map'
+assert_contains "$ROOT/templates/DOC_INDEX.md" '## Current authorities'
+assert_contains "$ROOT/templates/DEVELOPMENT_START.md" '## Supported environments'
+assert_contains "$ROOT/templates/ARCHITECTURE_OVERVIEW.md" '## Trust and side-effect boundaries'
+assert_contains "$ROOT/templates/MODULE_CONTRACT.md" '## Public surface and entrypoints'
+assert_contains "$ROOT/templates/VERIFICATION_MATRIX.md" '## Command authorities'
+assert_contains "$ROOT/templates/USER_USAGE.md" '## Supported workflows'
+assert_contains "$ROOT/templates/OPERATOR_RUNBOOK.md" '## Change and rollback plan'
+assert_contains "$ROOT/templates/FIELD_EVALUATION.md" '## Traceability'
+assert_contains "$ROOT/templates/ADR.md" '## Validation and reversal'
+assert_contains "$ROOT/templates/SUBAGENT_ASSIGNMENT.md" 'Authority/contract:'
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '不得预读多个 profile'
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '禁止批量预读模板'
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '不得先询问是否跳过'
@@ -90,7 +116,7 @@ assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '必须与工具轨迹�
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '相对治理包根目录解析'
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '禁止用 glob 猜路径'
 [ "$(wc -c < "$ROOT/roles/development/DEVELOPER.md" | tr -d '[:space:]')" -le 4000 ] || fail 'Developer guide regained initializer duplication'
-[ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 7500 ] || fail 'adaptation procedure exceeded compact budget'
+[ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 10500 ] || fail 'adaptation procedure exceeded compact budget'
 if grep -Eq '(^|[[:space:]])(dsh|claude|codex)([[:space:]]|$)' "$ROOT/scripts/install.sh"; then
   fail 'installer appears to invoke an LLM runner'
 fi
@@ -106,7 +132,7 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 "$PACKAGE_ONE/scripts/install.sh" merge
 assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.3.2; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.4.0; verified_at=never; scope=repo; reason=not_adapted'
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 assert_contains "$PROJECT_ONE/AGENTS.md" 'Routing/state and `pending/stale` are not triggers'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
@@ -118,14 +144,14 @@ after=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
 
 # Cloud freshness checks are read-only and distinguish current, differing, and unavailable sources.
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
-current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.3.2%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
+current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.4.0%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$current" | grep -Fq '"status":"current"' || fail 'check-update did not report current remote revision'
 different=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,9.9.9%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$different" | grep -Fq '"status":"remote_differs"' || fail 'check-update did not report differing remote revision'
 unavailable=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,not%20a%20revision' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$unavailable" | grep -Fq '"status":"unavailable"' || fail 'check-update did not report invalid remote metadata as unavailable'
 mkdir -p "$TMP/fake-bin"
-printf '#!/bin/sh\nprintf "MS4zLjI=\\n"\n' > "$TMP/fake-bin/gh"
+printf '#!/bin/sh\nprintf "MS40LjA=\\n"\n' > "$TMP/fake-bin/gh"
 chmod 0755 "$TMP/fake-bin/gh"
 private=$(PATH="$TMP/fake-bin:$PATH" "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$private" | grep -Fq '"transport":"gh"' || fail 'check-update did not use authenticated gh fallback for a private repository'
@@ -173,12 +199,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.3.2; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.4.0; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.3.2; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.4.0; verified_at=never; scope=repo; reason=missing_owner_decision'
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.3.2; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.4.0; verified_at=never; scope=repo; reason=retry_requested'
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -196,7 +222,7 @@ assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.3.2; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.4.0; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 [ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'
@@ -291,14 +317,14 @@ mkdir -p "$PROJECT_FOUR/.git"
 copy_package "$PACKAGE_FOUR"
 "$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
 "$PACKAGE_FOUR/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T14:00:00Z --scope repo --reason none >/dev/null
-printf '1.4.0\n' > "$PACKAGE_FOUR/PACKAGE_VERSION"
+printf '1.5.0\n' > "$PACKAGE_FOUR/PACKAGE_VERSION"
 "$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.4.0; verified_at=2026-08-24T14:00:00Z; scope=repo; reason=package_revision_changed'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.5.0; verified_at=2026-08-24T14:00:00Z; scope=repo; reason=package_revision_changed'
 assert_not_contains "$PROJECT_FOUR/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 "$PACKAGE_FOUR/scripts/install.sh" check
 "$PACKAGE_FOUR/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'Trigger revision: 1.4.0'
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.4.0'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'Trigger revision: 1.5.0'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.5.0'
 [ "$(grep -Fc '<!-- agent-project-guides:adapter-trigger:start -->' "$PROJECT_FOUR/AGENTS.md")" -eq 1 ] || fail 'version refresh duplicated the trigger'
 "$PACKAGE_FOUR/scripts/install.sh" check
 
@@ -319,6 +345,19 @@ if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
 fi
 [ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'undefined project type failure created root instructions'
 cp "$ROOT/routing/project-types.jsonl" "$PACKAGE_FIVE/routing/project-types.jsonl"
+sed -i 's#profiles/MCP_PROJECT.md#profiles/CLI_PROJECT.md#' "$PACKAGE_FIVE/routing/project-types.jsonl"
+if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'installer accepted a mismatched or shared project profile'
+fi
+[ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'mismatched project profile failure created root instructions'
+cp "$ROOT/routing/project-types.jsonl" "$PACKAGE_FIVE/routing/project-types.jsonl"
+cp "$ROOT/profiles/MCP_PROJECT.md" "$PACKAGE_FIVE/profiles/MCP_PROJECT.md"
+sed -i 's/| Project constraints | required |/| Project constraints | required when used |/' "$PACKAGE_FIVE/profiles/MCP_PROJECT.md"
+if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'installer accepted a non-closed artifact preset decision'
+fi
+[ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'invalid artifact decision failure created root instructions'
+cp "$ROOT/profiles/MCP_PROJECT.md" "$PACKAGE_FIVE/profiles/MCP_PROJECT.md"
 sed -i 's/"production operator"/"仓库维护者"/' "$PACKAGE_FIVE/routing/production.roles.jsonl"
 if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
   fail 'installer accepted an ambiguous cross-plane role alias'
@@ -331,4 +370,4 @@ if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
 fi
 [ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'invalid remote metadata failure created root instructions'
 
-printf 'PASS: append-only schemes, exact JSONL routing, cloud freshness, state lifecycle, and safety guards\n'
+printf 'PASS: append-only schemes, exact routing, project profiles, artifact presets, cloud freshness, state lifecycle, and safety guards\n'
