@@ -79,7 +79,12 @@
         "bytes": 136325248,
         "binaries_in_archive": 1
       },
-      "checksum_sources_agreeing": 3
+      "checksum_sources_agreeing": 3,
+      "requires": [
+        {
+          "bin": "cass"
+        }
+      ]
     },
     {
       "id": "ee",
@@ -115,7 +120,12 @@
         "bytes": 60556280,
         "binaries_in_archive": 1
       },
-      "checksum_sources_agreeing": 4
+      "checksum_sources_agreeing": 4,
+      "requires": [
+        {
+          "bin": "wezterm"
+        }
+      ]
     },
     {
       "id": "ntm",
@@ -133,7 +143,12 @@
         "bytes": 52564130,
         "binaries_in_archive": 1
       },
-      "checksum_sources_agreeing": 4
+      "checksum_sources_agreeing": 4,
+      "requires": [
+        {
+          "bin": "tmux"
+        }
+      ]
     },
     {
       "id": "sbh",
@@ -190,5 +205,6 @@
     "component bytes",
     "extracted binaries",
     "per-platform archives not used"
-  ]
+  ],
+  "requires_note": "Measured by the internal capability test (plan 13.21.3): ntm drives sessions through tmux (tmux is present here, so this one is met); ft's core observation needs the WezTerm mux, and ft's own status says \"WezTerm bridge CLI not found in PATH\"; cass-memory's own diagnostic reports the companion 'cass' CLI is unavailable. Only requirements the test actually measured are declared: blockers that are not a component, an executable or a variable - a .beads directory for br/bv, project initialisation for slb, a daemon plus root for sbh's reclamation, and an API key whose variable name is not evidenced for cass - are deliberately absent rather than guessed. ee's EE_SERVE_TOKEN is a requirement of its serve mode, so it belongs on a future service entry, not on the package."
 }

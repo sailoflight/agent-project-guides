@@ -82,6 +82,7 @@ function main() {
       id: artifact.id,
       version: artifact.version_reported,
       provenance: { repo: artifact.repo, tag: artifact.tag, asset_id: String(artifact.asset.id) },
+      requires: artifact.requires,
       files: [{ path: artifact.asset.name, content }],
     });
     const dir = entryDir(root, artifact.id, manifest.digest);
@@ -98,6 +99,21 @@ function main() {
     fs.writeFileSync(path.join(dir, COMPONENT_MANIFEST), canonicalJson(manifest), { mode: 0o444 });
     results.push({ id: artifact.id, version: artifact.version_reported, digest: manifest.digest, state: 'materialised', mode, bytes: content.length, dir });
   }
+  // A record change that moves a digest leaves the previous directory behind, and two
+  // digests under one id is a conflict the verifier refuses to resolve. Reporting it here,
+  // where the intended digest is known, names the exact directory to delete; the builder
+  // never deletes it itself.
+  const intended = new Map(results.filter((entry) => entry.digest).map((entry) => [entry.id, entry.digest]));
+  const stale = [];
+  for (const [id, digest] of intended) {
+    const idDir = path.join(root, id);
+    if (!fs.statSync(idDir, { throwIfNoEntry: false })?.isDirectory()) continue;
+    for (const version of fs.readdirSync(idDir).sort()) {
+      if (!version.startsWith('sha256-')) continue;
+      if (version === `sha256-${digest.replace('sha256:', '')}`) continue;
+      stale.push({ id, digest: version.replace('sha256-', 'sha256:'), dir: path.join(idDir, version) });
+    }
+  }
   const summary = {
     root,
     dry_run: Boolean(options.dryRun),
@@ -107,6 +123,7 @@ function main() {
     present: results.filter((entry) => entry.state === 'present').length,
     not_staged: results.filter((entry) => entry.state === 'not-staged').map((entry) => entry.id),
     record_mismatch: results.filter((entry) => entry.state === 'record-mismatch').map((entry) => entry.id),
+    stale,
   };
   process.stdout.write(`${canonicalJson(summary)}\n`);
   if (failed) process.exitCode = 1;

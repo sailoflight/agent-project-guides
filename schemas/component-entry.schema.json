@@ -1,10 +1,14 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "APG component store entry",
-  "description": "ADR 0009 defines the store, ADR 0010 puts its contract on the distribution surface. Two shapes share this document: a package manifest, which sits inside a digest-named directory and covers that directory's bytes exactly, and a service entry, which carries identity only. A record names an identity and never a machine path, because the store root is resolved at use time.",
+  "description": "ADR 0009 defines the store, ADR 0010 puts its contract on the distribution surface. Two shapes share this document: a package manifest, which sits inside a digest-named directory and covers that directory's bytes exactly, and a service entry, which carries identity only. A record names an identity and never a machine path, because the store root is resolved at use time. A record may also declare which fields of its own health response carry that identity, and what it needs before it is usable - another component, an executable, or the presence of an environment variable.",
   "oneOf": [
-    { "$ref": "#/$defs/package" },
-    { "$ref": "#/$defs/service" }
+    {
+      "$ref": "#/$defs/package"
+    },
+    {
+      "$ref": "#/$defs/service"
+    }
   ],
   "$defs": {
     "digest": {
@@ -24,23 +28,50 @@
     "package": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["schema_version", "kind", "id", "version", "files", "digest"],
+      "required": [
+        "schema_version",
+        "kind",
+        "id",
+        "version",
+        "files",
+        "digest"
+      ],
       "properties": {
-        "schema_version": { "const": 1 },
-        "kind": { "const": "package" },
-        "id": { "$ref": "#/$defs/componentId" },
-        "version": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "schema_version": {
+          "const": 1
+        },
+        "kind": {
+          "const": "package"
+        },
+        "id": {
+          "$ref": "#/$defs/componentId"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
         "files": {
           "type": "array",
           "minItems": 1,
           "items": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "bytes", "sha256"],
+            "required": [
+              "path",
+              "bytes",
+              "sha256"
+            ],
             "properties": {
-              "path": { "$ref": "#/$defs/relativePath" },
-              "bytes": { "type": "integer", "minimum": 0 },
-              "sha256": { "$ref": "#/$defs/digest" }
+              "path": {
+                "$ref": "#/$defs/relativePath"
+              },
+              "bytes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "sha256": {
+                "$ref": "#/$defs/digest"
+              }
             }
           }
         },
@@ -49,35 +80,161 @@
           "additionalProperties": false,
           "description": "Where the bytes came from, as acquisition coordinates rather than a location: the component record in scripts/external-components.json is the authority for these values.",
           "properties": {
-            "repo": { "type": "string" },
-            "tag": { "type": "string" },
-            "asset_id": { "type": "string" }
+            "repo": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "asset_id": {
+              "type": "string"
+            }
           }
         },
         "digest": {
           "$ref": "#/$defs/digest",
           "description": "sha256 over the canonical form of this manifest without the digest field, which is why the manifest is excluded from its own file set."
+        },
+        "requires": {
+          "$ref": "#/$defs/requires"
         }
       }
     },
     "service": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["kind", "id", "endpoint", "transport", "health", "singleton", "delivery"],
+      "required": [
+        "kind",
+        "id",
+        "endpoint",
+        "transport",
+        "health",
+        "singleton",
+        "delivery"
+      ],
       "properties": {
-        "kind": { "const": "service" },
-        "id": { "$ref": "#/$defs/componentId" },
+        "kind": {
+          "const": "service"
+        },
+        "id": {
+          "$ref": "#/$defs/componentId"
+        },
         "endpoint": {
           "type": "string",
           "pattern": "^(?:(?:\\d{1,3}\\.){3}\\d{1,3}|\\[[0-9a-fA-F:]+\\]|localhost):\\d{1,5}$",
           "description": "A literal local address and port. Discovery performs no name resolution, so a record cannot point the probe at an arbitrary destination."
         },
-        "transport": { "enum": ["http", "https"] },
-        "health": { "type": "string", "pattern": "^/", "description": "The read-only path discovery may request. No other request is issued." },
-        "revision": { "type": "string", "description": "The revision the project pinned. Without it the identity of whatever answers cannot be verified, and discovery reports degraded rather than available." },
-        "singleton": { "type": "boolean", "description": "A singleton with two live instances is a conflict, never a choice." },
-        "delivery": { "const": "staged", "description": "An already-running service cannot be downloaded, so a service entry can never be fetched." }
+        "transport": {
+          "enum": [
+            "http",
+            "https"
+          ]
+        },
+        "health": {
+          "type": "string",
+          "pattern": "^/",
+          "description": "The read-only path discovery may request. No other request is issued."
+        },
+        "revision": {
+          "type": "string",
+          "description": "The revision the project pinned. Without it the identity of whatever answers cannot be verified, and discovery reports degraded rather than available."
+        },
+        "singleton": {
+          "type": "boolean",
+          "description": "A singleton with two live instances is a conflict, never a choice."
+        },
+        "delivery": {
+          "const": "staged",
+          "description": "An already-running service cannot be downloaded, so a service entry can never be fetched."
+        },
+        "requires": {
+          "$ref": "#/$defs/requires"
+        },
+        "identity": {
+          "type": "object",
+          "additionalProperties": false,
+          "minProperties": 1,
+          "description": "Which fields of the health response carry the identity, when they are not `id` and `revision`. Measured need: a real service answered with `service`/`rev`, and a probe that could only read `id`/`revision` could never mark it available.",
+          "properties": {
+            "id_field": {
+              "$ref": "#/$defs/fieldName"
+            },
+            "revision_field": {
+              "$ref": "#/$defs/fieldName"
+            }
+          }
+        },
+        "asserted_identity": {
+          "type": "boolean",
+          "description": "The record admits that no read-only request can check who answers - an identity provable only through a handshake the store does not perform. Such a service can be reachable but is never available: it stays degraded. Mutually exclusive with identity."
+        },
+        "stop": {
+          "enum": [
+            "signal",
+            "sigkill"
+          ],
+          "description": "How this service actually stops. Measured need: one component's watcher prints a graceful-shutdown line and never exits, so the Operator contract must not assume SIGTERM is enough."
+        }
       }
+    },
+    "requirement": {
+      "description": "One thing a component needs before it is usable. A single-key object, so that a component requirement can never be confused with an executable or a variable of the same name.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "component"
+          ],
+          "properties": {
+            "component": {
+              "type": "string",
+              "minLength": 1,
+              "description": "An id in this store. A package requirement is met when the entry verifies; a service requirement when its record is present."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "bin"
+          ],
+          "properties": {
+            "bin": {
+              "type": "string",
+              "minLength": 1,
+              "description": "An executable that must be on PATH and executable."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "env"
+          ],
+          "properties": {
+            "env": {
+              "type": "string",
+              "minLength": 1,
+              "description": "An environment variable that must be set. Presence only: the store never reads, compares or records its value."
+            }
+          }
+        }
+      ]
+    },
+    "requires": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Declared prerequisites. An entry with an unmet requirement is degraded, never available, and the verdict names which requirement failed.",
+      "items": {
+        "$ref": "#/$defs/requirement"
+      }
+    },
+    "fieldName": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.-]*$"
     }
   }
 }
