@@ -134,6 +134,31 @@ function validatePackedRuntime(runtimeRoot, descriptor) {
   if (JSON.stringify(observed) !== JSON.stringify(listed)) fail('packed runtime contains missing or unexpected files');
 }
 
+function launcherHelp(scope) {
+  if (scope === 'context') return `Agent Project Guides\n\nUsage: apg context [options]\n\nOptions:\n  --task <text>\n  --plane <production|development>\n  --role <role>\n  --mode <mode>\n  --generation <token>\n  --select <choice_id>\n  --format <context|json>\n  --target <path>\n  -h, --help\n`;
+  return 'Agent Project Guides\n\nUsage: apg <command> [options]\n\nCommands: context, project, catalog, release, provider, migrate, risk, memory, dsh\nOptions: -h, --help; -V, --version\n';
+}
+
+function installedVersion() {
+  const launcherDirectory = path.dirname(fs.realpathSync(process.argv[1]));
+  for (const file of [path.join(launcherDirectory, 'apg-launcher.version'), path.resolve(launcherDirectory, '..', 'PACKAGE_VERSION')]) {
+    if (!fs.statSync(file, { throwIfNoEntry: false })?.isFile()) continue;
+    const value = fs.readFileSync(file, 'utf8').trim();
+    if (/^[A-Za-z0-9._-]+$/.test(value)) return value;
+  }
+  fail('installed launcher version metadata is missing');
+}
+
+const launcherArgs = process.argv.slice(2);
+if (launcherArgs.length === 0 || launcherArgs.includes('--help') || launcherArgs.includes('-h')) {
+  process.stdout.write(launcherHelp(launcherArgs[0] === 'context' ? 'context' : undefined));
+  process.exit(0);
+}
+if (launcherArgs.length === 1 && ['--version', '-V'].includes(launcherArgs[0])) {
+  process.stdout.write(`${installedVersion()}\n`);
+  process.exit(0);
+}
+
 const targetIndex = process.argv.indexOf('--target');
 const start = targetIndex >= 0 && process.argv[targetIndex + 1] ? process.argv[targetIndex + 1] : process.cwd();
 const project = findProject(start);

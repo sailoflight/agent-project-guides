@@ -61,7 +61,7 @@ V3_BASE = {
         "overlays": ["agent-governance"],
     },
     "router": {"strategy": "inline-route", "executable": "none"},
-    "context": {"max_tokens": 4096, "clarification_max_tokens": 160},
+    "context": {"max_tokens": 4096, "clarification_max_tokens": 2048},
     "containment": {"workspace": "physical-selected", "host_corpus_exposure": "unknown"},
     "integrity": {"manifest_digest": "sha256:" + "2" * 64, "root_block_hash": "sha256:" + "3" * 64},
     "protected_effects": [],
@@ -82,10 +82,14 @@ V3_VALIDATOR.validate({
     "containment": {"workspace": "transitional", "host_corpus_exposure": "unknown"},
     "migration": {"state": "reversible-transition", "from_schema_version": 1, "legacy_provider": "embedded-local", "recovery_digest": "sha256:" + "5" * 64},
 })
+V3_VALIDATOR.validate({
+    **V3_BASE,
+    "context": {"max_tokens": 512, "clarification_max_tokens": 1024},
+})
 for candidate in [
     {**V3_BASE, "variant": "selected-cli.shared"},
     {**V3_BASE, "release": {**V3_BASE["release"], "runtime_digest": "sha256:" + "4" * 64}},
-    {**V3_BASE, "context": {"max_tokens": 256, "clarification_max_tokens": 256}},
+    {**V3_BASE, "context": {"max_tokens": 4096, "clarification_max_tokens": 2049}},
     {**V3_BASE, "containment": {"workspace": "physical-selected", "host_corpus_exposure": "host-enforced-none"}},
     {**V3_BASE, "documents": {**V3_BASE["documents"], "roles": ["development/maintainer", "development/reviewer", "development/verifier", "development/unknown"]}},
     {**V3_BASE, "documents": {**V3_BASE["documents"], "profiles": ["unknown-profile"]}},

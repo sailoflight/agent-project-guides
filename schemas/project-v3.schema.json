@@ -82,11 +82,7 @@
           "required": ["max_tokens", "clarification_max_tokens"],
           "properties": {
             "max_tokens": {"type": "integer", "minimum": 256, "maximum": 4096},
-            "clarification_max_tokens": {"type": "integer", "minimum": 32, "maximum": 256}
-          },
-          "not": {
-            "required": ["max_tokens", "clarification_max_tokens"],
-            "properties": {"max_tokens": {"const": 256}, "clarification_max_tokens": {"const": 256}}
+            "clarification_max_tokens": {"type": "integer", "minimum": 32, "maximum": 2048}
           }
         },
         "containment": {

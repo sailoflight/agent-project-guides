@@ -4,12 +4,14 @@
 
 ## 1. 子模式
 
-- Deploy/Configure
-- Start/Stop
-- Observe/Health
-- Incident Response
-- Backup/Recovery
-- Rollback
+- `observe-health`
+- `deploy`
+- `configure`
+- `restart`
+- `recover`
+- `rollback`
+
+Schema 1 compatibility continues to accept `deploy-configure`, `incident`, and `backup-recovery`; new routing uses the six exact modes above.
 
 只有项目存在部署或长期运行态时才启用 Operator。
 

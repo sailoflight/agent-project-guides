@@ -40,12 +40,16 @@ function parseArgs(argv) {
   const options = {};
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index];
+    if (value === '-h' || value === '-V') {
+      options[value === '-h' ? 'help' : 'version'] = true;
+      continue;
+    }
     if (!value.startsWith('--')) {
       positional.push(value);
       continue;
     }
     const name = value.slice(2);
-    if (['apply', 'offline', 'nonbehavioral', 'include-suggested', 'overwrite'].includes(name)) {
+    if (['apply', 'offline', 'nonbehavioral', 'include-suggested', 'overwrite', 'help', 'version'].includes(name)) {
       options[name] = true;
       continue;
     }
@@ -69,6 +73,47 @@ function observedTargetRoot(options, requireDescriptor = true) {
   return options.target ? fs.realpathSync(options.target) : findProjectRoot(process.cwd(), requireDescriptor);
 }
 
+function helpText(scope) {
+  const common = [
+    'Agent Project Guides',
+    '',
+    `Usage: ${scope === 'context' ? 'apg context [options]' : 'apg <command> [options]'}`,
+    '',
+  ];
+  if (scope === 'context') return `${[
+    ...common,
+    'Resolve and load one exact governance route without granting operational authority.',
+    '',
+    'Options:',
+    '  --task <text>                 Infer a route or return executable choices',
+    '  --plane <plane>               production | development',
+    '  --role <role>                 Exact role ID or alias',
+    '  --mode <mode>                 Exact mode for the selected role',
+    '  --generation <token>          Continue a pinned shared-runtime choice set',
+    '  --select <choice_id>          Select one generation-bound choice',
+    '  --format <context|json>       Output format (default: context)',
+    '  --target <path>               Project root',
+    '  -h, --help                    Show this help',
+  ].join('\n')}\n`;
+  return `${[
+    ...common,
+    'Commands:',
+    '  context                      Resolve bounded governance context',
+    '  project                      Initialize, validate, or materialize a project',
+    '  catalog                      Build or check the catalog',
+    '  release                      Build, install, or verify a release',
+    '  provider                     Resolve and load provider content',
+    '  migrate                      Plan, apply, or roll back migration',
+    '  risk                         Classify effects',
+    '  memory                       Manage reviewed project memory',
+    '  dsh                          Report DSH integration state',
+    '',
+    'Options:',
+    '  -h, --help                    Show help',
+    '  -V, --version                 Show version',
+  ].join('\n')}\n`;
+}
+
 function print(value) {
   if (value && value.__apg_text === true) process.stdout.write(value.text);
   else process.stdout.write(canonicalJson(value));
@@ -90,6 +135,7 @@ function ensureLauncher(sourceRoot, env = process.env) {
   fs.mkdirSync(homes.bin, { recursive: true });
   const launcher = path.join(homes.bin, 'apg-launcher.mjs');
   fs.copyFileSync(path.join(sourceRoot, 'scripts', 'apg-launcher.mjs'), launcher);
+  fs.copyFileSync(path.join(sourceRoot, 'PACKAGE_VERSION'), path.join(homes.bin, 'apg-launcher.version'));
   const command = path.join(homes.bin, process.platform === 'win32' ? 'apg.cmd' : 'apg');
   if (process.platform === 'win32') {
     fs.writeFileSync(command, `@echo off\r\nnode "${launcher}" %*\r\n`);
@@ -650,6 +696,7 @@ function contextCommand(options) {
     task: options.task || '',
     pathHint: options.path || '',
     generation: options.generation,
+    select: options.select,
     generationKey: descriptor.schema_version === 2 && descriptor.variant === 'shared-runtime.pinned' ? readGenerationKey() : undefined,
     packed,
   });
@@ -662,22 +709,15 @@ function contextCommand(options) {
 export async function main(argv = process.argv.slice(2)) {
   const { positional, options } = parseArgs(argv);
   const [group, action] = positional;
-  if (!group || ['help', '--help', '-h'].includes(group)) return {
-    name: 'Agent Project Guides',
-    version: VERSION,
-    usage: [
-      'apg context --task <text> [--role <role> --mode <mode>] [--format context|json]',
-      'apg project init|hydrate|validate|uninstall|materialize',
-      'apg catalog build|check',
-      'apg release manifest|verify-source|install|verify',
-      'apg provider capabilities|resolve|search|load|export|import',
-      'apg migrate plan|apply|rollback|v3-preview|v3-apply|v3-rollback',
-      'apg risk classify',
-      'apg memory propose|review|promote|supersede|purge',
-      'apg dsh report',
-    ],
-  };
-  if (group === 'context') return contextCommand(options);
+  if (options.version) {
+    if (group) fail('--version is a top-level option');
+    return { __apg_text: true, text: `${VERSION}\n` };
+  }
+  if (options.help || !group || ['help', '-h'].includes(group)) return { __apg_text: true, text: helpText(group && group !== 'help' ? group : undefined) };
+  if (group === 'context') {
+    if (!options.task && !options.role && !options.mode && !options.plane && !options.select) fail('context requires --task, --plane/--role/--mode, or --generation/--select');
+    return contextCommand(options);
+  }
   if (group === 'catalog') {
     if (action === 'build') return { entries: writeCatalog(options.source ? fs.realpathSync(options.source) : packageRoot).length, status: 'built' };
     if (action === 'check') {

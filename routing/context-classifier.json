@@ -37,7 +37,15 @@
     {
       "id": "production/operator",
       "default_mode": "observe-health",
-      "patterns": ["observe health", "backup", "recover", "production operator", "health check", "观察健康", "备份", "恢复", "生产运维", "健康检查"]
+      "mode_patterns": {
+        "observe-health": ["observe health", "health check", "观察健康", "健康检查"],
+        "deploy": ["deploy", "deployment", "部署"],
+        "configure": ["configure", "configuration", "配置"],
+        "restart": ["restart", "start", "stop", "重启", "启动", "停止"],
+        "recover": ["recover", "recovery", "backup", "恢复", "备份"],
+        "rollback": ["rollback", "回滚"]
+      },
+      "patterns": ["observe health", "health check", "deploy", "deployment", "configure", "configuration", "restart", "backup", "recover", "recovery", "rollback", "production operator", "观察健康", "健康检查", "部署", "配置", "重启", "备份", "恢复", "回滚", "生产运维"]
     }
   ]
 }
