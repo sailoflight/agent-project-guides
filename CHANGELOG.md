@@ -62,9 +62,11 @@ over-refusing.**
   all, so that row is now marked unmeasured. `scripts/test-interop-writers.sh`
   gained section D asserting the observed facts against those binaries. Section D
   is driven by default - it falls back to `.agent-scratch/external-test/bin` when
-  `APG_EXTERNAL_BIN` is unset - and each component whose binary is absent costs
-  exactly one GAP, so a checkout without the staged binaries reports gaps rather
-  than silently skipping. Record and security posture:
+  `APG_EXTERNAL_BIN` is unset. Inside it each component is an independent
+  sub-block, so one absent binary costs one GAP rather than the whole section
+  (measured with the payloads staged: 65 passed, 0 failed, 1 gap); and when the
+  staged directory itself is absent the section still reports a GAP instead of
+  passing silently. Record and security posture:
   `.agent-scratch/external-test/SECURITY-REPORT.md`.
 - Repository-side (not distributed): the project-memory index stops churning on
   reads. `.mnemon/documents/index.json` records `lastAccessedAt` for every
