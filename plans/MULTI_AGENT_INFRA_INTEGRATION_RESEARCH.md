@@ -1523,9 +1523,9 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | 10 | git tag | 只有 `v3.0.3`；`3.0.4`–`3.0.10` 未打标签（判据见 CHANGELOG 原文） | 是否补打标签（会影响远端） | 未打 |
 | 11 | 消费者仓是否升到 3.0.10 | 12 个真实消费者仓仍是 schema 2 / 固定 3.0.7，全部 `state: ready`（§13.13.1） | 是否发布（**按既有纪律，消费者仓的治理更新不自动 commit/push**） | 未触碰任何消费者仓 |
 | 12 | `.agent-scratch/` 外部试验区的去留 | `.agent-scratch/external-test/repos`（39 checkout，约 2.9 G）+ `external-verify`（普查原始证据，含 SHA256SUMS）已有生命周期标注（§13.13.8） | 是否点名删除（我保留原始证据以便复核） | 未删 |
-| 13 | 新 harness 的**长期证据**怎么保住 | `scripts/test-interop-writers.sh` 的输入是 gitignored 的 39 个 checkout，缺失时**干净 SKIP** ⇒ scratch 一删它就静默不跑了（§13.16.5） | 是否固定**最小子集**（`ultimate_bug_scanner` + `agentic_coding_flywheel_setup` + 已有 `br` 二进制）的获取方式：提交"从哪来/什么版本/sha256"清单，**不提交组件字节**（NOASSERTION 红线） | 未固定；harness 只写明了预期路径与 SKIP 行为 |
+| 13 | 新 harness 的**长期证据**怎么保住 | `scripts/test-interop-writers.sh` 的输入是 gitignored 的 39 个 checkout，缺失时**干净 SKIP** ⇒ scratch 一删它就静默不跑了（§13.16.5） | 是否固定**最小子集**的获取方式：提交"从哪来/什么版本/sha256"清单，**不提交组件字节**（NOASSERTION 红线） | **清单已算好，只差一个签字**：11 个写入方全部来自 `github.com/Dicklesworthstone/`，9 个发布件的 repo+tag+asset id+归档/二进制双 sha256、2 个脚本件的 HEAD commit 全部在案，紧凑形式 **1,921 B**，替代 554 MiB 暂存件 + 2.9 GB checkout（§13.18.12）。落库即新增一个被跟踪文件，故仍待批准 |
 | 14 | `frankenterm` 这一行是否值得换成"可观测" | 发布的 v0.15.1 根本没编进 agent 检测功能（二进制内 `ft-agent-config-`/`frankenterm:start` 出现 0 次，`robot agents configure` 返回 `feature_not_available`）；要测只能换构建（§13.17.3） | 是否批准装 Rust 工具链 + 大幅构建去测这一行；不批就让它**永久保持"未观测"标注** | 未构建；ADR 里已标成"未观测行，不得当作已测负例" → **已裁定：构建**；源构建 `0.15.6-rc.40` 已实测完成，ADR 该行升级为「源构建 RC 证据」（§13.18.4 / §13.18.8） |
-| 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） → **已裁定：保留**，交给系统清理（§13.18.3） |
+| 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） → **已裁定：保留**，交给系统清理（§13.18.3）。另：清单本身已算好（§13.18.12），所以本行与 #13 可以**一次签字**解决 |
 | 16 | `APG_EXTERNAL_BIN` 是否纳入 `test-release.sh` 默认 | 现在默认**不带**，`test-release.sh` 保持无网、无大件也能跑；真实二进制断言要显式给环境变量（§13.17.4） | 是否让默认 runner 也驱动真实二进制（会让 CI 依赖 287.5 MiB 本地件） | 未改默认；section D 缺输入时只报 1 条 GAP → **已改：默认即驱动**；并更正为「每缺一件记一条 GAP」（§13.18.2） |
 | 17 | 被 git 跟踪的 `.mnemon/documents/index.json` 每次**读取**都会改（`lastAccessedAt`） | 本轮只是读了一次托管文档，`git status` 就多出一份纯时间戳 diff（内容 hash 与 `revision` 都没变）。每读一次脏一次，是台 treadmill | 二选一：把 `lastAccessedAt` 从跟踪面里去掉（改 `.gitignore` 或让工具别写它），或接受每次读完要提交一次纯时间戳 diff | 本轮按第二选项提交了（否则树不干净），但**没有改跟踪策略**——那是契约变更 → **已修**：`.gitattributes` + 每 clone opt-in 的 clean filter（§13.18.1） |
 
@@ -1962,3 +1962,41 @@ apg project validate 的 project_digest = sha256:e4ca36081ba293fc43396ba3f8b9612
 **一个可直接测的后果**：这件事有一个**具体的受害者**，不是抽象风险——`finding.h1.bootstrap-token-only-validation` 仍是 `state: promoted`、trigger/residual 是旧文本，**按上述机制它永远无法被 supersede**。也就是说"知道它过时"与"能把它标成过时"之间被这段代码切断了。
 
 **我因此没做**：没有改 `lib/memory.mjs`（分发件）、没有刷新任何记录的摘要、没有动 `test-v2.mjs` 的同步义务、没有 supersede 任何记录。本轮也**没有**现场复现 supersede 失败——那需要一个提案文件且属写操作；上述机制来自**源码行号 + 仓内既有记录**，我标明它是"读取所得"而不是"本轮实测"。第 9 行现在只需选 A/B/C。
+
+### 13.18.12 第 13/15 行：最小子集溯源清单（**已经生成过，只差"是否落库"**）
+
+第 13 行问的是"是否提交一份'从哪来/什么版本/sha256'清单，不提交组件字节"。查证结果：**这份清单已经存在且完整**，只是躺在 gitignored 的 `.agent-scratch/external-test/bin/install-manifest.json` 里，随 scratch 一起消失。所以这一行不是"要不要去做清单"，而是"**要不要把已经算好的清单搬进仓内**"。
+
+**11 个写入方全部来自同一个账号** `github.com/Dicklesworthstone/`。九个用发布件驱动的：
+
+| # | 组件 | 仓（`github.com/` 下） | tag | asset id | 归档 sha256 | 二进制 sha256 | 二进制字节 | 一致性来源数 |
+|---|---|---|---|---|---|---|---|---|
+| 1 | `am` | `Dicklesworthstone/mcp_agent_mail_rust` | `v0.3.36` | `567702786` | `6b1cfa177894a12bd69675d837cb08756f52028cdeddc6f9412c14f04f01bf18` | `e6cf98a365fae0d569d865e3f43e1068153191bb18641d663fbf4803705e77a7` | 108,625,408 | 4 |
+| 2 | `br` | `Dicklesworthstone/beads_rust` | `v0.6.0` | `558566073` | `f6f9a1663bae31e94d2dcfec62163f15b17f822711c486e860183a654784829b` | `21b967c1ae68df1a2e8eb2256d13b8e57d293d89e331933919076104832ddbc0` | 27,772,512 | 4 |
+| 3 | `bv` | `Dicklesworthstone/beads_viewer` | `v0.25.0` | `559836215` | `ea756bfadd165b66368b512cf3d7e036e5757df5d7c8f8e2b43a12e0a51b6429` | `9b994d14f0027ed0c7e5b3a0e9bfea262a85cb1c198ec0e38256aebb4bd68249` | 44,675,234 | 5 |
+| 4 | `cass` | `Dicklesworthstone/cass_memory_system` | `v0.2.14` | `528595802` | `6c24c455921e4dba8a6aa298c24a5065d3717e0a44e6fbab28922b87a324c100` | `6c24c455921e4dba8a6aa298c24a5065d3717e0a44e6fbab28922b87a324c100` | 136,325,248 | 3 |
+| 5 | `ee` | `Dicklesworthstone/eidetic_engine_cli` | `v0.15.2` | `559768412` | `b70c2deaed56b3154e204de6d16c473c50e82fd2d1aa636ecf92d22da0bde46c` | `a8a89f62d2b764c85b3d53c70a1413bbc967ac1f6bf0b040979e912c10097438` | 129,261,472 | 4 |
+| 6 | `ft` | `Dicklesworthstone/frankenterm` | `v0.15.1` | `524396067` | `f063460275836799fa887a2765616c87109b410b9ebef1febbfee106376de12f` | `f8b04bfd3bcd144889d2e0f1a6ec21823857734be507a477928a6fed460e2bea` | 60,556,280 | 4 |
+| 7 | `ntm` | `Dicklesworthstone/ntm` | `v1.35.1` | `564088481` | `910712dff11770d2f0858e168a73d43228ec625b7f68d4ea9be61685c0c8ed44` | `7907cc6b0ad8e0826c5699fc01120db3c52992c120a9ee26c530a60da78941e8` | 52,564,130 | 4 |
+| 8 | `sbh` | `Dicklesworthstone/storage_ballast_helper` | `v0.6.2` | `554680556` | `f8dc4a9fb0c5ab4cce94827c7b30d3dc06b285b76197ea2d8da073807a6d7be9` | `357098c4fdf0584eceb4723d643f127df412c2b84adfab1794a2257fe8d0babc` | 6,534,632 | 4 |
+| 9 | `slb` | `Dicklesworthstone/slb` | `v0.4.1` | `548265196` | `9c398fb7f8d3bdaca8ad4e70497e84451609993eb5ba4e9b7cea52a8a7247972` | `3781e330a06ca15ba137551b375eb2a93795cc5077d7d14ea2dd87be042651c9` | 14,934,178 | 5 |
+
+两个用**它们自己的脚本**驱动（写入方就是安装/生成脚本，不是 CLI，所以只能这样驱动）：
+
+| 组件 | 仓 | 驱动方式 | 记录到的 commit |
+|---|---|---|---|
+| `ubs` | `github.com/Dicklesworthstone/ultimate_bug_scanner.git` | 它自己的脚本 | `862357b201f60b859caa271c56bd1894dd7d5fd2` |
+| `acfs` | `github.com/Dicklesworthstone/agentic_coding_flywheel_setup.git` | 它自己的脚本 | `b042ffba3b6f874db0608c8171a42c577bdc2f1f` |
+
+两处需要说明，否则这张表会被读错：
+
+- **`am` 的归档里有 2 个二进制**：`am`（108,625,408, `e6cf98a365fae0d569d865e3f43e1068153191bb18641d663fbf4803705e77a7`）与 `mcp-agent-mail`（108,842,688, `0334724c8704579e…`）。表里列的是普查与 section D **实际驱动的那个 `am`**，不是归档里更大的那个。
+- **`cass` 的"归档摘要"与"二进制摘要"相同**，因为它的发布资产**就是裸二进制**（`cass-memory-linux-x64`），没有外层归档。这不是复制粘贴错误。
+
+**规模账**（这才是决策的要害）：上面这张表的**紧凑形式只有 1,921 B**，而它替代的是 **581,249,094 B ≈ 554 MiB** 的暂存二进制、加上 39 个 checkout 约 **2.9 GB**。也就是说：**约 1.9 KB 的仓内清单，可以把"section D 的断言能否复现"从"取决于 gitignored scratch 还在不在"变成"任何人照清单重跑即可"**——而按 NOASSERTION 红线，组件字节本身**不**入库。
+
+**校验状态**（每个都有多来源交叉，不是单点）：九个组件的归档摘要各有 **3–5 个独立来源一致**（`am`/`br`/`ee`/`ft`/`ntm`/`sbh` 为 4，`bv`/`slb` 为 5，`cass` 为 3）。`br` 的 `verify_skipped_signatures` 列出的是**其它平台**的归档（darwin/windows/musl/arm64），本轮实际使用的 linux/amd64 件不在此列，且另有 `scripts/test-interop-br.sh` 对其做发布资产级 SHA256 校验。**仍然没有做构建溯源（build provenance）**——这一条在九个组件上都是明确缺口，不应被上面这些数字掩盖。
+
+**清单自带一个更强的用处**：它是第 15 行（暂存件与 287.5 MiB 归档的去留）的**前提**。有了它，删 scratch 就不再等于"section D 静默退化"，而只是"下次要跑时照清单重新拉一次"。两行是同一个问题的两面，可以**一次签字解决**。
+
+**我因此没做**：没有把清单落库（那是第 13 行要主人点头的事——它新增一个被跟踪文件），没有删任何 scratch，没有重新下载任何组件。清单内容在上面，主人若点头，落库即照此写入。
