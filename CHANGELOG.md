@@ -1,0 +1,123 @@
+# Changelog
+
+Notable changes to Agent Project Guides, newest first. Versions before 3.0.4 are
+recorded in `git log` and the release tags (`v3.0.0` … `v3.0.3`); this file starts
+at 3.0.4, which is the first release after the last tag.
+
+APG is a harness-neutral governance core: it decides *what* a project commits to,
+*which* exact package content is selected, and *who* has authority — it is not a
+runtime and it never executes a model. Entries below are grouped by the surface
+they change.
+
+## 3.0.9
+
+**Bootstrap integrity — the schema-1 residual is closed.**
+
+- The v2 bootstrap block is now verified against an anchor that lives outside the
+  file it protects. `integrity.root_block_hash` is a validated descriptor field
+  (`schemas/project.schema.json`, `lib/descriptor.mjs`) using schema 2's exact hash
+  convention (sha256 over the marker-delimited block bytes), recorded at
+  `project init`. A block that carries neither this anchor nor its own integrity
+  line is refused with `bootstrap_unverifiable` instead of being accepted as
+  legacy.
+- A hash recorded *inside* the block was not a defence against a writer who can
+  edit the whole file, since rewriting the body also rewrites its recorded line.
+  The anchor in a separate file breaks that loop.
+- New `project reattest` re-renders the block for the descriptor's release and
+  records the new hash. It verifies the installed block first (byte 0, one
+  well-formed marker pair, the block's own integrity line), so it cannot launder a
+  hand edit into a fresh anchor. It works for source-worktree, thin-bootstrap and
+  embedded-local, and is idempotent.
+- `provider import` preserves the local anchor: it is an installation fact, not a
+  portable project fact, so importing a snapshot no longer reads its absence as a
+  change to apply.
+- `project validate` reports `bootstrap.anchor` (`block` | `descriptor` | `both`)
+  and `bootstrap.root_block_hash`.
+
+**Root instruction-block ownership (ADR 0006) — P3 widened to the measured vocabulary.**
+
+- The census over the external checkouts found **two more writers** than the ADR's
+  original three: `am` (`mcp_agent_mail_rust`), which appends to any marker-less
+  `AGENTS.md`/`CLAUDE.md`, recurses three levels, and takes no backup; and `ubs`
+  (`ultimate_bug_scanner`), which writes a non-namespaced comment. Two prior
+  records were also corrected: `bv` does **not** back up before mutating
+  `AGENTS.md`, and `ntm` writes a marker-less whole-file template.
+- `guard-prefix`'s marker grammar now covers all ten measured marker forms,
+  including `am`'s `:blurb` suffix and `ubs`'s `>>>`/`<<<` form. Both previously
+  fell outside the grammar, so a block from either writer above APG's regions would
+  still have been silently relocated.
+
+**Research and decisions.**
+
+- `plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md` §13.12 records the two
+  remaining measurements with recommendations: EE's trust ladder is an attention
+  ranking and never an authority input (its top rung is the unauthenticated default
+  for `ee remember`, reachable over MCP with `allowWrite=true`, and reachable by a
+  caller-supplied `--source-type`), and the external-component namespace convention
+  is `agent-project-guides:external:<command-name>` with the version as a field and
+  integrity as a `{state, algo, digest, scope}` triple.
+
+Gates: catalog check valid; `validate-routing` ok; `release verify-source` valid;
+`project validate` valid; `test-v2.mjs`, `test-install.sh`, `test-interop-br.sh`
+(19 passed / 0 failed / 0 gaps) and the full `test-release.sh` all exit 0.
+
+## 3.0.8
+
+**Managed-prefix safety (ADR 0006 P8, P9).**
+
+- Every rewrite of an instruction file is preceded by a recovery point
+  (`AGENTS.md.agent-project-guides.bak`, deliberately distinct from `br`'s `.md.bak`
+  and `ee`'s `.ee-backup`).
+- A managed block carries `<!-- agent-project-guides:integrity sha256=<hex> -->` as
+  its second line, so the start marker stays at byte 0 and every existing byte-0 /
+  exactly-once assertion keeps holding. `manage-root-blocks.mjs` gained `stamp` and
+  `verify`; `replace`, `merge` and `validate_routing` refuse a block whose recorded
+  hash does not match its body. Escape hatch:
+  `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`.
+- Interop is measured against the real `br` v0.6.0 binary rather than argued:
+  `scripts/test-interop-br.sh` composes a root exactly the way
+  `rebuild_root_prefix` does. It reported 13 passed / 0 failed / 2 open gaps when
+  it was introduced, 18 passed / 0 failed / 1 open gap once P8 and P9 landed, and
+  19 passed / 0 failed / 0 gaps once P3 landed in 3.0.9.
+
+**Multi-agent infrastructure study.**
+
+- `plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md` records the APG ↔ Flywheel
+  layering decision (APG is the authority/control plane, not the execution plane),
+  the three memory layers, the writer survey behind ADR 0006, and the user's eleven
+  decisions. `decisions/0006` states the block-ownership protocol; ADR 0005 records
+  the harness-neutral positioning.
+- The DSH adapter is demoted to an explicit compatibility seam (future
+  `plugins/dsh-apg`) rather than a positioning claim.
+
+**Governance wording.**
+
+- Role, profile and escalation wording is topology-neutral: escalation no longer
+  assumes a particular subagent mechanism. A project suggestion box
+  (`templates/SUGGESTION_BOX.md`) was added so a wrong or insufficient routed role
+  has a declared outlet.
+
+## 3.0.7
+
+- Stateless routing tickets use 64 bits.
+
+## 3.0.6
+
+- Stateless continuation tickets shortened to 30 characters.
+
+## 3.0.5
+
+- Sandboxed `context` resolution fixed with stateless signed continuations:
+  `lib/context-choice.mjs` (generation-bound choice sets), an explicit
+  `context-errors.mjs` surface, and `scripts/test-context-choice.mjs` asserting that
+  issuance and verification write nothing.
+- Multi-profile adaptation routes were fitted to the existing context budgets by
+  condensing `procedures/PACKAGE_ADAPTATION.md` and `profiles/MONOREPO_PROJECT.md`
+  rather than raising them.
+
+## 3.0.4
+
+- Compact `context` output with guarded continuations: bounded aggregate tokens,
+  per-format budgets, a context classifier that can return executable choices, and
+  `scripts/test-context-state.mjs` plus `scripts/test-v2.mjs` coverage. Runtime
+  errors are reported through one explicit error surface.
