@@ -184,7 +184,7 @@ const splitBudget = project('split-budget');
 fs.copyFileSync(path.join(thin, 'AGENTS.md'), path.join(splitBudget, 'AGENTS.md'));
 writeJson(path.join(splitBudget, '.agent-project-guides.json'), {
   ...structuredClone(validThinDescriptor),
-  policy: { ...validThinDescriptor.policy, mandatory: ['role:development/reviewer'] },
+  policy: { ...validThinDescriptor.policy, mandatory: ['role:development/reviewer', 'profile:service'] },
 });
 const splitContext = spawnSync(process.execPath, [cli, 'context', '--target', splitBudget, '--plane', 'development', '--role', 'maintainer', '--mode', 'readapt', '--format', 'context'], {
   cwd: temporary,
@@ -275,7 +275,7 @@ const readaptRoute = run([
   'provider', 'resolve', '--target', thin, '--plane', 'development', '--role', 'maintainer', '--mode', 'readapt',
 ], { home: thinHome });
 assert.deepEqual(readaptRoute.exact, [
-  'role:development/maintainer#1-角色边界', 'procedure:package-adaptation', 'profile:cli', 'overlay:agent-governance',
+  'procedure:package-adaptation', 'profile:cli', 'overlay:agent-governance',
 ]);
 assertBatchMatches(readaptRoute);
 const productionRoute = run([

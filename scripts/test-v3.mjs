@@ -359,6 +359,23 @@ const compilerRequest = {
   generationKey: readGenerationKey({ ...process.env, AGENT_PROJECT_GUIDES_HOME: sharedHome }),
   contextReference: createGenerationReference(),
 };
+// Multi-profile consumers must fit initialization/readaptation without raising budgets.
+for (const profiles of [['cli', 'library'], ['mcp', 'monorepo-composition']]) {
+  const combined = structuredClone(sharedDescriptor);
+  combined.documents.profiles = profiles;
+  combined.documents.roles = ['development/developer', 'development/maintainer', 'development/reviewer', 'development/verifier'];
+  combined.documents.overlays = ['agent-governance'];
+  combined.policy.mandatory = [];
+  for (const [role, mode] of [['developer', 'initialize'], ['maintainer', 'readapt']]) {
+    for (const format of ['context', 'json']) {
+      const result = compileContext(root, combined, { plane: 'development', role, mode, format, generationKey: compilerRequest.generationKey });
+      assert.equal(result.status, 'ready');
+      assert.ok(result.budgets.aggregate_tokens <= 4096);
+      assert.ok(result.selected_ids.includes('procedure:package-adaptation'));
+      for (const profile of profiles) assert.ok(result.selected_ids.includes(`profile:${profile}`));
+    }
+  }
+}
 const compilerStateBefore = treeSnapshot(path.join(sharedHome, 'state'));
 const compactCompiled = compileContext(root, sharedDescriptor, compilerRequest);
 assert.equal(compactCompiled.budgets.context_tokens, Math.ceil(Buffer.byteLength(renderContext(compactCompiled)) / 4));
