@@ -6,7 +6,10 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { canonicalJson, sha256 } from '../lib/core.mjs';
-import { installSharedLauncher } from '../lib/provider.mjs';
+import { installSharedLauncher, createGenerationReference, saveGenerationReference, readGenerationKey } from '../lib/provider.mjs';
+import { createHmac } from 'node:crypto';
+import { compileContext, renderContext } from '../lib/context.mjs';
+import { contextErrorRecord } from '../lib/context-errors.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cli = path.join(root, 'scripts', 'apg.mjs');
@@ -62,12 +65,51 @@ function treeSnapshot(directory) {
   return [...output.entries()];
 }
 
+function assertCompact(text, status) {
+  assert.ok(text.startsWith('APG context: '));
+  assert.ok(text.includes(`Status: ${status}`));
+  assert.match(text, /Authority granted: false/);
+  assert.doesNotMatch(text, /^Sources:|^Route resolved:|^Union loaded:/m);
+  assert.doesNotMatch(text, /sha256:[0-9a-f]{64}|"route_hash"|"budgets"|eyJ[A-Za-z0-9_-]{100,}/);
+}
+
+function assertSourcesPresent(text, result) {
+  for (const source of result.selected_sources) assert.ok(text.includes(`[${source.id}]\n${source.content.trimEnd()}`), `missing source: ${source.id}`);
+  for (const id of result.mandatory_ids) assert.ok(text.includes(id), `missing mandatory ID: ${id}`);
+}
+
+function reportCompactCost(fixture, compact, diagnostic) {
+  assert.equal(diagnostic.selected_sources.length, 0, 'cost fixture must exclude canonical content');
+  const contextBytes = Buffer.byteLength(compact.trimEnd() + '\n');
+  const jsonBytes = Buffer.byteLength(canonicalJson(diagnostic));
+  console.log(JSON.stringify({ fixture, choices: diagnostic.choices.length, canonical_content_bytes: 0, context_bytes: contextBytes, json_bytes: jsonBytes,
+    context_token_estimate: Math.ceil(contextBytes / 4), json_token_estimate: Math.ceil(jsonBytes / 4), estimator: 'utf8-bytes/4-ceiling',
+    reduction_percent: Number((100 * (1 - contextBytes / jsonBytes)).toFixed(1)) }));
+}
+
 const baseArgs = [
   '--lifecycle', 'maintenance',
   '--profiles', 'content-package',
   '--overlays', 'agent-governance',
   '--mandatory', 'profile:content-package#5-verification-preset',
 ];
+
+const errorDigest = `sha256:${'a'.repeat(64)}`;
+const errorGeneration = `${'eyJ'.repeat(40)}.${'b'.repeat(64)}`;
+const diagnosticError = { code: 'generation_mismatch', message: `Invalid ${errorGeneration} for ${errorDigest}`, details: { failed_field: 'mode', allowed_values: ['deploy', 'restart'], expected: errorDigest, generation: errorGeneration } };
+for (const args of [['context'], ['context', '--format', 'context']]) {
+  const projected = contextErrorRecord(diagnosticError, args);
+  assert.equal(projected.error, diagnosticError.code);
+  assert.equal(projected.field, 'mode');
+  assert.deepEqual(projected.allowed, ['deploy', 'restart']);
+  assert.equal('details' in projected, false);
+  assert.ok(projected.next);
+  assert.ok(!JSON.stringify(projected).includes(errorDigest));
+  assert.ok(!JSON.stringify(projected).includes(errorGeneration));
+}
+for (const args of [['context', '--format', 'json'], ['project', 'validate']]) {
+  assert.deepEqual(contextErrorRecord(diagnosticError, args), { error: diagnosticError.code, message: diagnosticError.message, details: diagnosticError.details });
+}
 
 assert.match(run([], { raw: true }), /^Agent Project Guides/m);
 assert.match(run(['--help'], { raw: true }), /Usage: apg <command>/);
@@ -82,9 +124,13 @@ const foreignHome = path.join(temporary, 'foreign-home');
 const foreignLauncher = installSharedLauncher(foreignRuntime, { ...process.env, AGENT_PROJECT_GUIDES_HOME: foreignHome }).command;
 assert.equal(runCommand(foreignLauncher, ['--version'], { cwd: temporary, home: foreignHome, raw: true }), '9.9.9\n');
 const legacyAmbiguity = run(['context', '--target', root, '--task', 'inspect this work', '--format', 'json']);
-assert.ok(legacyAmbiguity.token_estimate <= 160);
-assert.ok(legacyAmbiguity.budgets.aggregate_tokens <= 2048);
-assert.equal(Object.hasOwn(legacyAmbiguity.choices[0], 'choice_id'), false);
+assert.ok(legacyAmbiguity.token_estimate <= 2048);
+assert.ok(legacyAmbiguity.budgets.aggregate_tokens <= 4096);
+assert.equal(legacyAmbiguity.choices.every((choice) => choice.plane === choice.route.plane && choice.role === choice.route.role && choice.mode === choice.route.mode), true);
+assert.equal(legacyAmbiguity.choices.every((choice) => choice.choice_id && choice.route_hash && choice.next_command), true);
+const legacyCostCompact = run(['context', '--target', root, '--task', 'inspect this work'], { raw: true });
+assertCompact(legacyCostCompact, 'clarification_required');
+reportCompactCost('schema1-four-choice-no-content', legacyCostCompact, legacyAmbiguity);
 
 // Preview is pure and exposes only the two implemented variants.
 const previewTarget = project('preview');
@@ -148,12 +194,22 @@ assert.equal(inlineContext.status, 'ready');
 assert.ok(inlineContext.budgets.aggregate_tokens <= inlineDescriptor.context.max_tokens);
 assert.equal(inlineContext.budgets.json_tokens, Math.ceil(Buffer.byteLength(canonicalJson(inlineContext)) / 4));
 assert.equal(inlineContext.union_loaded, false);
+const inlineCompact = run(['context', '--target', inline, '--role', 'maintainer', '--mode', 'code'], { home: inlineHome, raw: true });
+assertCompact(inlineCompact, 'ready');
+assertSourcesPresent(inlineCompact, inlineContext);
+assert.doesNotMatch(inlineCompact, /--generation|g1_[0-9a-f]{32}/);
+assert.equal(inlineContext.budgets.context_tokens, Math.ceil(Buffer.byteLength(inlineCompact.trimEnd() + '\n') / 4));
 const unavailableRole = run(['context', '--target', inline, '--role', 'developer', '--mode', 'feature', '--format', 'json'], { home: inlineHome, expect: 2 });
 assert.equal(unavailableRole.error, 'route_unresolved');
 assert.equal(unavailableRole.details.match_count, 0);
 assert.equal(unavailableRole.details.registry_match_count, 1);
 assert.equal(unavailableRole.details.failed_field, 'role');
 assert.deepEqual(unavailableRole.details.matched_routes, [{ plane: 'development', role: 'developer', plane_match: true, available: false, modes: ['feature', 'initialize'] }]);
+const compactInvalidRole = run(['context', '--target', inline, '--role', 'developer', '--mode', 'feature'], { home: inlineHome, expect: 2 });
+assert.equal(compactInvalidRole.error, unavailableRole.error);
+assert.equal(compactInvalidRole.field, 'role');
+assert.equal('details' in compactInvalidRole, false);
+assert.doesNotMatch(JSON.stringify(compactInvalidRole), /sha256:[0-9a-f]{64}|eyJ[A-Za-z0-9_-]{100,}/);
 const wrongPlaneRole = run(['context', '--target', inline, '--plane', 'production', '--role', 'maintainer', '--mode', 'code', '--format', 'json'], { home: inlineHome, expect: 2 });
 assert.equal(wrongPlaneRole.error, 'route_unresolved');
 assert.deepEqual(wrongPlaneRole.details.matched_routes, [{ plane: 'development', role: 'maintainer', plane_match: false, available: true, modes: ['code', 'readapt'] }]);
@@ -167,6 +223,13 @@ assert.deepEqual(ambiguous.mandatory_ids, ['profile:content-package#5-verificati
 assert.deepEqual(ambiguous.selected_sources.map((source) => source.id), ambiguous.mandatory_ids);
 assert.ok(ambiguous.token_estimate <= inlineDescriptor.context.clarification_max_tokens);
 assert.ok(ambiguous.budgets.aggregate_tokens <= inlineDescriptor.context.max_tokens);
+const inlineChoiceCompact = run(['context', '--target', inline, '--task', 'inspect this work'], { home: inlineHome, raw: true });
+assertCompact(inlineChoiceCompact, 'clarification_required');
+assertSourcesPresent(inlineChoiceCompact, ambiguous);
+assert.match(inlineChoiceCompact, /Mandatory: profile:content-package#5-verification-preset/);
+assert.equal(ambiguous.source_observation.model_effective, 'unknown');
+for (const choice of ambiguous.choices) assert.ok(inlineChoiceCompact.includes(choice.next_command));
+assert.ok(Buffer.byteLength(inlineChoiceCompact) < Buffer.byteLength(canonicalJson(ambiguous)));
 const mixed = run(['context', '--target', inline, '--task', 'implement and review this change', '--format', 'json'], { home: inlineHome });
 assert.equal(mixed.status, 'clarification_required');
 assert.equal(mixed.choices.flatMap((choice) => choice.matched_rules).some((rule) => rule.startsWith('protected-pattern:')), false);
@@ -201,6 +264,17 @@ assert.equal(wideAmbiguous.choices_truncated, true);
 assert.equal(wideAmbiguous.omitted_choice_ids.length, wideDescriptor.documents.roles.length - 4);
 assert.ok(wideAmbiguous.token_estimate <= wideDescriptor.context.clarification_max_tokens);
 assert.ok(wideAmbiguous.budgets.aggregate_tokens <= wideDescriptor.context.max_tokens);
+const wideCompact = run(['context', '--target', wideContextProject, '--task', 'inspect this work'], { home: wideHome, raw: true });
+assertCompact(wideCompact, 'clarification_required');
+assert.match(wideCompact, /Choices truncated: true/);
+for (const omitted of wideAmbiguous.omitted_choice_ids) assert.ok(wideCompact.includes(omitted));
+assert.ok(Buffer.byteLength(wideCompact) < Buffer.byteLength(canonicalJson(wideAmbiguous)) / 2, 'compact clarification should halve diagnostic framing size');
+const threeChoiceTask = 'deploy this release to production';
+const threeChoiceDiagnostic = run(['context', '--target', wideContextProject, '--task', threeChoiceTask, '--format', 'json'], { home: wideHome });
+const threeChoiceCompact = run(['context', '--target', wideContextProject, '--task', threeChoiceTask], { home: wideHome, raw: true });
+assertCompact(threeChoiceCompact, 'clarification_required');
+assert.equal(threeChoiceDiagnostic.choices.length, 3);
+reportCompactCost('shared-three-choice-no-content', threeChoiceCompact, threeChoiceDiagnostic);
 
 // Shared pinned mode publishes no generic Markdown in the project and routes through one exact packed generation.
 const shared = project('shared');
@@ -265,6 +339,41 @@ assert.equal(sharedAmbiguous.choices_truncated, false);
 assert.ok(sharedAmbiguous.token_estimate <= sharedDescriptor.context.clarification_max_tokens);
 assert.ok(sharedAmbiguous.budgets.aggregate_tokens <= sharedDescriptor.context.max_tokens);
 assert.equal(sharedAmbiguous.choices.every((choice) => choice.next_command.includes(sharedAmbiguous.generation)), true);
+const sharedStateBeforeCompactReady = treeSnapshot(path.join(sharedHome, 'state'));
+const sharedReadyCompact = runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code'], { cwd: temporary, home: sharedHome, raw: true });
+assertCompact(sharedReadyCompact, 'ready');
+assertSourcesPresent(sharedReadyCompact, sharedContext);
+assert.doesNotMatch(sharedReadyCompact, /--generation|g1_[0-9a-f]{32}/);
+assert.deepEqual(treeSnapshot(path.join(sharedHome, 'state')), sharedStateBeforeCompactReady, 'ready context must not write state');
+const sharedCompact = runCommand(launcher, ['context', '--target', shared, '--task', 'inspect this work'], { cwd: temporary, home: sharedHome, raw: true });
+assertCompact(sharedCompact, 'clarification_required');
+assertSourcesPresent(sharedCompact, sharedAmbiguous);
+assert.ok(sharedCompact.includes(`--target '${shared}'`));
+assert.match(sharedCompact, /--generation g1_[0-9a-f]{32} --select /);
+assert.ok(!sharedCompact.includes(sharedAmbiguous.generation));
+const stateBeforeDiagnostic = treeSnapshot(path.join(sharedHome, 'state'));
+runCommand(launcher, ['context', '--target', shared, '--task', 'inspect this work', '--format', 'json'], { cwd: shared, home: sharedHome });
+assert.deepEqual(treeSnapshot(path.join(sharedHome, 'state')), stateBeforeDiagnostic, 'diagnostic JSON must not write short-reference state');
+const compilerRequest = {
+  task: 'inspect this work', target: shared, format: 'context',
+  generationKey: readGenerationKey({ ...process.env, AGENT_PROJECT_GUIDES_HOME: sharedHome }),
+  contextReference: createGenerationReference(),
+};
+const compilerStateBefore = treeSnapshot(path.join(sharedHome, 'state'));
+const compactCompiled = compileContext(root, sharedDescriptor, compilerRequest);
+assert.equal(compactCompiled.budgets.context_tokens, Math.ceil(Buffer.byteLength(renderContext(compactCompiled)) / 4));
+assert.equal(compactCompiled.budgets.aggregate_tokens, compactCompiled.budgets.context_tokens);
+assertSourcesPresent(renderContext(compactCompiled), compactCompiled);
+const narrowBudgetDescriptor = structuredClone(sharedDescriptor);
+narrowBudgetDescriptor.context.max_tokens = compactCompiled.budgets.context_tokens + 1;
+assert.ok(narrowBudgetDescriptor.context.max_tokens < compactCompiled.budgets.json_tokens);
+assert.equal(compileContext(root, narrowBudgetDescriptor, compilerRequest).status, 'clarification_required');
+assert.throws(() => compileContext(root, narrowBudgetDescriptor, { ...compilerRequest, format: 'json' }), (error) => error.code === 'context_budget_exceeded' && error.details.checked_format === 'json');
+const impossibleBudgetDescriptor = structuredClone(sharedDescriptor);
+impossibleBudgetDescriptor.context.max_tokens = 256;
+assert.ok(compactCompiled.budgets.context_tokens > impossibleBudgetDescriptor.context.max_tokens, 'fixture must exceed the smallest legal context budget');
+assert.throws(() => compileContext(root, impossibleBudgetDescriptor, compilerRequest), (error) => error.code === 'context_budget_exceeded');
+assert.deepEqual(treeSnapshot(path.join(sharedHome, 'state')), compilerStateBefore, 'successful and over-budget compiler calls must not create state');
 const continued = runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code', '--format', 'json', '--generation', sharedContext.generation], { cwd: shared, home: sharedHome });
 assert.equal(continued.generation, sharedContext.generation);
 const [encodedGeneration] = sharedContext.generation.split('.');
@@ -314,6 +423,12 @@ assert.equal(invalidOperatorMode.details.match_count, 0);
 assert.equal(invalidOperatorMode.details.role_match_count, 1);
 assert.equal(invalidOperatorMode.details.matched_routes.length, operatorModes.length);
 assert.deepEqual(invalidOperatorMode.details.allowed_values, operatorModes);
+const compactInvalidMode = runCommand(operationsLauncher, ['context', '--target', operations, '--plane', 'production', '--role', 'operator', '--mode', 'invalid'], { cwd: temporary, home: operationsHome, expect: 2 });
+assert.equal(compactInvalidMode.error, invalidOperatorMode.error);
+assert.equal(compactInvalidMode.field, 'mode');
+assert.deepEqual(compactInvalidMode.allowed, operatorModes);
+assert.equal('details' in compactInvalidMode, false);
+assert.doesNotMatch(JSON.stringify(compactInvalidMode), /sha256:[0-9a-f]{64}|eyJ[A-Za-z0-9_-]{100,}/);
 const legacyModeInV3 = runCommand(operationsLauncher, ['context', '--target', operations, '--plane', 'production', '--role', 'operator', '--mode', 'incident', '--format', 'json'], { cwd: operations, home: operationsHome, expect: 2 });
 assert.equal(legacyModeInV3.error, 'route_unresolved');
 assert.deepEqual(legacyModeInV3.details.allowed_values, operatorModes);
@@ -344,9 +459,82 @@ assert.equal(wrongChoice.error, 'choice_unresolved');
 const bypassChoice = runCommand(operationsLauncher, ['context', '--target', operations, '--generation', operatorChoiceResponse.generation, '--plane', 'production', '--role', 'operator', '--mode', 'rollback', '--format', 'json'], { cwd: operations, home: operationsHome, expect: 2 });
 assert.equal(bypassChoice.error, 'selection_required');
 
+// Opaque continuations preserve signed choices without exposing payloads in default context.
+const operationsEnv = { ...process.env, AGENT_PROJECT_GUIDES_HOME: operationsHome };
+const compactOperations = runCommand(operationsLauncher, ['context', '--target', operations, '--task', 'deploy this release to production'], { cwd: temporary, home: operationsHome, raw: true });
+assertCompact(compactOperations, 'clarification_required');
+const reference = compactOperations.match(/--generation (g1_[0-9a-f]{32}) --select /)?.[1];
+assert.ok(reference, 'default clarification must offer an opaque continuation');
+assert.equal(new Set([...compactOperations.matchAll(/--generation (\S+)/g)].map((match) => match[1])).size, 1);
+const handleDirectory = path.join(operationsHome, 'state', 'generation-handles');
+const handleFile = path.join(handleDirectory, `${reference}.json`);
+assert.equal(fs.statSync(handleDirectory).mode & 0o777, 0o700);
+assert.equal(fs.statSync(handleFile).mode & 0o777, 0o600);
+const handleBytes = fs.readFileSync(handleFile);
+const handleRecord = JSON.parse(handleBytes);
+assert.match(handleRecord.generation, /^[A-Za-z0-9_-]+\.[0-9a-f]{64}$/);
+assert.ok(!compactOperations.includes(handleRecord.generation));
+const continueReference = (value, { target = operations, choice = 'production.operator.deploy', expect = 0 } = {}) => runCommand(operationsLauncher, ['context', '--target', target, '--generation', value, '--select', choice, '--format', 'json'], { cwd: temporary, home: operationsHome, expect });
+const shortSelected = continueReference(reference);
+assert.equal(shortSelected.status, 'ready');
+assert.equal(shortSelected.route_hash, deployChoice.route_hash);
+assert.equal(shortSelected.authority_granted, false);
+assert.equal(continueReference(reference, { choice: 'production.operator.rollback', expect: 2 }).error, 'choice_unresolved');
+const compactCommand = compactOperations.split('\n').map((line) => line.trim().replace(/^-\s+/, '')).find((line) => line.startsWith('apg context ') && line.endsWith('--select production.operator.deploy'));
+const compactRoundTrip = spawnSync('sh', ['-c', compactCommand], { cwd: temporary, encoding: 'utf8', env: { ...operationsEnv, PATH: `${path.join(operationsHome, 'bin')}${path.delimiter}${process.env.PATH || ''}` } });
+assert.equal(compactRoundTrip.status, 0, compactRoundTrip.stderr);
+assertCompact(compactRoundTrip.stdout, 'ready');
+assert.equal(continueReference('g1_' + '0'.repeat(32), { expect: 2 }).error, 'generation_reference_missing');
+assert.equal(continueReference(reference + 'x', { expect: 2 }).error, 'generation_mismatch');
+const clonedOperations = project('operations-clone');
+fs.cpSync(operations, clonedOperations, { recursive: true });
+assert.equal(continueReference(reference, { target: clonedOperations, expect: 2 }).error, 'generation_mismatch', 'same project descriptor in another root cannot reuse short reference');
+fs.writeFileSync(handleFile, JSON.stringify({ ...handleRecord, project_root: clonedOperations }));
+assert.equal(continueReference(reference, { expect: 2 }).error, 'generation_mismatch');
+fs.writeFileSync(handleFile, handleBytes);
+const substitutedReference = createGenerationReference();
+const substitutedFile = path.join(handleDirectory, `${substitutedReference}.json`);
+fs.copyFileSync(handleFile, substitutedFile);
+assert.equal(continueReference(substitutedReference, { expect: 2 }).error, 'generation_mismatch', 'state cannot be replayed under another reference');
+fs.rmSync(substitutedFile);
+fs.symlinkSync(handleFile, substitutedFile);
+assert.equal(continueReference(substitutedReference, { expect: 2 }).error, 'generation_reference_missing');
+fs.rmSync(substitutedFile);
+fs.chmodSync(handleDirectory, 0o755);
+assert.equal(continueReference(reference, { expect: 2 }).error, 'generation_reference_missing');
+fs.chmodSync(handleDirectory, 0o700);
+fs.chmodSync(handleFile, 0o644);
+assert.equal(continueReference(reference, { expect: 2 }).error, 'generation_reference_missing');
+fs.chmodSync(handleFile, 0o600);
+fs.renameSync(handleFile, `${handleFile}.saved`);
+assert.equal(continueReference(reference, { expect: 2 }).error, 'generation_reference_missing');
+fs.renameSync(`${handleFile}.saved`, handleFile);
+
+// Synthetic valid signatures isolate expiry/project/view verification from envelope tamper rejection.
+const syntheticKey = readGenerationKey(operationsEnv);
+for (const [patch, expected] of [
+  [{ expires_at_ms: 1 }, 'generation_expired'],
+  [{ project_id: 'test.other-project' }, 'generation_mismatch'],
+  [{ selected_view_revision: `sha256:${'0'.repeat(64)}` }, 'generation_mismatch'],
+]) {
+  const payload = JSON.parse(Buffer.from(handleRecord.generation.split('.')[0], 'base64url').toString('utf8'));
+  const encoded = Buffer.from(canonicalJson({ ...payload, ...patch })).toString('base64url');
+  const signed = `${encoded}.${createHmac('sha256', syntheticKey).update(encoded).digest('hex')}`;
+  const syntheticReference = createGenerationReference();
+  saveGenerationReference(syntheticReference, signed, operations, operationsEnv);
+  assert.equal(continueReference(syntheticReference, { expect: 2 }).error, expected);
+}
+assert.equal(continueReference(reference).status, 'ready', 'negative fixtures must preserve the original continuation');
+
 const runtimeBackup = `${runtimeRoot}.missing`;
 fs.renameSync(runtimeRoot, runtimeBackup);
-assert.match(runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code', '--format', 'json'], { cwd: shared, home: sharedHome, expect: 2 }).message, /packed runtime is missing/);
+const diagnosticMissingRuntime = runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code', '--format', 'json'], { cwd: shared, home: sharedHome, expect: 2 });
+assert.match(diagnosticMissingRuntime.message, /packed runtime is missing/);
+const compactMissingRuntime = runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code'], { cwd: shared, home: sharedHome, expect: 2 });
+assert.equal(compactMissingRuntime.error, diagnosticMissingRuntime.error);
+assert.match(compactMissingRuntime.message, /packed runtime is missing/);
+assert.doesNotMatch(JSON.stringify(compactMissingRuntime), /sha256[:-][0-9a-f]{64}|[0-9a-f]{64}|eyJ[A-Za-z0-9_-]{100,}/);
+assert.equal('details' in compactMissingRuntime, false);
 fs.renameSync(runtimeBackup, runtimeRoot);
 
 // Every transaction boundary leaves transition-blocked or committed state and retry converges.

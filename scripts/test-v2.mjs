@@ -86,7 +86,119 @@ assert.match(initialized.provider.digest, /^sha256:[0-9a-f]{64}$/);
 let status = run(['project', 'validate', '--target', thin], { home: thinHome });
 assert.equal(status.valid, true);
 assert.equal(status.provider.immutable, true);
+assert.equal(status.context_routes.routes_checked, 23);
+assert.deepEqual(status.context_routes.formats_checked, ['context', 'json']);
+assert.equal(status.context_routes.authority_granted, false);
+assert.equal(status.context_routes.union_loaded, false);
+assert.ok(status.context_routes.max_aggregate_tokens <= status.context_routes.max_tokens);
+const thinBootstrap = fs.readFileSync(path.join(thin, 'AGENTS.md'), 'utf8');
+assert.match(thinBootstrap, /Before any repository discovery or operation, run the exact `apg context/);
+assert.match(thinBootstrap, /Continue only when it returns `status=ready`/);
+assert.match(thinBootstrap, /`clarification_required`[^\n]+wait/);
+assert.match(thinBootstrap, /Any other context\/compiler error[^\n]+stop/);
+const legacyMaintainerContext = run([
+  'context', '--target', thin, '--plane', 'development', '--role', 'maintainer', '--mode', 'code', '--format', 'json',
+], { home: thinHome });
+assert.equal(legacyMaintainerContext.status, 'ready');
+assert.equal(legacyMaintainerContext.route_resolved, true);
+assert.equal(legacyMaintainerContext.authority_granted, false);
+assert.equal(legacyMaintainerContext.union_loaded, false);
+assert.equal(legacyMaintainerContext.budgets.max_tokens, 4096);
+assert.ok(legacyMaintainerContext.budgets.context_tokens <= legacyMaintainerContext.budgets.max_tokens);
+assert.ok(legacyMaintainerContext.budgets.json_tokens <= legacyMaintainerContext.budgets.max_tokens);
+const legacyMaintainerText = spawnSync(process.execPath, [cli, 'context', '--target', thin, '--plane', 'development', '--role', 'maintainer', '--mode', 'code', '--format', 'context'], {
+  cwd: root,
+  encoding: 'utf8',
+  env: { ...process.env, AGENT_PROJECT_GUIDES_HOME: thinHome },
+});
+assert.equal(legacyMaintainerText.status, 0, legacyMaintainerText.stderr);
+assert.match(legacyMaintainerText.stdout, /^APG context: development\/maintainer \(code\)\nStatus: ready\n/);
+assert.doesNotMatch(legacyMaintainerText.stdout, /sha256:[0-9a-f]{64}|--generation|"route_hash"|"budgets"/);
+assert.match(legacyMaintainerText.stdout, /Authority granted: false/);
+assert.doesNotMatch(legacyMaintainerText.stdout, /^Sources:|^Route resolved:/m);
+assert.equal(legacyMaintainerContext.source_observation.model_effective, 'unknown');
+for (const source of legacyMaintainerContext.selected_sources) {
+  assert.ok(legacyMaintainerText.stdout.includes(`[${source.id}]\n${source.content.trimEnd()}`));
+}
+assert.equal(legacyMaintainerContext.budgets.context_tokens, Math.ceil(Buffer.byteLength(legacyMaintainerText.stdout.trimEnd() + '\n') / 4));
+const legacyAmbiguous = run(['context', '--target', thin, '--task', 'inspect this work', '--format', 'json'], { home: thinHome });
+assert.equal(legacyAmbiguous.status, 'clarification_required');
+assert.equal(legacyAmbiguous.route_resolved, false);
+assert.equal(legacyAmbiguous.union_loaded, false);
+assert.equal(legacyAmbiguous.authority_granted, false);
+assert.ok(legacyAmbiguous.choices.length > 0);
+assert.equal(legacyAmbiguous.choices.every((choice) => choice.plane === choice.route.plane && choice.role === choice.route.role && choice.mode === choice.route.mode), true);
+assert.equal(legacyAmbiguous.choices.every((choice) => choice.choice_id && choice.route_hash && choice.conflict_reason && choice.next_command), true);
+assert.equal(new Set(legacyAmbiguous.choices.map((choice) => choice.choice_id)).size, legacyAmbiguous.choices.length);
+const legacyCompact = spawnSync(process.execPath, [cli, 'context', '--target', thin, '--task', 'inspect this work'], {
+  cwd: temporary, encoding: 'utf8', env: { ...process.env, AGENT_PROJECT_GUIDES_HOME: thinHome },
+});
+assert.equal(legacyCompact.status, 0, legacyCompact.stderr);
+assert.match(legacyCompact.stdout, /^APG context: choose one route\nStatus: clarification_required\n/);
+assert.doesNotMatch(legacyCompact.stdout, /sha256:[0-9a-f]{64}|"route_hash"|"budgets"/);
+assert.match(legacyCompact.stdout, /Authority granted: false/);
+assert.doesNotMatch(legacyCompact.stdout, /^Union loaded:|^Route resolved:|^Sources:/m);
+assert.ok(Buffer.byteLength(legacyCompact.stdout) < Buffer.byteLength(JSON.stringify(legacyAmbiguous)));
+for (const choice of legacyAmbiguous.choices) assert.ok(legacyCompact.stdout.includes(choice.next_command));
+assert.equal(legacyAmbiguous.choices_truncated, true);
+assert.match(legacyCompact.stdout, /Choices truncated: true/);
+for (const omitted of legacyAmbiguous.omitted_choice_ids) assert.ok(legacyCompact.stdout.includes(omitted));
+const chineseAssessment = run(['context', '--target', thin, '--task', '分析当前项目的缺点和不足', '--format', 'json'], { home: thinHome });
+assert.equal(chineseAssessment.status, 'ready');
+assert.equal(chineseAssessment.role, 'reviewer');
+assert.equal(chineseAssessment.mode, 'static');
+const chineseRepairPlan = run(['context', '--target', thin, '--task', '分析此模型逃逸路由的原因和准备修复方案', '--format', 'json'], { home: thinHome });
+assert.ok(chineseRepairPlan.status === 'clarification_required' || (chineseRepairPlan.role === 'reviewer' && chineseRepairPlan.mode === 'static'));
+if (chineseRepairPlan.status === 'clarification_required') {
+  assert.equal(chineseRepairPlan.choices.every((choice) => choice.choice_id && choice.next_command), true);
+  assert.equal(chineseRepairPlan.choices.some((choice) => choice.role === 'maintainer'), false);
+}
+for (const task of ['不要实现修复方案', '只提出修复方案，不要实施']) {
+  const negatedImplementation = run(['context', '--target', thin, '--task', task, '--format', 'json'], { home: thinHome });
+  assert.equal(negatedImplementation.status, 'ready');
+  assert.equal(negatedImplementation.role, 'reviewer');
+  assert.equal(negatedImplementation.mode, 'static');
+}
+const mixedChineseIntent = run(['context', '--target', thin, '--task', '分析项目缺点和不足并实现新功能', '--format', 'json'], { home: thinHome });
+assert.equal(mixedChineseIntent.status, 'clarification_required');
+assert.equal(mixedChineseIntent.route_resolved, false);
+assert.ok(mixedChineseIntent.choices.some((choice) => choice.role === 'reviewer'));
+assert.ok(mixedChineseIntent.choices.some((choice) => choice.role === 'developer'));
+const repairAfterPlan = run(['context', '--target', thin, '--task', '分析并准备修复方案后实施修复', '--format', 'json'], { home: thinHome });
+assert.equal(repairAfterPlan.status, 'clarification_required');
+assert.ok(repairAfterPlan.choices.some((choice) => choice.role === 'reviewer'));
+assert.ok(repairAfterPlan.choices.some((choice) => choice.role === 'maintainer'));
+const featureNegationRepair = run(['context', '--target', thin, '--task', '不要实现新功能，只修复缺陷', '--format', 'json'], { home: thinHome });
+assert.equal(featureNegationRepair.status, 'ready');
+assert.equal(featureNegationRepair.role, 'maintainer');
+assert.equal(featureNegationRepair.mode, 'code');
+const continuedLegacyChoice = spawnSync('sh', ['-c', legacyAmbiguous.choices[0].next_command], {
+  cwd: temporary,
+  encoding: 'utf8',
+  env: { ...process.env, AGENT_PROJECT_GUIDES_HOME: thinHome, PATH: `${path.join(thinHome, 'bin')}${path.delimiter}${process.env.PATH || ''}` },
+});
+assert.equal(continuedLegacyChoice.status, 0, continuedLegacyChoice.stderr);
+assert.match(continuedLegacyChoice.stdout, /^APG context: development\/developer \(feature\)\nStatus: ready\n/);
 const validThinDescriptor = JSON.parse(fs.readFileSync(path.join(thin, '.agent-project-guides.json'), 'utf8'));
+const splitBudget = project('split-budget');
+fs.copyFileSync(path.join(thin, 'AGENTS.md'), path.join(splitBudget, 'AGENTS.md'));
+writeJson(path.join(splitBudget, '.agent-project-guides.json'), {
+  ...structuredClone(validThinDescriptor),
+  policy: { ...validThinDescriptor.policy, mandatory: ['role:development/reviewer'] },
+});
+const splitContext = spawnSync(process.execPath, [cli, 'context', '--target', splitBudget, '--plane', 'development', '--role', 'maintainer', '--mode', 'readapt', '--format', 'context'], {
+  cwd: temporary,
+  encoding: 'utf8',
+  env: { ...process.env, AGENT_PROJECT_GUIDES_HOME: thinHome },
+});
+assert.equal(splitContext.status, 0, splitContext.stderr);
+assert.match(splitContext.stdout, /^APG context: development\/maintainer \(readapt\)\nStatus: ready\n/);
+const splitJson = run(['context', '--target', splitBudget, '--plane', 'development', '--role', 'maintainer', '--mode', 'readapt', '--format', 'json'], { home: thinHome, expect: 2 });
+assert.equal(splitJson.error, 'context_budget_exceeded');
+assert.equal(splitJson.details.checked_format, 'json');
+const splitValidation = run(['project', 'validate', '--target', splitBudget], { home: thinHome, expect: 2 });
+assert.equal(splitValidation.error, 'context_budget_exceeded');
+assert.equal(splitValidation.details.checked_format, 'json');
 const invalidDescriptors = [
   { ...structuredClone(validThinDescriptor), project_id: 'test.invalid-null', overlays: null },
   { ...structuredClone(validThinDescriptor), project_id: 'test.invalid-absolute', layout: { scratch: ['/tmp/outside'], memory: 'docs/memory' } },
@@ -455,6 +567,19 @@ assert.equal(run([
 assert.equal(run(['project', 'validate', '--target', selfHosted], { expect: 2 }).error, 'invalid_registry');
 assert.equal(run(['release', 'install', '--source', selfHosted], { expect: 2 }).error, 'invalid_registry');
 fs.writeFileSync(selfContextRoutes, selfContextRoutesBefore);
+const selfMaintainerGuide = path.join(selfHosted, 'roles', 'development', 'MAINTAINER.md');
+const selfMaintainerBefore = fs.readFileSync(selfMaintainerGuide);
+fs.appendFileSync(selfMaintainerGuide, `\n${'oversized context '.repeat(1_500)}\n`);
+const oversizedContextRows = selfContextRoutesBefore.toString('utf8').split(/\r?\n/).filter(Boolean).map(JSON.parse);
+oversizedContextRows.find((record) => record.id === 'role:development/maintainer').by_mode.code.budget = 10_000;
+fs.writeFileSync(selfContextRoutes, `${oversizedContextRows.map((record) => JSON.stringify(record)).join('\n')}\n`);
+run(['catalog', 'build', '--source', selfHosted]);
+const oversizedValidation = run(['project', 'validate', '--target', selfHosted], { expect: 2 });
+assert.equal(oversizedValidation.error, 'context_budget_exceeded');
+assert.deepEqual(oversizedValidation.details.route, { plane: 'development', role: 'maintainer', mode: 'code' });
+fs.writeFileSync(selfMaintainerGuide, selfMaintainerBefore);
+fs.writeFileSync(selfContextRoutes, selfContextRoutesBefore);
+run(['catalog', 'build', '--source', selfHosted]);
 fs.appendFileSync(path.join(selfHosted, 'profiles', 'CONTENT_PACKAGE.md'), '\nChanged without catalog rebuild.\n');
 assert.equal(run(['provider', 'load', '--target', selfHosted, '--id', 'profile:content-package'], { expect: 2 }).error, 'stale_catalog');
 assert.equal(run([
