@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { compareCanonical } from '../lib/core.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -388,7 +389,7 @@ function verifyComponents(options) {
   const packages = [
     ...singles.map((record, index) => applyRequirements(resolved[index], checkRequirements(record.requires ?? [], { describe }))),
     ...duplicates.map((entry) => ({ id: entry.id, state: 'conflict', reusable: false, digests: entry.digests, reason: `the store holds ${entry.digests.length} digests for ${entry.id}; remove the copy it does not name` })),
-  ].sort((left, right) => left.id.localeCompare(right.id));
+  ].sort((left, right) => compareCanonical(left.id, right.id));
   // The package command names packages and the service command names services. An earlier
   // shape published a bare `reusable` here and a bare `reusable` there, over two different
   // domains, and the internal capability test read `reusable: []` from `probe` as "nothing
