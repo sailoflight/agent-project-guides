@@ -5,12 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { createCompactChoice, verifyCompactChoice } from '../lib/context-choice.mjs';
 import { contextErrorRecord } from '../lib/context-errors.mjs';
+import { canonicalJson } from '../lib/core.mjs';
 const root=fs.mkdtempSync(path.join(os.tmpdir(),'apg-choice-'));
 try {
  const key=crypto.randomBytes(32),descriptor={project_id:'test.choice',release:{version:'3.0.5'},documents:{roles:['production/operator']}};
  const choice='production.operator.deploy',now=1780000000000;
  const token=createCompactChoice(descriptor,root,choice,key,now);
- assert.equal(token.length,57);
+ assert.equal(token.length,30);
  assert.deepEqual(verifyCompactChoice(token,descriptor,root,choice,key,now),{plane:'production',role:'operator',mode:'deploy'});
  const fails=(fn,code)=>assert.throws(fn,e=>e.code===code);
  fails(()=>verifyCompactChoice(token,descriptor,root,choice,key,now+900001),'generation_expired');
@@ -22,7 +23,19 @@ try {
  fails(()=>verifyCompactChoice(token,descriptor,root,choice,crypto.randomBytes(32),now),'generation_mismatch');
  fails(()=>verifyCompactChoice(token+'x',descriptor,root,choice,key,now),'generation_mismatch');
  const changed=Buffer.from(token.slice(3),'base64url');changed[15]^=1;
- fails(()=>verifyCompactChoice('g2_'+changed.toString('base64url'),descriptor,root,choice,key,now),'generation_mismatch');
+ fails(()=>verifyCompactChoice('g3_'+changed.toString('base64url'),descriptor,root,choice,key,now),'generation_mismatch');
+ const oldBytes=Buffer.alloc(40),expires=now+900000;
+ oldBytes.writeBigUInt64BE(BigInt(expires));
+ crypto.createHmac('sha256',key).update(canonicalJson({domain:'apg-context-choice-v2',descriptor,target:fs.realpathSync(root),choice,expires})).digest().copy(oldBytes,8);
+ assert.equal(verifyCompactChoice('g2_'+oldBytes.toString('base64url'),descriptor,root,choice,key,now).mode,'deploy');
+ const rounded=createCompactChoice(descriptor,root,choice,key,now+999);
+ assert.equal(verifyCompactChoice(rounded,descriptor,root,choice,key,now+900000).mode,'deploy');
+ fails(()=>verifyCompactChoice(rounded,descriptor,root,choice,key,now+900001),'generation_expired');
+ fails(()=>createCompactChoice(descriptor,root,choice,key,0xffffffff*1000),'generation_time_invalid');
+ // Last base64 character has unused bits; equivalent noncanonical spellings are rejected.
+ const alphabet='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+ const last=alphabet.indexOf(token.at(-1));
+ fails(()=>verifyCompactChoice(token.slice(0,-1)+alphabet[last+1],descriptor,root,choice,key,now),'generation_mismatch');
  assert.deepEqual(fs.readdirSync(root),[],'issuance and verification must not write');
  for(const code of ['generation_reference_write_failed','generation_key_missing','generation_target_missing']){
   const result=contextErrorRecord({code,message:'fixture'},['context']);

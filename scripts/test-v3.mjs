@@ -349,7 +349,7 @@ const sharedCompact = runCommand(launcher, ['context', '--target', shared, '--ta
 assertCompact(sharedCompact, 'clarification_required');
 assertSourcesPresent(sharedCompact, sharedAmbiguous);
 assert.ok(sharedCompact.includes(`--target '${shared}'`));
-assert.match(sharedCompact, /--generation g2_[A-Za-z0-9_-]{54} --select /);
+assert.match(sharedCompact, /--generation g3_[A-Za-z0-9_-]{27} --select /);
 assert.ok(!sharedCompact.includes(sharedAmbiguous.generation));
 const stateBeforeDiagnostic = treeSnapshot(path.join(sharedHome, 'state'));
 runCommand(launcher, ['context', '--target', shared, '--task', 'inspect this work', '--format', 'json'], { cwd: shared, home: sharedHome });
@@ -480,7 +480,7 @@ assert.equal(bypassChoice.error, 'selection_required');
 const operationsEnv = { ...process.env, AGENT_PROJECT_GUIDES_HOME: operationsHome };
 const compactOperations = runCommand(operationsLauncher, ['context', '--target', operations, '--task', 'deploy this release to production'], { cwd: temporary, home: operationsHome, raw: true });
 assertCompact(compactOperations, 'clarification_required');
-const compactTokens = [...compactOperations.matchAll(/--generation (g2_[A-Za-z0-9_-]{54}) --select ([\w.-]+)/g)];
+const compactTokens = [...compactOperations.matchAll(/--generation (g3_[A-Za-z0-9_-]{27}) --select ([\w.-]+)/g)];
 assert.equal(compactTokens.length, operatorChoiceResponse.choices.length);
 assert.equal(new Set(compactTokens.map(match => match[1])).size, compactTokens.length, 'each ticket binds one choice');
 const compactDeploy = compactTokens.find(match => match[2] === 'production.operator.deploy')[1];
@@ -490,7 +490,7 @@ const readOnlyArgs = ['--permission', '--allow-fs-read=*', path.join(operationsH
 const readOnly = spawnSync(process.execPath, [...readOnlyArgs, 'context', '--target', operations, '--task', 'deploy release'], { cwd: temporary, env: operationsEnv, encoding: 'utf8' });
 assert.equal(readOnly.status, 0, readOnly.stderr);
 assertCompact(readOnly.stdout, 'clarification_required');
-const readOnlyMatch = readOnly.stdout.match(/--generation (g2_[A-Za-z0-9_-]{54}) --select ([\w.-]+)/);
+const readOnlyMatch = readOnly.stdout.match(/--generation (g3_[A-Za-z0-9_-]{27}) --select ([\w.-]+)/);
 const readOnlyContinued = spawnSync(process.execPath, [...readOnlyArgs, 'context', '--target', operations, '--generation', readOnlyMatch[1], '--select', readOnlyMatch[2]], { cwd: temporary, env: operationsEnv, encoding: 'utf8' });
 assert.equal(readOnlyContinued.status, 0, readOnlyContinued.stderr);
 assertCompact(readOnlyContinued.stdout, 'ready');
