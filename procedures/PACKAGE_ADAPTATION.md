@@ -4,10 +4,10 @@
 
 ## 0. 激活和状态
 
-只在用户明确适配、`adapter-trigger`、用户确认处理非 `adapted` 状态，或治理漂移时运行。
+只在用户明确适配、`adapter-trigger`、用户确认处理非 `adapted` 状态，或治理漂移时运行。开始时必须先按 trigger 协议验证本地包完整性并运行只读 `check-update`；只有远端 `current`，或用户明确接受所报告的本地版本时继续。
 
-- 方案一：客户运行 `scripts/install.sh merge`，再显式指定 `initialize` 或 `readapt`；脚本不调用 LLM。
-- 方案二：`trigger` 追加一次性触发；触发判断新/已有项目并选择子模式，完成后只删除 trigger。
+- 方案一：客户运行 `scripts/install.sh merge`，再显式指定 `initialize` 或 `readapt`；脚本不调用 LLM。执行者仍需运行 `check-update`。
+- 方案二：`trigger` 追加一次性触发；触发检查远端新鲜度、判断新/已有项目并选择子模式，完成后只删除 trigger。
 - `set-state` 只写结果：`partial`、`adapted`、`blocked`。安装器管理 `pending/stale`。
 - `adapted` 必须包含当前版本、UTC 验证时间、实际 scope、`reason=none`；`partial/blocked` 必须给出范围和非敏感 reason code。
 
@@ -27,13 +27,13 @@
 
 ## 2. 最小读取顺序
 
-1. 保留所有已加载根候选规则；安装器只向按 `AGENTS.md` > `CLAUDE.md` 选中的入口追加 managed block，不替换或改名任何候选。
-2. 读取构建/包配置、主要入口、测试配置、CI 和现有文档索引，不做整仓扫描。
-3. 只读一个匹配 profile；组合项目只增加实际匹配项。
-4. 通过 `routing/*.jsonl` 确认实际 plane、role、mode 和投递面。
-5. 只在创建对应产物时读取一个精确模板文件。
+1. 保留所有已加载根候选规则；不要重读已注入且未变化的根文件。安装器只向按 `AGENTS.md` > `CLAUDE.md` 选中的入口追加 managed block。
+2. 做一次有界根清单，再定点读取构建/包配置、主要入口、测试配置、CI 和现有文档索引；禁止重复目录枚举或整仓扫描。
+3. 从 `routing/project-types.jsonl` 精确 grep 一个主类型，只读命中 profile；不得预读多个 profile 比较。没有精确类型或证据实质匹配多个 ID 时，按根结构化问答协议说明包缺少明确架构，并让用户确认最近类型、更新包定义或判定不适用。
+4. 已明确 role/mode 时，从对应 registry 精确 grep 一条完整记录；不得读取 plane 或完整 role registry。未明确时按根路由处理。
+5. 只在即将创建一个产物时读取它的一个精确模板；先完成该产物再考虑下一个，禁止批量预读模板。
 
-Profiles：`profiles/MCP_PROJECT.md`、`profiles/LIBRARY_AND_CLI_PROJECT.md`、`profiles/APPLICATION_SERVICE_MONOREPO.md`。
+项目类型注册表：`routing/project-types.jsonl`。其命中记录提供唯一 profile 路径；不要先读 profile 文件再反推类型。
 
 ## 3. 最小产物和精确模板
 

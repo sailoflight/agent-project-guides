@@ -23,6 +23,7 @@ Commands:
   merge           Scheme 1: append the permanent routing/state block to the selected root instructions; never invokes an LLM.
   trigger         Scheme 2: ensure routing exists, then append one temporary package-adaptation trigger.
   check           Validate routing, adaptation state, optional trigger, UTF-8, and selected root size.
+  check-update    Compare local PACKAGE_VERSION with the configured cloud source; never modifies files.
   set-state       Adapter submodes update status with --status, --verified-at, --scope, and --reason.
   remove-trigger  Remove the temporary trigger after adaptation reaches status=adapted.
   unmerge         Remove managed routing after any trigger has already been removed.
@@ -118,6 +119,8 @@ ROUTING_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.routing-block.md"
 TRIGGER_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.adapter-trigger.md"
 VERSION_FILE="$PACKAGE_DIR/PACKAGE_VERSION"
 ROUTING_VALIDATOR="$PACKAGE_DIR/scripts/validate-routing.mjs"
+UPDATE_CHECKER="$PACKAGE_DIR/scripts/check-update.mjs"
+REMOTE_FILE="$PACKAGE_DIR/PACKAGE_REMOTE.json"
 
 select_root_instructions() {
   agents="$TARGET/AGENTS.md"
@@ -152,6 +155,8 @@ select_root_instructions
 [ -f "$TRIGGER_TEMPLATE" ] || fail "missing template: $TRIGGER_TEMPLATE"
 [ -f "$VERSION_FILE" ] || fail "missing package version: $VERSION_FILE"
 [ -f "$ROUTING_VALIDATOR" ] || fail "missing routing validator: $ROUTING_VALIDATOR"
+[ -f "$UPDATE_CHECKER" ] || fail "missing update checker: $UPDATE_CHECKER"
+[ -f "$REMOTE_FILE" ] || fail "missing package remote metadata: $REMOTE_FILE"
 command -v node >/dev/null 2>&1 || fail 'node is required to validate routing JSONL'
 node "$ROUTING_VALIDATOR" >/dev/null || fail 'routing JSONL validation failed'
 for required_path in \
@@ -174,6 +179,7 @@ PACKAGE_REVISION=$(tr -d '\r\n' < "$VERSION_FILE")
 case "$PACKAGE_REVISION" in
   ''|*[!A-Za-z0-9._-]*) fail 'PACKAGE_VERSION must contain one simple revision token' ;;
 esac
+PACKAGE_REPOSITORY=$(node -e "const fs=require('fs'); const value=JSON.parse(fs.readFileSync(process.argv[1], 'utf8')); process.stdout.write(value.repository)" "$REMOTE_FILE")
 
 escape_sed_replacement() {
   printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
@@ -191,6 +197,7 @@ render_common() {
   verified=$(escape_sed_replacement "$verified_at")
   scope_value=$(escape_sed_replacement "$scope")
   reason_value=$(escape_sed_replacement "$reason")
+  repository=$(escape_sed_replacement "$PACKAGE_REPOSITORY")
   sed \
     -e "s|{{GUIDES_PATH}}|$guides|g" \
     -e "s|{{PACKAGE_REVISION}}|$revision|g" \
@@ -198,6 +205,7 @@ render_common() {
     -e "s|{{VERIFIED_AT}}|$verified|g" \
     -e "s|{{ADAPTATION_SCOPE}}|$scope_value|g" \
     -e "s|{{ROOT_INSTRUCTIONS}}|$ROOT_NAME|g" \
+    -e "s|{{PACKAGE_REPOSITORY}}|$repository|g" \
     -e "s|{{ADAPTATION_REASON}}|$reason_value|g" \
     "$template"
 }
@@ -297,6 +305,7 @@ validate_trigger() {
     ! printf '%s\n' "$trigger" | grep -Fq '{{' || fail 'adapter trigger contains unresolved placeholders'
     printf '%s\n' "$trigger" | grep -Fq "$GUIDES_PATH/routing/development.roles.jsonl" || fail 'adapter trigger points to a different development registry'
     printf '%s\n' "$trigger" | grep -Fq "Trigger revision: $PACKAGE_REVISION" || fail 'adapter trigger targets a different package revision'
+    printf '%s\n' "$trigger" | grep -Fq "$PACKAGE_REPOSITORY" || fail 'adapter trigger points to a different package repository'
   fi
 }
 
@@ -528,6 +537,10 @@ unmerge_routing() {
   printf 'Removed managed routing; original %s content remains.\n' "$ROOT_NAME"
 }
 
+check_package_update() {
+  node "$UPDATE_CHECKER"
+}
+
 check_installation() {
   reject_conflicting_managed_roots
   [ -f "$ROOT_FILE" ] || fail "selected root $ROOT_NAME does not exist"
@@ -541,6 +554,7 @@ case "$COMMAND" in
   merge) merge_routing ;;
   trigger) append_trigger ;;
   check) check_installation ;;
+  check-update) check_package_update ;;
   set-state) set_adaptation_state ;;
   remove-trigger) remove_trigger ;;
   unmerge) unmerge_routing ;;

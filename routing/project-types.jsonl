@@ -1,0 +1,3 @@
+{"id":"mcp","when":"Project provides an MCP server, gateway, or tool provider as a primary architecture","profile":"profiles/MCP_PROJECT.md"}
+{"id":"library-cli","when":"Project primarily provides a library, SDK, pure-function package, or CLI","profile":"profiles/LIBRARY_AND_CLI_PROJECT.md"}
+{"id":"application-service-monorepo","when":"Project primarily provides an application, long-running service, GUI, monorepo, data pipeline, or automation system","profile":"profiles/APPLICATION_SERVICE_MONOREPO.md"}
