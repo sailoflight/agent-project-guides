@@ -505,10 +505,25 @@ writeJson(replacementInput, {
 });
 const routeTarget = path.join(thin, 'docs', 'memory', 'route.lesson.json');
 const routeTargetBefore = fs.readFileSync(routeTarget);
-const stalePromoted = JSON.parse(routeTargetBefore);
-stalePromoted.project_digest = `sha256:${'0'.repeat(64)}`;
-writeJson(routeTarget, stalePromoted);
+// The anchor is historical provenance, so an unusable one is still refused ...
+const anchorlessPromoted = JSON.parse(routeTargetBefore);
+anchorlessPromoted.project_digest = 'not-a-digest';
+writeJson(routeTarget, anchorlessPromoted);
 assert.equal(run(['memory', 'supersede', '--target', thin, '--input', replacementInput, '--replaces', 'route.lesson'], { home: thinHome, expect: 2 }).error, 'invalid_memory');
+fs.writeFileSync(routeTarget, routeTargetBefore);
+// ... but a well-formed anchor from an earlier descriptor is history, not a gate.
+// Regression: while the anchor doubled as a current-descriptor check, this
+// supersession was refused permanently as soon as the descriptor changed.
+const staleAnchorInput = path.join(temporary, 'stale-anchor-memory.json');
+writeJson(staleAnchorInput, {
+  id: 'route.lesson.stale-anchor', kind: 'knowledge', scope: 'repo', summary: 'A past descriptor epoch does not block supersession.',
+  evidence: ['test:stale-anchor'], owner: 'author-c', confidence: 'high', applicability: 'APG v2', revalidation_trigger: 'routing changes',
+});
+assert.notEqual(exported.revision, status.project_digest);
+const staleAnchorPromoted = JSON.parse(routeTargetBefore);
+staleAnchorPromoted.project_digest = exported.revision;
+writeJson(routeTarget, staleAnchorPromoted);
+assert.equal(run(['memory', 'supersede', '--target', thin, '--input', staleAnchorInput, '--replaces', 'route.lesson'], { home: thinHome }).state, 'proposed');
 fs.writeFileSync(routeTarget, routeTargetBefore);
 const whitespacePromoted = JSON.parse(routeTargetBefore);
 whitespacePromoted.review.reviewer = ' ';
