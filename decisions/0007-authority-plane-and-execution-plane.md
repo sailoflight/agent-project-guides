@@ -73,6 +73,10 @@ Additional standing rules:
 
 ## Validation and reversal
 
-Validation: a proposed capability is checked against the two questions in "Decision" before it is designed; the shipped CLI surface must contain no command that indexes, schedules, executes, or stores derived state; `plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md` §9–§10 record the concession tiers this ADR ratifies; catalog/manifest regeneration confirms no external bytes entered the distribution surface. Signals for review: a request to add a retrieval, queue, or execution command to APG; an external component whose licence changes; an interop test that starts passing only because APG took over the mechanism.
+Validation: a proposed capability is checked against the two questions in "Decision" before it is designed; the shipped CLI surface must contain no command that indexes, schedules, executes, or stores derived state; `plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md` §9–§10 record the concession tiers this ADR ratifies; catalog/manifest regeneration confirms no external bytes entered the distribution surface.
+
+The first and last of those clauses are now executable rather than prose: `scripts/test-boundary.mjs` (run by `scripts/test-release.sh`) pins the exact set of top-level command groups, fails if any of them - or any group added to the pinned list - names a retrieval, scheduling, execution or derived-store mechanism, asserts `PACKAGE_MANIFEST.json` equals the packer's own allowlist, and rejects any distributed path naming a surveyed third-party component. It was written after 3.0.10 recorded the general lesson that a declared-but-uninvoked gate rots; ADR 0005's genericity gate had been in that state since 3.0.7.
+
+Signals for review: a request to add a retrieval, queue, or execution command to APG; an external component whose licence changes; an interop test that starts passing only because APG took over the mechanism.
 
 Reversal: this ADR constrains what APG builds, so reverting it means reopening the product boundary rather than undoing a change. Any reversal must re-run the survey that produced the three asymmetries above, because a changed asymmetry is the only legitimate reason to move a capability across the boundary.

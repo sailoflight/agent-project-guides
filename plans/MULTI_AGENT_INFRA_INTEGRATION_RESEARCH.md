@@ -1523,3 +1523,49 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | 10 | git tag | 只有 `v3.0.3`；`3.0.4`–`3.0.10` 未打标签（判据见 CHANGELOG 原文） | 是否补打标签（会影响远端） | 未打 |
 | 11 | 消费者仓是否升到 3.0.10 | 12 个真实消费者仓仍是 schema 2 / 固定 3.0.7，全部 `state: ready`（§13.13.1） | 是否发布（**按既有纪律，消费者仓的治理更新不自动 commit/push**） | 未触碰任何消费者仓 |
 | 12 | `.agent-scratch/` 外部试验区的去留 | `.agent-scratch/external-test/repos`（39 checkout，约 2.9 G）+ `external-verify`（普查原始证据，含 SHA256SUMS）已有生命周期标注（§13.13.8） | 是否点名删除（我保留原始证据以便复核） | 未删 |
+| 13 | 新 harness 的**长期证据**怎么保住 | `scripts/test-interop-writers.sh` 的输入是 gitignored 的 39 个 checkout，缺失时**干净 SKIP** ⇒ scratch 一删它就静默不跑了（§13.16.5） | 是否固定**最小子集**（`ultimate_bug_scanner` + `agentic_coding_flywheel_setup` + 已有 `br` 二进制）的获取方式：提交"从哪来/什么版本/sha256"清单，**不提交组件字节**（NOASSERTION 红线） | 未固定；harness 只写明了预期路径与 SKIP 行为 |
+
+---
+
+## 13.16 第 6 步续（第二轮）：把"声明的验证"变成可执行的门禁（2026-09-20）
+
+本轮两类目标：(A) 把外部实测并入 `scripts/test-interop-*.sh`；(B) 落实决策 4 与"组织原则 ADR"。结论是 **(B) 的两项在仓内早已完成**（不是"已批准未实施"）——本节给出核验证据；真正缺的是 (A)，以及**两条"只写在散文里、没有跑者"的验证条款**。
+
+### 13.16.1 (B) 核验：两项早已落地，逐条证据
+
+| 项 | 落地位置（本轮亲验） | 门禁状态 | 本轮新鲜复核 |
+|---|---|---|---|
+| **决策 4**：catalog 也按**目录**跳过 `docs/memory` | `lib/core.mjs:30` 导出 `DIST_EXCLUDED_DIRS = new Set(['docs/memory'])`；`lib/core.mjs:186`（`listDistributionFiles`）与 `lib/catalog.mjs:3/:22`（`walkMarkdown`）**同读这一份**；`lib/catalog.mjs:21` 的注释明写"Same exclusion set as listDistributionFiles" | 回归断言在 `scripts/validate-routing.mjs:160`（`catalog must not collect distribution-excluded content`），且该文件由 `test-release.sh:15` 每次发布都跑 | **探针复核**：在 `docs/memory/__probe_guard.md` 放假 finding → `validate-routing` PASS、`catalog.jsonl` 内 `docs/memory` 命中 0；**负向**：注释掉 `lib/catalog.mjs:22` 的排除 → `error: catalog must not collect distribution-excluded content: docs/memory/__probe_guard.md`、exit 1；还原后 PASS。探针已按显式文件名删除 |
+| **组织原则 ADR**（§10.4 + §11 三条决定） | `decisions/0007-authority-plane-and-execution-plane.md`（78 行，Status: accepted）：§10.4 的接口不变式＝"两个问题按序判定"（谁有权/凭什么/按什么合约 → APG；怎么找到/怎么记住/怎么跑起来 → 执行栈）＋四类结论（Native/Adapter/External/Reject）；§11 三条决定分别落在"External: retrieval and session search"、"Project memory is APG's, git-tracked, indexes derived and unattested"、"Adapter: harness integration, observation adapters, the managed root-instruction block protocol (ADR 0006), capability-state reporting"；决策 6 的词表（`available`/`degraded`/`not-installed`）落在"Honest capability state" | 其 Validation 段落此前**是纯散文** → 见 13.16.3（本轮补门禁） | 逐条对照 §10.4/§11 读完全文；英文行文符合仓内"decisions 用英文"的既有惯例（0006 同样） |
+
+### 13.16.2 (A) 新增 `scripts/test-interop-writers.sh`：39 通过 / 0 失败 / 0 缺口
+
+`test-interop-br.sh` 只回答"APG 与**一个**真实写入方共存吗"。新 harness 回答普查引出的更大问题：**ADR 记录的写入方事实，今天对着真组件还成立吗**——以及 APG 的守卫拒绝的是不是**写入方自己的字节**，而不是本仓手打的字面量。
+
+| 段落 | 断言 | 为什么这样设计 |
+|---|---|---|
+| **A 字面量漂移** | 普查记录的 **20 条** marker 字面量，必须仍存在于自己所属的组件里（`grep -F` 全仓，允许文件移动但不允许字面量消失） | 普查是**主张**不是记忆。上游改了 marker，这里必须红，并提示"update decisions/0006" |
+| **B 安全真跑** | `ubs --dry-run --easy-mode`：exit 0、输出含 `Would append scanner documentation to AGENTS.md.`、AGENTS.md 字节不变、无 `.backup`、**HOME 零写入**；`acfs --output`：产 4244 B 且**整文件替换**、无备份；`acfs deploy --project` 目标分歧时 exit 3、报 `REFUSED`、目标字节不变、写出 `AGENTS.md.acfs-new` | 全部是"会真写但只写在临时目录/fake HOME"的路径；`--dry-run` 用来钉**零写入**这条主张 |
+| **C 真字节过守卫** | 从 ubs `install.sh` 的 heredoc（`quick_reference_block`）**逐字**抽出 2110 B 的块 → 置于 APG 区域**之上必须拒绝且文件不被改**；置于**之下必须放行** | "above 拒绝 / below 放行"是一对控制：单看非零退出无法排除"因无关原因失败" |
+
+**它刻意不做的事**：不跑任何组件的完整安装器。`ubs --version` **不是标志**，会落入完整安装流程（下载二进制、改 rc、装 cron）——harness 头部把这条写死了。
+
+**安全性**：无 sudo、无网络；每次外部调用都 `HOME` + `ACFS_TARGET_HOME` 指向一次性目录、cwd 不在任何仓库内；组件 checkout 只读；`SKIP` 条件=checkout 缺失（组件不随 APG 分发）。**负向证明**：把 `APG_EXTERNAL_REPOS` 指向把字面量抽掉的假 checkout → A 段按名失败、harness exit 1（假 fixture 已按名删除）。
+
+### 13.16.3 同一判据用在 ADR 0007：`scripts/test-boundary.mjs`
+
+ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command that indexes, schedules, executes, or stores derived state"与"catalog/manifest regeneration confirms no external bytes entered the distribution surface"——**两句都只是散文，没有任何测试跑过它们**。这与 3.0.10 记下的教训（"有覆盖测试"≠"覆盖测试会被跑"）是同一类问题，所以本轮把它做成可执行的窄门禁：
+
+- 从 `apg --help` 解析顶层命令组，与**钉死的 9 组**（`context/project/catalog/release/provider/migrate/risk/memory/dsh`）逐一比对——新增命令必须**刻意**改这个列表，从而被迫对着 ADR 0007 的"权威面/执行面"重新审视；
+- 对"实际存在的组 ∪ 钉死的组"再做一次禁用名检查（`index|search|retriev|schedule|queue|job|run|execute|worker|daemon|serve|store|vector|cache|crawl|scrape`）——这样**钉死列表本身写错**也会被同一条规则抓住；
+- 断言 `PACKAGE_MANIFEST.json` 的路径集合**等于**打包器自己的白名单 `listDistributionFiles()`（手塞一条路径进 manifest 会立刻红），且没有任何分发路径命中被普查组件的名字（防止 NOASSERTION 字节被 vendoring）。
+
+**负向证明（两条，都实测）**：① 往钉死列表加 `search` → exit 1，报"names a mechanism ADR 0007 assigns to the execution stack"；② 往 manifest 塞 `lib/external_vendored_thing.mjs` → exit 1，报"does not match the packer allowlist"。还原后 PASS（9 命令组 / 81 分发文件）。
+
+### 13.16.4 分发面与版本号
+
+本轮新增/改动的是 `scripts/test-*`（不在 `SCRIPT_FILES` 白名单）、`decisions/`、`plans/`、`CHANGELOG.md`（均不在 `DIST_*`）——**没有一条落在分发面**，因此**不升版本号、不重建 manifest**：`PACKAGE_VERSION` 仍 3.0.10，manifest 仍 `sha256:9c768b73…`（81 文件），`release verify-source` 绿。两条新门禁已挂进 `scripts/test-release.sh`，与 3.0.10 补挂的 genericity gate 并列。
+
+### 13.16.5 本轮新增的一条待拍板项（并入 §13.15）
+
+新 harness 的输入是 `.agent-scratch/external-test/repos/` 的 39 个 checkout（**gitignored**）。checkout 缺失时它**干净 SKIP**——这意味着**它本身不构成长期证据**：scratch 一删，A/B/C 三段就静默不跑了。若要让这条证据长期活着，需要你定一件事：是否把**最小子集**（`ultimate_bug_scanner`、`agentic_coding_flywheel_setup`，加上已有 `br` 二进制）的获取方式固定下来（提交一份"从哪来、什么版本、sha256 是多少"的清单，而不是提交组件字节——后者违反 NOASSERTION 红线）。
