@@ -272,6 +272,44 @@ grep -qF "sits above APG's regions" "$TMP/p3.err" \
 cmp "$TMP/p3-root-before.md" "$PROJECT_P3/AGENTS.md" >/dev/null \
   || fail 'P3: the refused merge still modified the root file'
 
+# P3 marker vocabulary (decisions/0006 "Writer survey corrected"). The guard
+# recognises a foreign managed block by its marker grammar, so the grammar must
+# cover every writer measured in the field - including `am`, which suffixes
+# `:blurb` instead of `:start`/`:begin`, and `ubs`, which writes no namespaced
+# marker at all. It must equally not fire on project prose or APG's own region.
+P3_VOCAB="$TMP/p3-vocab.txt"
+cat > "$P3_VOCAB" <<'VOCAB'
+refuse|br|<!-- br-agent-instructions-v1 -->
+refuse|bv|<!-- bv-agent-instructions-v5 -->
+refuse|ee|<!-- ee:agentsmd:begin generation=3 hash=abc -->
+refuse|slb|<!-- slb:cursor-rules:start -->
+refuse|sbh|<!-- sbh-census:begin -->
+refuse|frankenterm|<!-- frankenterm:start -->
+refuse|am|<!-- am:blurb -->
+refuse|am-end|<!-- am:blurb:end -->
+refuse|ubs|<!-- >>> Ultimate Bug Scanner quick reference (written by install.sh; removed by install.sh --uninstall) -->
+refuse|ubs-end|<!-- <<< End Ultimate Bug Scanner quick reference -->
+allow|prose|Project prose above the prefix stays migratable.
+allow|apg|<!-- agent-project-guides:integrity sha256=0000000000000000000000000000000000000000000000000000000000000000 -->
+allow|mdlint|<!-- end list -->
+allow|todo|<!-- TODO: end -->
+allow|copyright|<!-- Copyright 2026 Example Corp -->
+VOCAB
+while IFS='|' read -r p3_expect p3_label p3_line; do
+  [ -n "${p3_expect:-}" ] || continue
+  p3_probe="$TMP/p3-guard-$p3_label.md"
+  printf '%s\n\n<!-- agent-project-guides:routing:start -->\nbody\n<!-- agent-project-guides:routing:end -->\n' "$p3_line" > "$p3_probe"
+  p3_status=0
+  node "$PACKAGE_P3/scripts/manage-root-blocks.mjs" guard-prefix "$p3_probe" \
+    '<!-- agent-project-guides:routing:start -->' '<!-- agent-project-guides:routing:end -->' \
+    >/dev/null 2>&1 || p3_status=$?
+  case "$p3_expect" in
+    refuse) [ "$p3_status" -ne 0 ] || fail "P3: guard did not recognise the $p3_label foreign marker block" ;;
+    allow) [ "$p3_status" -eq 0 ] || fail "P3: guard over-refused $p3_label" ;;
+    *) fail "P3: bad vocabulary expectation: $p3_expect" ;;
+  esac
+done < "$P3_VOCAB"
+
 # Cloud freshness checks are read-only and distinguish current, differing, and unavailable sources.
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
 current=$(AGENT_PROJECT_GUIDES_VERSION_URL="data:text/plain,$PACKAGE_REVISION%0A" "$PACKAGE_ONE/scripts/install.sh" check-update)

@@ -59,7 +59,18 @@ function strip(buffer, markerPairs) {
 // The grammar is ADR 0006 P2's: a namespaced marker whose namespace is not
 // `agent-project-guides`. Only start markers count - an end marker with no start
 // above it is malformed input for its own writer, not a block APG could reorder.
-const FOREIGN_MARKER = /^<!--\s*(?!agent-project-guides:)[a-z0-9_.:-]*(?:[.:-](?:start|begin)\b|-agent-instructions-v\d+\b)/i;
+// The forms are the measured vocabulary of the five known foreign writers, not a
+// guess (decisions/0006 "Writer survey corrected"):
+//   `br`/`bv`  <!-- br-agent-instructions-v1 -->   (version inside the marker)
+//   `ee`       <!-- ee:agentsmd:begin generation=N hash=H -->
+//   `slb`      <!-- slb:cursor-rules:start -->
+//   `sbh`      <!-- sbh-census:begin -->
+//   `frankenterm` <!-- frankenterm:start -->
+//   `am`       <!-- am:blurb -->                   (no version token at all)
+//   `ubs`      <!-- >>> Ultimate Bug Scanner quick reference (...) -->
+// The last two were added after the census: `am` is marker-suffixed `:blurb`
+// rather than `:start`/`:begin`, and `ubs` writes no namespaced marker at all.
+const FOREIGN_MARKER = /^<!--\s*(?:(?:>>>|<<<)|(?!agent-project-guides:)[a-z0-9_.:-]*(?:[.:-](?:start|begin|blurb)\b|-agent-instructions-v\d+\b))/i;
 
 function foreignBlockAbove(buffer, markerPairs) {
   let first = -1;
