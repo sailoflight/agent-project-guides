@@ -1,6 +1,6 @@
-# 根 `AGENTS.md` 模板
+# 根指令模板
 
-目标位置：`<project>/AGENTS.md`
+目标位置：安装器选中的 `<project>/AGENTS.md` 或 `<project>/CLAUDE.md`
 
 这是兼容 harness 在首轮前自动加载的机械入口，不是 README 的重复摘要。包脚本把永久两层角色路由原样追加到现有根文件；适配子模式只在该 managed block 之外合并以下项目专属章节，不得整文件覆盖、移动或重复路由 block。方案二完成后通过脚本只删除 `adapter-trigger`。不要把完整治理包、生产使用提示或运维 runbook 复制进根入口。
 

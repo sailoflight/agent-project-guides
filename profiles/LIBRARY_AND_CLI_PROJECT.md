@@ -20,7 +20,7 @@
 ## 2. Library 推荐入口
 
 ```text
-AGENTS.md                            两层角色路由、适配状态和项目红线
+所选根指令文件                     两层角色路由、适配状态和项目红线
 docs/architecture/OVERVIEW.md       包和层次边界
 docs/modules/<package>.md           重要包契约
 docs/usage/API.md                   User API/SDK 指南
@@ -57,7 +57,7 @@ CLI 公共契约包括：
 ## 5. CLI 推荐入口
 
 ```text
-AGENTS.md                              开发 agent 路由
+所选根指令文件                       开发 agent 路由
 docs/architecture/CLI.md              parser -> command -> domain -> adapter 边界
 docs/usage/CLI.md                     消费者工作流和稳定约定
 docs/generated/COMMAND_REFERENCE.md   从命令定义生成
@@ -104,4 +104,4 @@ Library 开发 agent 应能从一个公共符号定位实现、测试、兼容�
 
 CLI 开发 agent 应能从一个命令定位 parser、应用逻辑、副作用 adapter、退出码和验证命令。
 
-User 只读取 usage/generated reference，不应加载内部开发 `AGENTS.md` 正文或模块实现说明。
+User 只读取 usage/generated reference，不应加载内部开发根指令正文或模块实现说明。

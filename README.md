@@ -58,7 +58,7 @@ routing/development.roles.jsonl
 永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.1.1; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.2.0; verified_at=never; scope=repo; reason=not_adapted
 ```
 
 - `pending/stale`：安装器管理。
@@ -73,10 +73,10 @@ Package adaptation: status=pending; package_revision=1.1.1; verified_at=never; s
 ```text
 <project>/
   agent-project-guides/
-  AGENTS.md
+  AGENTS.md 或 CLAUDE.md
 ```
 
-包必须位于目标项目内部。vendored clone 应移除内层 `.git`；submodule 场景不要从 submodule 内启动宿主项目 agent。
+包必须位于目标项目内部。安装器按 `AGENTS.md` > `CLAUDE.md` 选择根入口：已有 `AGENTS.md` 时始终写入它；仅有且不超过预留空间的 `CLAUDE.md` 时原地追加；仅有但过大的 `CLAUDE.md` 保持不变，另建短 `AGENTS.md`。无根文件时创建 `AGENTS.md`。local overlay 和未选中的根文件保持不变；若多个候选已含包 managed marker，则拒绝重复安装。vendored clone 应移除内层 `.git`；submodule 场景不要从 submodule 内启动宿主项目 agent。
 
 ## 方案一：只合并永久路由
 
@@ -84,7 +84,7 @@ Package adaptation: status=pending; package_revision=1.1.1; verified_at=never; s
 ./agent-project-guides/scripts/install.sh merge
 ```
 
-脚本保留原根文件字节前缀，只在末尾追加渲染后的永久 routing/state；不调用 LLM、不追加 trigger、不创建或改名 `AGENTS_origin.md`。
+脚本保留所选根指令文件的原始字节前缀，只在末尾追加渲染后的永久 routing/state；不调用 LLM、不追加 trigger、不创建或改名 `AGENTS_origin.md`。
 
 客户随后显式指定：
 
@@ -101,7 +101,7 @@ Package adaptation: status=pending; package_revision=1.1.1; verified_at=never; s
 ./agent-project-guides/scripts/install.sh trigger
 ```
 
-脚本先确保永久路由存在，再在同一个现有 `AGENTS.md` 末尾追加 `bootstrap/AGENTS.adapter-trigger.md`。下一个 agent 判断 initialize/readapt，完成后更新 `adapted` 并运行 `remove-trigger`；只删除 trigger，原项目内容和永久路由保留。
+脚本先确保永久路由存在，再在同一个所选根指令文件末尾追加 `bootstrap/AGENTS.adapter-trigger.md`。下一个 agent 判断 initialize/readapt，完成后更新 `adapted` 并运行 `remove-trigger`；只删除 trigger，原项目内容和永久路由保留。
 
 中断恢复：
 
@@ -125,8 +125,8 @@ node scripts/validate-routing.mjs
 
 ## 安全和回归约束
 
-- 其他根候选 `CLAUDE.md`、`AGENTS.local.md`、`CLAUDE.local.md` 存在时拒绝自动合并。
-- 根 `AGENTS.md` 是 symlink、无效 UTF-8、marker 冲突或合并后超限时保持原文件不变。
+- 根选择固定为 `AGENTS.md` > `CLAUDE.md`；未选中的普通根候选和 local overlay 原样保留，多个候选中出现重复 managed marker 时拒绝继续。
+- 所选根文件是 symlink、无效 UTF-8、marker 冲突或合并后超限时保持原文件不变。
 - 旧 root-replacement handoff marker 必须先按旧版本恢复。
 - 同版本 `merge/trigger` 幂等；版本变化刷新 routing 并标记 `stale`。
 - `remove-trigger` 只接受 `adapted`；`unmerge` 要求 trigger 已删除。
