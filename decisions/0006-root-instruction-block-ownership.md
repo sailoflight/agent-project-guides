@@ -1,6 +1,6 @@
 # 0006: Root instruction-file block ownership protocol
 
-Status: accepted — P1, P2, P3, P4, P5, P8, P9 implemented and verified; P6, P7 remain follow-up work
+Status: accepted — P1, P2, P3, P4, P5, P8, P9 implemented and verified, and the schema-1 bootstrap residual closed; P6, P7 remain follow-up work
 Date: 2026-09-19
 Scope: `AGENTS.md` / `CLAUDE.md` root instruction files, the managed-prefix merge, third-party block interop, per-turn token budget
 Deciders/owner: project owner with development/maintainer
@@ -106,7 +106,7 @@ Adopt a **managed-prefix ownership protocol** for root instruction files:
 - **P6 — Observation ledger, not authority.** APG may record which foreign blocks it observed (marker, version, byte range, approximate tokens) as *observed* state. It never edits, upgrades, or removes a foreign block, and a missing foreign block is never an APG error.
 - **P7 — Budget.** APG's own contribution to the per-turn surface is capped, and the current 1,706 B v2 block is treated as a regression to shrink rather than a baseline to defend.
 - **P8 — Back up before the first mutation (implemented).** Any APG operation that rewrites an existing root instruction file writes a recoverable copy first, then mutates. This closes the only unbacked mutation surface in the toolchain and matches the external writers' practice (`br`'s `.md.bak`, `ee`'s `.ee-backup`) and this project's own "every change backed up and rollback-capable" rule.
-- **P9 — Managed-block integrity (implemented).** A managed block carries `<!-- agent-project-guides:integrity sha256=<hex> -->` as its **second line**, so the start marker stays the first byte and every byte-0 / exactly-once assertion keeps holding. `<hex>` is sha256 over the body lines after the integrity line, each `\n`-terminated, up to but not including the end marker. `manage-root-blocks.mjs` gains `stamp` and `verify`; `replace` refuses on mismatch; the installer stamps every routing block it writes and gates `merge` and `validate_routing` on `verify`. A block with no integrity line is a pre-P9 install: accepted, and upgraded on its next write. The override is the environment variable `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`.
+- **P9 — Managed-block integrity (implemented).** A managed block carries `<!-- agent-project-guides:integrity sha256=<hex> -->` as its **second line**, so the start marker stays the first byte and every byte-0 / exactly-once assertion keeps holding. `<hex>` is sha256 over the body lines after the integrity line, each `\n`-terminated, up to but not including the end marker. `manage-root-blocks.mjs` gains `stamp` and `verify`; `replace` refuses on mismatch; the installer stamps every routing block it writes and gates `merge` and `validate_routing` on `verify`. A block with no integrity line is a pre-P9 install: accepted, and upgraded on its next write. This remains true for the **routing** block. For the **v2 bootstrap** block it was only a first step: the descriptor-side anchor below removed the tolerance, so a bootstrap block with no anchor of any kind is refused rather than accepted. The override is the environment variable `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`.
 
 ## Alternatives considered
 
@@ -140,7 +140,7 @@ Both landed on 2026-09-19; the full evidence is in the commit that introduces th
 | The P8 test is not vacuous | disabling the call makes the suite fail with `FAIL: P8: root was rewritten with no recovery point` |
 | A hand edit of APG's routing block is detected | tampering with the block body makes both `install.sh check` and `install.sh merge` fail with `managed block integrity mismatch: recorded ..., computed ...`, exit 1 |
 | The override is a real escape hatch | the same tampered root proceeds under `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`, and the block verifies again afterwards |
-| Pre-P9 installs do not break | a block with no integrity line verifies as `legacy` (exit 0) and `replace` still works on it; the next write stamps it |
+| Pre-P9 installs do not break | for the routing block, a block with no integrity line verifies as `legacy` (exit 0) and `replace` still works on it; the next write stamps it. The v2 bootstrap block instead gets the descriptor anchor via `project reattest`, which is the sanctioned repair for exactly this state |
 | `replace` self-protects | with a mismatching block it exits 1; with the override it exits 0 |
 | The primitive's other modes are unchanged | `strip` and `replace` byte behaviour is unchanged, covered by the existing suite |
 
@@ -148,9 +148,18 @@ Both landed on 2026-09-19; the full evidence is in the commit that introduces th
 
 ### Relationship to the recorded finding `finding.h1.bootstrap-token-only-validation`
 
-That finding is about a **different block** and remains open. It records that `lib/bootstrap.mjs`'s `inspectBootstrap` (:97-108) validates the schema-1 **v2 bootstrap block** (`<!-- agent-project-guides:v2:start -->`) by requiring byte 0 plus three `includes` checks (`project_id`, `provider.release`, `provider.digest`) and comparing no hash at all, so the rest of the block's governance instructions can be rewritten while `project validate` still reports ready. Schema 2 answered this by design with `integrity.root_block_hash` (`schemas/project-v3.schema.json`, required alongside `manifest_digest`), but the schema-1 path is still token-only.
+That finding is about a **different block** from P9's. It records that `lib/bootstrap.mjs`'s `inspectBootstrap` validated the schema-1 **v2 bootstrap block** (`<!-- agent-project-guides:v2:start -->`) by requiring byte 0 plus three `includes` checks (`project_id`, `provider.release`, `provider.digest`) and comparing no hash at all, so the rest of the block's governance instructions could be rewritten while `project validate` still reported ready. Schema 2 answered this by design with `integrity.root_block_hash` (`schemas/project-v3.schema.json`, required alongside `manifest_digest`); the schema-1 path was token-only.
 
-P9 does **not** close that finding: it covers the `routing:start|end` block written by `install.sh` into consumer roots, not the `v2:start|end` block checked by `inspectBootstrap`. What P9 does provide is the mechanism, already tested: applying `stamp`/`verify` to `V2_START`/`V2_END` and having `inspectBootstrap` compare the recorded hash is now a small, well-understood change rather than a design question.
+**That residual is now closed, in two steps.**
+
+1. P9's mechanism was applied to the v2 block: `renderBootstrap` stamps `V2_START`/`V2_END` on every write, and `inspectBootstrap` verifies the recorded line. This closed tampering with a block written after that change, but left a tolerance: a block with **no** integrity line was still accepted as `legacy`, so a pre-existing install stayed unverifiable.
+2. Schema 1 gained the same descriptor-side anchor schema 2 has: `integrity.root_block_hash` is a validated descriptor field (`schemas/project.schema.json`, `lib/descriptor.mjs`), recorded by `project init` and refreshed by the new `project reattest`. `inspectBootstrap` now compares the block against it, and a block that carries **neither** anchor is refused with `bootstrap_unverifiable` instead of being accepted as legacy. The hash convention is deliberately the same as schema 2's: sha256 over the marker-delimited block bytes.
+
+Why the descriptor anchor is the one that matters: a hash recorded *inside* the block is not a defence against a writer who can edit the whole file, because whoever rewrites the body can rewrite its recorded hash too. An anchor in a different file breaks that loop.
+
+The `legacy` verdict still exists in `lib/block-integrity.mjs` and is still used by the routing-block path and by `reattest`'s pre-check, but it is no longer a way to pass validation with no anchor.
+
+Evidence (all in `scripts/test-v2.mjs`): a block tampered while keeping all three descriptor tokens fails with `bootstrap_mismatch`; deleting the integrity line fails against the descriptor anchor; deleting the descriptor anchor *and* the line fails with `bootstrap_unverifiable`; `project reattest` verifies the installed block first (so it cannot launder a hand edit), installs a stamped block, records the new hash, and is idempotent — driven from the worst case (a block with no line and a stale descriptor anchor).
 
 ### P3: implemented and measured
 
@@ -172,5 +181,4 @@ Landed with the narrowed scope above; the full evidence is in the commit that in
 ### Open items this ADR does not close
 
 - **P6** — the observation ledger is not implemented; nothing yet records which foreign blocks APG saw.
-- **P7** — APG's own block is still 1,706 B against the 731-758 B its consumers use.
-- The recorded `bootstrap-token-only-validation` finding, as set out above.
+- **P7** — APG's own block is still 2,062 B against the 731-758 B its consumers use.

@@ -1281,11 +1281,13 @@ exit=1
 
 **P3 后续（已闭合，口径经主人裁定收窄）**：P3 已实现，harness 现为 **19 通过 / 0 失败 / 0 缺口**。实现时发现 ADR 原文与既有测试冲突：P3 字面要求「区域之上有任何内容就 fail」，而 `scripts/test-install.sh:230-239` 有意把「项目自撰正文在 routing 块之上」的 pre-scheme-1 尾置布局**迁移到前缀**并断言成功——两者不能同时成立。经主人裁定取**窄口径**：只有当区域之上存在**其他写入方的受管 marker 块**（命名空间非 `agent-project-guides`，即 `br-agent-instructions-v{n}`、legacy `bv-agent-instructions-v{n}`、`ee:agentsmd:begin`）时才拒绝并请求人工 reconcile；项目自撰正文仍照旧迁移。新增原语 `manage-root-blocks.mjs guard-prefix`（由 `install.sh` 与 harness 共用），`rebuild_root_prefix` 在 strip 之前前置调用它，拒绝时不落盘。**已记录的边界**：guard 只在 APG 区域已存在时生效；根上还没有 APG 区域时仍按 P1 抢占字节 0，把既有内容整体下移（字节与顺序无损），属前缀保留而非搬移外部块。非空证明两条：harness 用 pre-P3 算法对同一输入复现 1→30 行的真实搬移；`test-install.sh` 中把 `guard-prefix` 调用置空会使套件以 `FAIL: P3: merge relocated a foreign block above the prefix instead of refusing` 失败，恢复即通过。完整证据见 `decisions/0006` 的「P3: implemented and measured」。
 
-**一处必须说清的边界**：`docs/memory/finding.h1.bootstrap-token-only-validation.json`（confidence=high）记录的是**另一个块**——`lib/bootstrap.mjs` 的 `inspectBootstrap`（:97-108）对 schema-1 的 **v2 bootstrap 块**只做「字节 0 + 三个 `includes`」校验，**完全不比 hash**，所以块内其余治理指令可被改写而 `project validate` 仍报 ready。schema 2 用 `integrity.root_block_hash`（`schemas/project-v3.schema.json`，与 `manifest_digest` 同为必填）在设计上回答了这个问题，但 **schema-1 路径仍是 token-only**。
+**一处必须说清的边界（已闭合）**：`docs/memory/finding.h1.bootstrap-token-only-validation.json`（confidence=high）记录的是**另一个块**——`lib/bootstrap.mjs` 的 `inspectBootstrap` 对 schema-1 的 **v2 bootstrap 块**只做「字节 0 + 三个 `includes`」校验，**完全不比 hash**，所以块内其余治理指令可被改写而 `project validate` 仍报 ready。schema 2 用 `integrity.root_block_hash`（`schemas/project-v3.schema.json`，与 `manifest_digest` 同为必填）在设计上回答了这个问题，而 schema-1 路径当时仍是 token-only。
 
-**P9 没有闭合那条 finding**——它管的是 `install.sh` 写进消费者根的 `routing:start|end` 块，不是 `inspectBootstrap` 检查的 `v2:start|end` 块。但 P9 给出了**已经测过的机制**：把 `stamp`/`verify` 用到 `V2_START`/`V2_END` 上、让 `inspectBootstrap` 比对记录的 hash，现在是一个小改动而不是设计问题。这是一条明确的后续项。
+**该残余现已闭合，分两步**：① 把 P9 的机制用到 v2 块上（`renderBootstrap` 每次写入都戳记，`inspectBootstrap` 校验记录行）——这只挡住了此后的篡改，**无完整性行的旧块仍被当作 legacy 接受**，这是当时的残余；② schema 1 获得与 schema 2 同形的**描述符侧锚**：`integrity.root_block_hash` 成为受校验的描述符字段（`schemas/project.schema.json`、`lib/descriptor.mjs`），由 `project init` 记录、由新增的 `project reattest` 刷新，`inspectBootstrap` 据此比对，**两个锚都没有的块直接以 `bootstrap_unverifiable` 拒绝**，不再有「当作 legacy 放过」这条路。哈希口径与 schema 2 刻意一致：对 marker 区间内的块字节取 sha256。
 
-**ADR 0006 中仍未闭合的**：P6（观测账本未实现）、P7（APG 自身块仍 1,706 B，消费者用的是 731–758 B）。P3 已按上述收窄口径闭合。
+**为什么描述符侧锚才是关键**：写在块**内部**的 hash 挡不住能改写整个文件的写入方——重写正文的人顺手就能把记录行一起改掉；锚放在**另一个文件**里才切断这个循环。
+
+**ADR 0006 中仍未闭合的**：P6（观测账本未实现）、P7（APG 自身块仍 2,062 B，消费者用的是 731–758 B）。P3 已按上述收窄口径闭合；v2 残余已按主人「现在就改 schema 1」的裁定闭合。
 
 ### 13.12 决策 7 / 8：实测完成，给出签字建议
 

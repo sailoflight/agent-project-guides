@@ -40,6 +40,14 @@
         }
       ]
     },
+    "integrity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root_block_hash"],
+      "properties": {
+        "root_block_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+      }
+    },
     "facets": {
       "type": "array",
       "uniqueItems": true,
