@@ -2,18 +2,18 @@
 
 > DSH 优先的项目治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
 
-当前版本：`3.0.0`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
+当前版本：`3.0.1`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
 ## 1. 互信与责任
 
 2.0 初期采用互信调用责任模型，不先建设企业级安全控制面：
 
-- 调用方负责目标、输入、声称的权限、预期外部效果、费用和结果使用，并承担被调用能力已经披露的调用后果。
-- 被调用实现负责准确披露效果、按契约执行、限制失败范围，并如实报告错误和不确定性。
-- 互信不允许隐藏副作用、虚假成功、静默扩大范围或掩盖实现缺陷。
+- 调用方负责目标、输入、权限、外部效果、费用和结果使用。
+- 实现负责准确披露效果、按契约执行、限制失败范围并如实报告。
+- 互信不允许隐藏副作用、虚假成功、静默扩大范围或掩盖缺陷。
 - Production、凭据、私密数据、费用、破坏、release 和物理/安全影响仍使用其 runtime 已定义的权限；角色、prompt、memory 或 descriptor 不制造授权。
 
-身份、ACL、审计、签名供应链、隔离和对抗防护在真实部署边界或失败证明需要时再按最小有效范围增加。完整合同见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
+身份、ACL、审计、签名和隔离在真实边界需要时再增加。完整合同见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
 ## 2. 项目文件
 
@@ -24,7 +24,7 @@
   "schema_version": 2,
   "project_id": "example.project",
   "variant": "selected-inline.none",
-  "release": {"policy": "pinned", "version": "3.0.0", "digest": "sha256:<64 lowercase hex>"},
+  "release": {"policy": "pinned", "version": "3.0.1", "digest": "sha256:<64 lowercase hex>"},
   "documents": {
     "placement": "selected-local",
     "lifecycle": "maintenance",
@@ -42,7 +42,7 @@
 }
 ```
 
-Schema 1 descriptor 继续按 2.0 解释，不会自动重写或采用 3.0。Descriptor 只含 portable project facts，不含机器路径、凭据、generic bytes、cache、receipt 或 journal。
+Schema 1 descriptor 继续按 2.0 解释，不自动重写。Descriptor 不含机器路径、凭据、generic bytes、cache、receipt 或 journal。
 
 ## 3. Runtime 模式
 
@@ -56,11 +56,11 @@ Schema 1 descriptor 继续按 2.0 解释，不会自动重写或采用 3.0。Des
 
 `shared-runtime.pinned` 的 host containment 是 soft，不是同用户文件系统安全边界；项目内不含 generic Markdown。`source-worktree` 继续只允许 package source 给自己使用，并报告 mutable/dirty 状态。
 
-共享 pack 默认在 `$XDG_DATA_HOME/agent-project-guides/runtimes/`；测试可用 `AGENT_PROJECT_GUIDES_HOME` 隔离。
+共享 pack 在 `$XDG_DATA_HOME/agent-project-guides/runtimes/`；测试可用 `AGENT_PROJECT_GUIDES_HOME` 隔离。
 
 ## 4. CLI
 
-CLI 为无第三方依赖的 Node ESM。3.0 fresh consumer 先 preview，再显式 apply：
+CLI 为无依赖 Node ESM。fresh consumer 先 preview，再显式 apply：
 
 ```bash
 node scripts/apg.mjs project materialize \
@@ -77,14 +77,20 @@ Preview 通过后，对同一命令增加 `--apply` 才会写入。随后直接�
 apg context --target /path/to/project --task "fix login recovery" --format context
 ```
 
-Schema 1 项目继续使用 `project init|hydrate|uninstall` 和 `provider resolve|load`。3.0 adoption 当前只提供零写入预览：
+Schema 1 项目先生成零写入预览，再以相同选项和 exact plan digest 迁移：
 
 ```bash
 node scripts/apg.mjs migrate v3-preview \
   --target /existing-project \
-  --variant selected-inline.none \
+  --variant shared-runtime.pinned \
   --lifecycle maintenance \
   --source /path/to/agent-project-guides
+node scripts/apg.mjs migrate v3-apply \
+  --target /existing-project \
+  --variant shared-runtime.pinned \
+  --lifecycle maintenance \
+  --source /path/to/agent-project-guides \
+  --digest sha256:<reviewed-plan-digest>
 ```
 
 `help` 列出 `context`、project/provider/release、migration、risk、memory 和 DSH 接口。`context --format context` 直接输出 bounded governance 内容。命令不运行 LLM，不自动 `git add/commit`，不解析 `latest`；launcher 导入 CLI 前验证精确 manifest 与 hashes。
@@ -163,7 +169,7 @@ node scripts/apg.mjs migrate rollback --target /project --project-id example.pro
 
 Rollback 先 preflight 所有 receipt-owned postimage；有任一 later/ambiguous edit 时执行零恢复写入并报告 conflict。没有冲突时只恢复 migration 捕获和拥有的 bytes/path absence。它不删除 tracked legacy package、无关外部状态或 Git history。
 
-从 schema 1 到 schema 2 当前只有 `migrate v3-preview`：纯输出 proposed descriptor、closure、pre/postimage、transitional exposure、rollback/finalization 边界，不写 plan 文件或目标项目。Migration apply/finalize 尚未实现。
+Schema 1 → 2 的 `v3-preview` 输出 closure、前后像和 plan digest；`v3-apply` 只接受相同选项及 reviewed digest，以 transitional containment 保留 2.0 恢复边界。`v3-rollback` 先验证 recovery anchor 和全部 postimage；冲突时零写入。Finalization 尚未实现。
 
 离线行为：
 

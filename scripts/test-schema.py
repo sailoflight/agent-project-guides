@@ -80,7 +80,7 @@ V3_VALIDATOR.validate({
 V3_VALIDATOR.validate({
     **V3_BASE,
     "containment": {"workspace": "transitional", "host_corpus_exposure": "unknown"},
-    "migration": {"state": "reversible-transition", "from_schema_version": 1, "legacy_provider": "embedded-local"},
+    "migration": {"state": "reversible-transition", "from_schema_version": 1, "legacy_provider": "embedded-local", "recovery_digest": "sha256:" + "5" * 64},
 })
 for candidate in [
     {**V3_BASE, "variant": "selected-cli.shared"},

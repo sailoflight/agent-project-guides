@@ -22,7 +22,7 @@ import { defaultDescriptor, readDescriptor, validateDescriptor, writeDescriptor 
 import { inspectBootstrap, installBootstrap, restoreOwnedFile } from '../lib/bootstrap.mjs';
 import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, openPackedRuntime, openProvider, portableSnapshot, readGenerationKey } from '../lib/provider.mjs';
 import { applyMigration, planMigration, rollbackMigration } from '../lib/migration.mjs';
-import { previewV2ToV3Migration } from '../lib/migration-v3.mjs';
+import { applyV2ToV3Migration, previewV2ToV3Migration, rollbackV3Migration } from '../lib/migration-v3.mjs';
 import { applyMaterialization, previewMaterialization, validateMaterializedProject } from '../lib/materializer.mjs';
 import { compileContext, renderContext } from '../lib/context.mjs';
 import { composeRisk, parseEffectList } from '../lib/risk.mjs';
@@ -613,8 +613,8 @@ function v3SelectionOptions(options) {
     roles: splitList(options.roles).length ? splitList(options.roles) : undefined,
     profiles: options.profiles === undefined ? undefined : splitList(options.profiles),
     overlays: options.overlays === undefined ? undefined : splitList(options.overlays),
-    mandatory: splitList(options.mandatory),
-    protectedEffects: splitList(options['protected-effects']),
+    mandatory: options.mandatory === undefined ? undefined : splitList(options.mandatory),
+    protectedEffects: options['protected-effects'] === undefined ? undefined : splitList(options['protected-effects']),
     rootName: options.root,
   };
 }
@@ -671,7 +671,7 @@ export async function main(argv = process.argv.slice(2)) {
       'apg catalog build|check',
       'apg release manifest|verify-source|install|verify',
       'apg provider capabilities|resolve|search|load|export|import',
-      'apg migrate plan|apply|rollback|v3-preview',
+      'apg migrate plan|apply|rollback|v3-preview|v3-apply|v3-rollback',
       'apg risk classify',
       'apg memory propose|review|promote|supersede|purge',
       'apg dsh report',
@@ -736,6 +736,15 @@ export async function main(argv = process.argv.slice(2)) {
       const projectRoot = observedTargetRoot(options);
       const selection = v3SelectionOptions(options);
       return previewV2ToV3Migration(projectRoot, fs.realpathSync(options.source || packageRoot), selection);
+    }
+    if (action === 'v3-apply') {
+      if (!options.digest) fail('migrate v3-apply requires the reviewed --digest');
+      const projectRoot = observedTargetRoot(options);
+      const selection = v3SelectionOptions(options);
+      return applyV2ToV3Migration(projectRoot, fs.realpathSync(options.source || packageRoot), selection, options.digest);
+    }
+    if (action === 'v3-rollback') {
+      return rollbackV3Migration(observedTargetRoot(options));
     }
     if (action === 'plan') {
       const projectRoot = targetRoot(options, false);

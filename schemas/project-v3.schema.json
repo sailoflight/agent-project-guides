@@ -110,11 +110,12 @@
         "migration": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["state", "from_schema_version", "legacy_provider"],
+          "required": ["state", "from_schema_version", "legacy_provider", "recovery_digest"],
           "properties": {
             "state": {"const": "reversible-transition"},
             "from_schema_version": {"const": 1},
-            "legacy_provider": {"enum": ["thin-bootstrap", "embedded-local", "source-worktree"]}
+            "legacy_provider": {"enum": ["thin-bootstrap", "embedded-local", "source-worktree"]},
+            "recovery_digest": {"$ref": "#/$defs/digest"}
           }
         },
         "protected_effects": {
