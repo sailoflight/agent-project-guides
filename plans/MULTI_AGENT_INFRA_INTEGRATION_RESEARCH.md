@@ -1527,6 +1527,7 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | 14 | `frankenterm` 这一行是否值得换成"可观测" | 发布的 v0.15.1 根本没编进 agent 检测功能（二进制内 `ft-agent-config-`/`frankenterm:start` 出现 0 次，`robot agents configure` 返回 `feature_not_available`）；要测只能换构建（§13.17.3） | 是否批准装 Rust 工具链 + 大幅构建去测这一行；不批就让它**永久保持"未观测"标注** | 未构建；ADR 里已标成"未观测行，不得当作已测负例" |
 | 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） |
 | 16 | `APG_EXTERNAL_BIN` 是否纳入 `test-release.sh` 默认 | 现在默认**不带**，`test-release.sh` 保持无网、无大件也能跑；真实二进制断言要显式给环境变量（§13.17.4） | 是否让默认 runner 也驱动真实二进制（会让 CI 依赖 287.5 MiB 本地件） | 未改默认；section D 缺输入时只报 1 条 GAP |
+| 17 | 被 git 跟踪的 `.mnemon/documents/index.json` 每次**读取**都会改（`lastAccessedAt`） | 本轮只是读了一次托管文档，`git status` 就多出一份纯时间戳 diff（内容 hash 与 `revision` 都没变）。每读一次脏一次，是台 treadmill | 二选一：把 `lastAccessedAt` 从跟踪面里去掉（改 `.gitignore` 或让工具别写它），或接受每次读完要提交一次纯时间戳 diff | 本轮按第二选项提交了（否则树不干净），但**没有改跟踪策略**——那是契约变更 |
 
 ---
 
