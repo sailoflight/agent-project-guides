@@ -37,6 +37,15 @@ The evidence this record rests on:
 
 **D2 — The CLI group is named `components`, not `store`.** The boundary gate rejects a group name that denotes a mechanism (`FORBIDDEN` matches `store`), and the name should denote the product rather than the mechanism. The group offers exactly two read-only actions, `verify` and `probe`; an absent store is not an error and reports `present: false`.
 
+**D2a — The two commands name their own domains.** `verify` reports `packages`,
+`packages_total`, `reusable_packages` and `missing_packages`; `probe` reports `probed`,
+`services` and `reusable_services`. Neither publishes a bare `reusable`, and the probe's
+aggregate no longer carries the constant `action: "none"`. The reason is a measured
+misreading, not taste: the internal capability test read `reusable: []` from `probe` -
+which only ever speaks about services - and concluded that nothing in the store was
+reusable while nine packages verified as available. Found by testing, fixed before the
+tag.
+
 **D3 — The state vocabulary is unchanged.** `available` / `degraded` / `not-installed` / `conflict`, with `action: "none"` for anything not reusable. ADR 0009 D5 stands verbatim; no word is added for the shipped path.
 
 **D4 — The builder is the acquisition path, and it stays non-distributed.** `scripts/build-component-store.mjs` consumes the committed acquisition record and materialises staged bytes into the digest-named layout. It never downloads, never repairs a broken entry, and treats a disagreement between the record and the bytes on disk as a hard failure (`record_mismatch`, exit 1) — that discrepancy is exactly what the record exists to catch. It hard-links when the store and the source share a filesystem and reports which it used (`link` / `copy`), because a hard-linked entry shares its inode with the staged copy.
@@ -58,6 +67,29 @@ The evidence this record rests on:
 `apg components verify` reports `present: true`, `reusable: [9 ids]`, `missing: []`; a second builder run reports `materialised: 0, present: 9`, so the operation is idempotent.
 
 **D6 — No service entry was written, because no real service could be described honestly.** The store's service kind exists and is gate-covered against real loopback servers, but no component running on this machine exposes a documented identity plus a read-only health endpoint that a record could pin. Writing one anyway would fabricate an endpoint, which is the failure the four-state vocabulary exists to prevent. The first service entry waits for a service that documents its own identity; until then the kind has synthetic coverage only.
+
+**D8 — A service entry requires an identity a read-only `GET` can return.** The internal
+capability test (plan §13.21.3) started the components that document a service mode and
+measured them against what the store actually does. The criterion that falls out, and
+that this record adopts: the declared health path must answer a read-only `GET` (the
+store sends nothing else) **and** the response must carry the component's identity; the
+endpoint must be reachable without credentials, or identity cannot be checked and every
+probe reports `conflict`; the process must stop on a signal, because a service that
+ignores SIGTERM cannot be handed an Operator lifecycle; and `degraded` is never
+`available`.
+
+Measured against that criterion: `am` answers `/healthz` with `{status: alive}` and
+`/health` with `{status, version}` - liveness, not identity - so its identity is only
+provable through the MCP handshake, which is not a read-only `GET`; `ee` does serve the
+identity but requires a 256-bit bearer token; `ft` answers `/metrics` (not identity) and
+starts `degraded` without a WezTerm peer, and its watcher ignores SIGTERM. **No service
+entry was written and the store remains packages-only.**
+
+The gap this exposes is in the contract, not in the components: `probeService` reads
+`id` and `revision` out of the health JSON with no way to record a differently shaped
+response, so a component that names itself some other way can never reach `available`.
+Extending the service record with an identity mapping is the next decision; it is
+deliberately not taken here.
 
 **D7 — No authority moves.** Discovery, verification and health remain read-only Production/User work; nothing in the shipped path starts, stops, restarts or drains anything, resolves a DNS name, or issues a request other than the declared health path. ADR 0009 D6 stands.
 
@@ -85,7 +117,7 @@ Three gates hold this record, and all three pass:
 
 | Gate | What it pins |
 |---|---|
-| `scripts/test-component-store.mjs` (55 assertions) | The contract end to end: sibling root under the existing variable alone; one copy for two projects; exact file set (extra, missing, tampered, writable manifest, misnamed directory each fail); schema-versus-code field agreement; absent store is `not-installed` with `action: none`; service identity rules (no fetch, no resolvable name, no location field); the store walk over both kinds; the builder against a synthetic record including `--dry-run` writing nothing and a mismatch exiting 1; the CLI; the four discovery states against real loopback servers; and that discovery issues only `GET` on the declared health path |
+| `scripts/test-component-store.mjs` (64 assertions) | The contract end to end: sibling root under the existing variable alone; one copy for two projects; exact file set (extra, missing, tampered, writable manifest, misnamed directory each fail); schema-versus-code field agreement; absent store is `not-installed` with `action: none`; service identity rules (no fetch, no resolvable name, no location field); the store walk over both kinds; the builder against a synthetic record including `--dry-run` writing nothing and a mismatch exiting 1; the CLI, including that neither command publishes a bare `reusable`; the four discovery states against real loopback servers; that a 200 which names no component is a `conflict` whose reason says so (D8); and that discovery issues only `GET` on the declared health path |
 | `scripts/test-boundary.mjs` | 10 command groups (the group name is checked against `FORBIDDEN`), and the manifest equal to the packer allowlist at 85 files |
 | `scripts/test-release.sh` | Runs both, plus the JSON parse of the new schema |
 
@@ -96,6 +128,6 @@ Reversal: delete `lib/components.mjs`, `schemas/component-entry.schema.json` and
 ## Follow-up
 
 - **Maintainer, next release:** done — `PACKAGE_VERSION` and `provider.release` read `4.0.0`; the `v4.0.0` tag is cut once the internal capability test and the rollout dry run pass.
-- **Maintainer, first service entry:** record one when a component running locally documents an identity and a read-only health endpoint. Until then the kind is covered by synthetic loopback servers only.
+- **Maintainer, first service entry:** D8 states the criterion. None of the three components measured against it qualifies today, so the kind still has synthetic loopback coverage only; the next decision is whether the record may declare which fields carry identity, which is what would let a real third-party service be recorded honestly.
 - **Owner, consumer rollout:** deliberately not started. No consumer repository was touched; ADR 0010 makes the capability available, it does not adopt it.
 - **Maintainer, store lifecycle:** nothing prunes or repairs the store. A stale entry is verified, fails its digest if the bytes changed underneath it, and is otherwise left alone; removal is a human action.

@@ -367,29 +367,40 @@ function observeProject(options) {
 function verifyComponents(options) {
   const root = storeRoot({ store: options.store });
   if (!fs.statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
-    return { root, present: false, packages: [], services: [], reusable: [] };
+    return { root, present: false, packages_total: 0, packages: [], reusable_packages: [], missing_packages: [], services: [] };
   }
   const records = readStoreEntryRecords(root);
   const packages = records.packages.map((entry) => resolvePackage(entry, root));
+  // The package command names packages and the service command names services. An earlier
+  // shape published a bare `reusable` here and a bare `reusable` there, over two different
+  // domains, and the internal capability test read `reusable: []` from `probe` as "nothing
+  // is reusable" while nine packages verified as available.
   return {
     root,
     present: true,
+    packages_total: packages.length,
     packages,
     services: records.services.map((entry) => ({ id: entry.id, endpoint: entry.endpoint, revision: entry.revision ?? null, delivery: entry.delivery })),
-    reusable: packages.filter((entry) => entry.reusable).map((entry) => entry.id),
-    missing: packages.filter((entry) => entry.state === 'not-installed').map((entry) => entry.id),
+    reusable_packages: packages.filter((entry) => entry.reusable).map((entry) => entry.id),
+    missing_packages: packages.filter((entry) => entry.state === 'not-installed').map((entry) => entry.id),
   };
 }
 
 async function probeComponents(options) {
   const root = storeRoot({ store: options.store });
   if (!fs.statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
-    return { root, present: false, services: [], reusable: [], action: 'none' };
+    return { root, present: false, probed: 0, services: [], reusable_services: [] };
   }
   const records = readStoreEntryRecords(root);
   const services = [];
   for (const entry of records.services) services.push(resolveService(entry, [await probeService(entry)]));
-  return { root, present: true, services, reusable: services.filter((entry) => entry.reusable).map((entry) => entry.id), action: 'none' };
+  return {
+    root,
+    present: true,
+    probed: services.length,
+    services,
+    reusable_services: services.filter((entry) => entry.reusable).map((entry) => entry.id),
+  };
 }
 
 function reattestProject(options) {

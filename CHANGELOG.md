@@ -53,7 +53,7 @@ distributed surface is advertised without a tag behind it.
   acquisition record, verifies every staged byte against it, hard-links when the store
   shares a filesystem with the source and reports which it used, and treats a
   disagreement between record and disk as a hard failure instead of a repair.
-- The gate `scripts/test-component-store.mjs` (55 assertions, wired into
+- The gate `scripts/test-component-store.mjs` (64 assertions, wired into
   `scripts/test-release.sh`) now imports the shipped library rather than carrying its
   own private validator, and additionally pins the schema against the fields the code
   actually writes. A negative control was run and recorded: with the file-set
@@ -68,6 +68,19 @@ distributed surface is advertised without a tag behind it.
 - `PACKAGE_VERSION` moved to `4.0.0` in the same release that shipped this contract:
   `main` had carried two distributed files more than tag `v3.0.10` pins, and the bump
   is what closes that gap.
+- `apg components verify` and `apg components probe` no longer publish a bare `reusable`
+  key over two different domains. The internal capability test read `reusable: []` from
+  `probe` (which only ever speaks about services) and reported "nothing is reusable"
+  while nine packages verified as available - the two commands now name their own
+  domains (`reusable_packages` / `missing_packages` / `packages_total` and `probed` /
+  `reusable_services`), and the constant `action: "none"` is gone from the probe's
+  aggregate, where it never carried information.
+- A health response that answers 200 without naming the component is now refused as a
+  `conflict` whose reason says what was missing. It used to report "the endpoint belongs
+  to undefined", which is a sentence about the code rather than about the component. The
+  capability test hit this on a real server whose health endpoint returns only
+  `{status, version}` - liveness masquerading as identity, which is exactly the reuse
+  the four-state vocabulary exists to prevent.
 **Root-block observation (ADR 0006 P6) — APG can now record the blocks it saw, and
 nothing else.**
 
