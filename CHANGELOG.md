@@ -9,6 +9,33 @@ APG is a harness-neutral governance core: it decides *what* a project commits to
 runtime and it never executes a model. Entries below are grouped by the surface
 they change.
 
+## 3.0.10
+
+**Root-block guard — the marker grammar now covers the measured field, and stops
+over-refusing.**
+
+- `scripts/manage-root-blocks.mjs` recognizes a foreign managed block by a marker
+  grammar, and `install.sh` refuses to merge when one sits above APG's regions.
+  A systematic census of 39 external checkouts found **three real writers that
+  grammar could not see**: `cass`'s spaced sentence marker
+  (`<!-- Auto-generated rules from cass-memory playbook -->`), its
+  `<project_rules>` tag, and `ntm`'s `<INSTRUCTIONS>` tag. A block from any of
+  them would have been silently relocated; they now refuse.
+- The `>>>`/`<<<` branch (`ubs`) was wide enough to refuse **any** comment
+  starting with those characters. It now requires real text after the arrows, so
+  `<!-- >>> -->` and prose quoting a scanner marker migrate normally.
+- The census also corrected the writer count, from 3 to **11** components with
+  root-instruction writers — with three findings that change what APG may rely
+  on: `ubs`'s `.backup` is overwritten by an idempotent re-run (it copies before
+  checking), and `ntm`/`acfs`/`cass` rewrite the whole file, so no marker guard
+  can protect against them. Details in `decisions/0006`.
+- Regression: `scripts/test-install.sh` drives a **32-row** vocabulary (14 marker
+  forms that must refuse, 18 benign forms that must not) through the shipped
+  `guard-prefix`. The `allow` rows include seven field-scan literals that **no
+  writer emits**, so the narrow scope is pinned in both directions.
+- The census measured four real grammar gaps and one over-refusal; reverting to
+  the previous grammar makes exactly those five rows fail.
+
 ## 3.0.9
 
 **Bootstrap integrity — the schema-1 residual is closed.**
