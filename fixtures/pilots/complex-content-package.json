@@ -1,7 +1,20 @@
 {
   "schema_version": 1,
   "id": "complex-content-package",
+  "kind": "external-source-copy",
+  "source_base": "workspace",
   "source_relative": "MSP/Core",
+  "source_expectation": {
+    "root_entry": "AGENTS.md",
+    "root_revision": "1.4.3",
+    "drift_note": "MSP/Core belongs to the MSP worktree rather than an independent repository, and neither AGENTS.md nor CLAUDE.md appears anywhere in that worktree's history. This pilot has no root entry to migrate at all, so its coverage is structurally unavailable rather than merely drifted.",
+    "frozen_baseline": {
+      "location": "none: this pilot never had a recoverable 1.4.3 root entry",
+      "regenerable": false,
+      "recovery": "Supply a real content-package project whose root entry is still the pre-migration 1.4.3 routing block, then run with APG_PILOT_STRICT=1. Do not synthesise a root entry for this pilot: unlike small-cli it never measured one, so there is no frozen baseline to reproduce."
+    }
+  },
+  "frozen_baseline_note": "The baseline block below is the frozen 1.4.3 measurement and must not be re-recorded.",
   "project_id": "pilot.msp-core",
   "facets": ["content-package"],
   "overlays": ["agent-governance"],

@@ -1,7 +1,20 @@
 {
   "schema_version": 1,
   "id": "small-cli",
+  "kind": "external-source-copy",
+  "source_base": "workspace",
   "source_relative": "cc-teamwatch",
+  "source_expectation": {
+    "root_entry": "AGENTS.md",
+    "root_revision": "1.4.3",
+    "drift_note": "The cc-teamwatch root entry was migrated from the 1.4.3 routing block to the v3 block on 2026-09-09, and no commit in that worktree ever contained a package_revision=1.4.3 root entry, so the frozen precondition cannot be restored from its history.",
+    "frozen_baseline": {
+      "location": "a sibling checkout of this package pinned at PACKAGE_VERSION=1.4.3 (42 files), held inside the cc-teamwatch worktree and tracked by it",
+      "regenerable": false,
+      "recovery": "Rebuild the 1.4.3 root entry from that copy's bootstrap/AGENTS.routing-block.md, place it in the pilot source, then run with APG_PILOT_STRICT=1. Never re-record the migrated v3 root entry as the baseline."
+    }
+  },
+  "frozen_baseline_note": "The baseline block below is the frozen 1.4.3 measurement and must not be re-recorded. Restored coverage goes through fixtures/pilots/synthetic-cli.json, which reuses this block verbatim.",
   "project_id": "pilot.cc-teamwatch",
   "facets": ["cli"],
   "overlays": [],
