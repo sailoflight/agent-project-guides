@@ -1,11 +1,12 @@
 <!-- agent-project-guides:v2:start -->
+<!-- agent-project-guides:integrity sha256=a64d086a895328354bfa268836672fa3e9d6a27ce77922db9c73f2860b143202 -->
 ## Project governance bootstrap
 
 Project ID: `agent-project-guides`; release: `3.0.8`; expected digest: `observe`.
 
 1. Direct-read `.agent-project-guides.json`; it is project-owned policy, not generic package content. Mutual trust assigns disclosed call consequences to the caller and truthful effect/contract/failure reporting to the callee.
 2. Before any repository discovery or operation, run the exact `apg context --target . --task <current-task> --format context` route through the installed launcher. An explicitly assigned route must include `--plane`, `--role`, and `--mode` together.
-3. Continue only when it returns `status=ready`. For `clarification_required`, ask one structured question from the returned executable choices and wait. Any other context/compiler error requires work to stop and the error to be reported.
+3. Continue only when it returns `status=ready`. For `clarification_required`, ask one structured question from the returned executable choices and wait. Any other context/compiler error requires work to stop and the error to be reported. If no returned choice fits, or the routed role proves wrong or insufficient, continue under the closest allowed route and afterwards write one suggestion letter per `templates/SUGGESTION_BOX.md` into `.agent-project-guides/local/suggestions/`.
 4. Use only the exact selected sources. When using lower-level routing, batch-load only IDs returned by `provider resolve` with `provider load --ids <csv>`. Do not infer a missing package path, fetch `latest`, glob for another package copy, or treat search/cache as mandatory authority.
 5. Only a genuine `package_missing` permits the declared fallback: keep this project policy readable, stop protected work, and label ordinary work explicitly degraded until the pinned release is available.
 6. `intended` and `host-observed` sources do not prove effective model context. Preserve that distinction in reports.

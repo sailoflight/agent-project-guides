@@ -19,7 +19,7 @@ import {
 import { buildCatalog, catalogJsonl, loadCatalogEntry, normalizeCatalogId, readCatalog, resolveRoute, searchCatalog, writeCatalog } from '../lib/catalog.mjs';
 import { validateContextRoutes } from '../lib/context-routes.mjs';
 import { defaultDescriptor, readDescriptor, validateDescriptor, writeDescriptor } from '../lib/descriptor.mjs';
-import { inspectBootstrap, installBootstrap, restoreOwnedFile } from '../lib/bootstrap.mjs';
+import { inspectBootstrap, installBootstrap, renderBootstrap, restoreOwnedFile } from '../lib/bootstrap.mjs';
 import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, loadGenerationReference, openPackedRuntime, openProvider, portableSnapshot, readGenerationKey } from '../lib/provider.mjs';
 import { applyMigration, planMigration, rollbackMigration } from '../lib/migration.mjs';
 import { applyV2ToV3Migration, previewV2ToV3Migration, rollbackV3Migration } from '../lib/migration-v3.mjs';
@@ -362,7 +362,18 @@ function validateProject(options) {
     });
     return { ...validation, context_routes: contextRoutes };
   }
-  const bootstrap = inspectBootstrap(projectRoot, descriptor);
+  // Advisory template comparison: report whether the installed block still matches
+  // what this package would render. Deliberately never fatal - a consumer pinned to
+  // an older release differs from a newer running CLI by design - and a template
+  // problem must not mask the real validation result.
+  const expectedBootstrap = (() => {
+    try {
+      return { expectedBlock: renderBootstrap(packageRoot, descriptor) };
+    } catch {
+      return {};
+    }
+  })();
+  const bootstrap = inspectBootstrap(projectRoot, descriptor, expectedBootstrap);
   let provider;
   try {
     provider = openProvider(projectRoot, descriptor);

@@ -1,27 +1,18 @@
 #!/usr/bin/env node
 
 import fs from 'node:fs';
-import { createHash } from 'node:crypto';
+import { stampBlock, verifyBlock } from '../lib/block-integrity.mjs';
 
+// Marker-level strip/stamp/replace for APG's managed instruction blocks.
+//
 // P9 (decisions/0006): a managed block carries an integrity line as its second
 // line, so a hand edit of APG's own region is detected instead of silently
-// overwritten. Format, and the hash definition, are contract surface:
+// overwritten. The format, and the definition of the recorded hash, are
+// contract surface and live in one place now - lib/block-integrity.mjs - shared
+// with the schema-1 bootstrap path so the two cannot disagree.
 //
-//   <!-- agent-project-guides:routing:start -->
-//   <!-- agent-project-guides:integrity sha256=<hex> -->
-//   ...body...
-//   <!-- agent-project-guides:routing:end -->
-//
-// <hex> is sha256 over the body lines that follow the integrity line, each
-// terminated by a single "\n", up to but not including the end marker. The
-// start marker stays the first line and its text is unchanged, so every
-// existing byte-0 and exactly-once assertion keeps holding.
-//
-// A block without an integrity line is legacy: `verify` accepts it and `stamp`
-// upgrades it on the next write.
-
-const INTEGRITY_PREFIX = '<!-- agent-project-guides:integrity sha256=';
-const INTEGRITY_PATTERN = /^<!-- agent-project-guides:integrity sha256=([0-9a-f]{64}) -->$/;
+// This file is deliberately marker-agnostic: START and END arrive as arguments,
+// so the same commands serve the routing block and the v2 bootstrap block.
 
 function fail(message) {
   console.error(`error: ${message}`);
@@ -55,54 +46,6 @@ function strip(buffer, markerPairs) {
     if (range) result = Buffer.concat([result.subarray(0, range.startAt), result.subarray(range.after)]);
   }
   return result;
-}
-
-function blockBounds(text, startText, endText) {
-  const lines = text.split('\n');
-  const start = lines.indexOf(startText);
-  if (start === -1) return undefined;
-  const end = lines.indexOf(endText, start + 1);
-  if (end === -1) return undefined;
-  return { lines, start, end };
-}
-
-function bodyHash(lines, from, to) {
-  const hash = createHash('sha256');
-  for (let index = from; index < to; index += 1) hash.update(`${lines[index]}\n`);
-  return hash.digest('hex');
-}
-
-function integrityIndex(lines, start) {
-  const candidate = lines[start + 1];
-  return typeof candidate === 'string' && candidate.startsWith(INTEGRITY_PREFIX) ? start + 1 : -1;
-}
-
-/// Insert or refresh the integrity line. A block that is absent or has no end
-/// marker is returned unchanged: this command never invents a managed region.
-function stampBlock(text, startText, endText) {
-  const bounds = blockBounds(text, startText, endText);
-  if (!bounds) return text;
-  const { lines, start, end } = bounds;
-  const existing = integrityIndex(lines, start);
-  const bodyFrom = existing === -1 ? start + 1 : existing + 1;
-  const line = `${INTEGRITY_PREFIX}${bodyHash(lines, bodyFrom, end)} -->`;
-  if (existing === -1) lines.splice(start + 1, 0, line);
-  else lines[existing] = line;
-  return lines.join('\n');
-}
-
-function verifyBlock(text, startText, endText) {
-  const bounds = blockBounds(text, startText, endText);
-  if (!bounds) return { state: 'no-block' };
-  const { lines, start, end } = bounds;
-  const existing = integrityIndex(lines, start);
-  if (existing === -1) return { state: 'legacy' };
-  const match = INTEGRITY_PATTERN.exec(lines[existing]);
-  if (!match) return { state: 'malformed', line: lines[existing] };
-  const actual = bodyHash(lines, existing + 1, end);
-  return actual === match[1]
-    ? { state: 'valid' }
-    : { state: 'mismatch', recorded: match[1], actual };
 }
 
 const argv = process.argv.slice(2);
