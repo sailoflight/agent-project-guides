@@ -144,7 +144,7 @@ Reversal: delete `lib/components.mjs`, `schemas/component-entry.schema.json` and
 
 ## Follow-up
 
-- **Maintainer, next release:** done — `PACKAGE_VERSION` and `provider.release` read `4.0.0`; the `v4.0.0` tag is cut once the internal capability test and the rollout dry run pass.
+- **Maintainer, next release:** done — `PACKAGE_VERSION` and `provider.release` read `4.0.0`, and the annotated tag `v4.0.0` is cut and pushed at `ba3baeb` after the internal capability test passed and this contract was complete. Changes after the tag stay off the distribution surface, so `main`'s 85 distributed files still match what the tag pins; the consumer rollout is the next work and is not started.
 - **Maintainer, first service entry:** D8 states the criterion. None of the three components measured against it qualifies today, so the kind still has synthetic loopback coverage only; the next decision is whether the record may declare which fields carry identity, which is what would let a real third-party service be recorded honestly.
 - **Owner, consumer rollout:** deliberately not started. No consumer repository was touched; ADR 0010 makes the capability available, it does not adopt it.
 - **Maintainer, store lifecycle:** nothing prunes or repairs the store. A stale entry is verified, fails its digest if the bytes changed underneath it, and is otherwise left alone; removal is a human action.
