@@ -365,6 +365,12 @@ else
   NTM="$EXT/ntm-1.35.1/ntm"
   if [ -x "$NTM" ]; then
     mkdir -p "$WORK/d/ntm/cwd"; seed_root "$WORK/d/ntm/cwd"
+    # Simulate APG's P8 backup, using install.sh's exact suffix. The whole-file
+    # tier has no marker defence, so this sibling copy is the ONLY recovery path -
+    # and whether it survives a clobber used to be inferred from the name rather
+    # than measured.
+    cp "$WORK/d/ntm/cwd/AGENTS.md" "$WORK/d/ntm/agents.pristine"
+    cp "$WORK/d/ntm/cwd/AGENTS.md" "$WORK/d/ntm/cwd/AGENTS.md.agent-project-guides.bak"
     ext_run ntm "$NTM" setup --force --no-color
     check "D/ntm setup --force exits 0" "$(rc_of ntm)" "0"
     if has "$WORK/d/ntm/cwd/AGENTS.md" '<INSTRUCTIONS>'; then
@@ -377,10 +383,16 @@ else
     else
       ok "D/ntm clobbered APG's region entirely (no marker guard can see this)"
     fi
-    if ls "$WORK/d/ntm/cwd"/AGENTS.md.* >/dev/null 2>&1; then
-      no "D/ntm created a backup, contradicting the census"
+    if cmp -s "$WORK/d/ntm/cwd/AGENTS.md.agent-project-guides.bak" "$WORK/d/ntm/agents.pristine"; then
+      ok "D/ntm leaves a sibling .agent-project-guides.bak byte-identical, so P8 survives a whole-file clobber"
     else
-      ok "D/ntm creates no backup before the clobber, as recorded"
+      no "D/ntm overwrote or removed APG's P8 backup; the whole-file tier would have no recovery path"
+    fi
+    # Only its OWN backups count here, so APG's simulated one is excluded.
+    if [ "$(find "$WORK/d/ntm/cwd" -maxdepth 1 -name 'AGENTS.md.*' ! -name 'AGENTS.md.agent-project-guides.bak' | wc -l)" -eq 0 ]; then
+      ok "D/ntm creates no backup of its own before the clobber, as recorded"
+    else
+      no "D/ntm created a backup of its own, contradicting the census"
     fi
   else
     note_gap "D/ntm: released binary absent"
@@ -420,6 +432,24 @@ else
       ok "D/cass left the refused file untouched"
     else
       no "D/cass rewrote the file it claimed to refuse"
+    fi
+    # The forced path is the census's sharpest whole-file clobber. It is survivable
+    # only because APG's P8 backup name differs from every writer's own, so measure
+    # that instead of inferring it from the name.
+    mkdir -p "$WORK/d/cass-force/cwd"; seed_root "$WORK/d/cass-force/cwd"
+    cp "$WORK/d/cass-force/cwd/AGENTS.md" "$WORK/d/cass-force/pristine"
+    cp "$WORK/d/cass-force/cwd/AGENTS.md" "$WORK/d/cass-force/cwd/AGENTS.md.agent-project-guides.bak"
+    ext_run cass-force "$CASS" project --force --format agents.md --output AGENTS.md
+    check "D/cass --force exits 0" "$(rc_of cass-force)" "0"
+    if has "$WORK/d/cass-force/cwd/AGENTS.md" 'agent-project-guides:v2:start'; then
+      no "D/cass --force preserved APG's region; the census records a whole-file rewrite"
+    else
+      ok "D/cass --force rewrote the whole root, losing APG's region"
+    fi
+    if cmp -s "$WORK/d/cass-force/cwd/AGENTS.md.agent-project-guides.bak" "$WORK/d/cass-force/pristine"; then
+      ok "D/cass leaves a sibling .agent-project-guides.bak byte-identical, so P8 survives the rewrite"
+    else
+      no "D/cass overwrote or removed APG's P8 backup; this tier would have no recovery path"
     fi
   else
     note_gap "D/cass: released binary absent"
