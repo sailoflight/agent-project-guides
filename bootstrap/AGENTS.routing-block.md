@@ -11,5 +11,5 @@ Package adaptation: status={{ADAPTATION_STATUS}}; package_revision={{PACKAGE_REV
 6. Resolve record `guide`/`procedure_by_mode` under `{{GUIDES_PATH}}/`, never relative to registry/cwd. Read only those paths; a failure is package integrity, not permission to glob.
 7. Without a trigger, ask adapt-now vs continue only if intent is unclear and state is not `adapted`; explicit adaptation needs no question. Installer owns `pending/stale`; initialize/readapt record `partial/adapted/blocked`.
 
-Subagents receive explicit role/mode, scope, writable paths, environment/data permissions and deliverable; missing/conflicting authority goes to parent/captain, never end user or self-expansion.
+Subagents get explicit role/mode, scope, writable paths, environment/data permissions and deliverable; missing/conflicting authority escalates to the assigning agent, never to the end user or through self-expansion. The assigning agent owns any end-user approval, whatever the topology.
 <!-- agent-project-guides:routing:end -->

@@ -61,4 +61,4 @@ Reviewer 默认 report-only，不实施修复；可执行静态分析和隔离�
 
 ## 6. 子 agent
 
-按 `templates/SUBAGENT_ASSIGNMENT.md` 授权；Reviewer 默认 report-only，只增加目标读取和明确 sandbox 命令。其他权限向 parent/captain 请求。
+按 `templates/SUBAGENT_ASSIGNMENT.md` 授权；Reviewer 默认 report-only，只增加目标读取和明确 sandbox 命令。其他权限向指派方（assigner）请求；需要用户级批准时由指派方取得。

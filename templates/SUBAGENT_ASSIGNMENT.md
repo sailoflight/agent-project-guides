@@ -1,6 +1,6 @@
 # Subagent assignment template
 
-Target: the parent/captain prompt sent to one subagent; never write it into root instructions. Replace every field. An explicitly assigned role skips self-classification and reads only that role's exact entry.
+Target: the assignment prompt the assigner sends to one subagent; never write it into root instructions. Replace every field. An explicitly assigned role skips self-classification and reads only that role's exact entry.
 
 ```text
 Plane: Production | Development
@@ -20,7 +20,7 @@ Destructive actions: forbidden | <explicit approved action>
 Verification: <commands/checks and expected evidence>
 Return format: <findings/change summary/evidence/open decisions>
 Role transitions: none | <pre-authorized role/mode and sequence>
-Escalation: ask parent/captain; never ask the end user directly
+Escalation: ask the assigner; never ask the end user directly (the assigner owns end-user approval)
 ```
 
-The child inherits no role, credential, production, data, cost, or destructive permission that is not explicit above. Scope conflict or missing material authorization stops work and returns to the parent/captain; the child must not read other role guides to expand authority.
+The child inherits no role, credential, production, data, cost, or destructive permission that is not explicit above. Scope conflict or missing material authorization stops work and returns to the assigner; the child must not read other role guides to expand authority.

@@ -65,4 +65,4 @@ Field Evaluator 不进入 production，不维护基础设施，不修改产品�
 
 ## 7. 子 agent
 
-按 `templates/SUBAGENT_ASSIGNMENT.md` 授权，并明确环境、数据、账号、网络、费用和写入；缺失字段时向 parent/captain 请求并停止实战操作。
+按 `templates/SUBAGENT_ASSIGNMENT.md` 授权，并明确环境、数据、账号、网络、费用和写入；缺失字段时向指派方（assigner）请求并停止实战操作；需要用户级批准时由指派方取得。
