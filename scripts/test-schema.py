@@ -61,7 +61,7 @@ V3_BASE = {
         "overlays": ["agent-governance"],
     },
     "router": {"strategy": "inline-route", "executable": "none"},
-    "context": {"max_tokens": 3072, "clarification_max_tokens": 160},
+    "context": {"max_tokens": 4096, "clarification_max_tokens": 160},
     "containment": {"workspace": "physical-selected", "host_corpus_exposure": "unknown"},
     "integrity": {"manifest_digest": "sha256:" + "2" * 64, "root_block_hash": "sha256:" + "3" * 64},
     "protected_effects": [],
