@@ -1,0 +1,107 @@
+{
+  "review_date": "2026-09-23",
+  "apg_baseline": "bd11649",
+  "purpose": "Read-only upstream documentation evidence; no third-party code or license text redistributed; no execution or permission conclusion.",
+  "sources": [
+    {
+      "repo": "cass_memory_system",
+      "ref": "v0.2.14",
+      "file": "README.md",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/v0.2.14/README.md",
+      "sha256": "43a2f6a2d6aafdda10d6fa0bdf0f3ebc935bb8f49e1ec5524472135490e3af80",
+      "resolved_commit": "c173d50f29c2d0494312bf7930dbf22b8a26d860",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/c173d50f29c2d0494312bf7930dbf22b8a26d860/README.md",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "cass_memory_system",
+      "ref": "v0.2.14",
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/v0.2.14/LICENSE",
+      "sha256": "32a82e0a5754e72e51fae44b65a936c831c07376f21c90f5fb9e76897fcc3509",
+      "resolved_commit": "c173d50f29c2d0494312bf7930dbf22b8a26d860",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/cass_memory_system/c173d50f29c2d0494312bf7930dbf22b8a26d860/LICENSE",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "frankenterm",
+      "ref": "v0.15.1",
+      "file": "README.md",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/frankenterm/v0.15.1/README.md",
+      "sha256": "2de47c8fc35119c1503e6534099f2246632975be1e041e432ac4a9522cb4ac19",
+      "resolved_commit": "ced654de8b1772793a8966e7c3bf67dcd0dd39e8",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/frankenterm/ced654de8b1772793a8966e7c3bf67dcd0dd39e8/README.md",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "frankenterm",
+      "ref": "v0.15.1",
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/frankenterm/v0.15.1/LICENSE",
+      "sha256": "32a82e0a5754e72e51fae44b65a936c831c07376f21c90f5fb9e76897fcc3509",
+      "resolved_commit": "ced654de8b1772793a8966e7c3bf67dcd0dd39e8",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/frankenterm/ced654de8b1772793a8966e7c3bf67dcd0dd39e8/LICENSE",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "ntm",
+      "ref": "v1.35.1",
+      "file": "README.md",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/ntm/v1.35.1/README.md",
+      "sha256": "1b7699812719ab1a2f1ba4a6ecdc8900f9f3502c02a5f88c033ce4774bab6629",
+      "resolved_commit": "74ceb3236416f503797344a5a8a8d94ee061f584",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/ntm/74ceb3236416f503797344a5a8a8d94ee061f584/README.md",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "ntm",
+      "ref": "v1.35.1",
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/ntm/v1.35.1/LICENSE",
+      "sha256": "32a82e0a5754e72e51fae44b65a936c831c07376f21c90f5fb9e76897fcc3509",
+      "resolved_commit": "74ceb3236416f503797344a5a8a8d94ee061f584",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/ntm/74ceb3236416f503797344a5a8a8d94ee061f584/LICENSE",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "beads_viewer",
+      "ref": "v0.25.0",
+      "file": "README.md",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/beads_viewer/v0.25.0/README.md",
+      "sha256": "ee94dd4bdd85f4a8e00eff00cb746d5cf7e5865cf6a5dd605c5020024f01e092",
+      "resolved_commit": "87cee25886915ab1d072d807abc234b743899f7c",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/beads_viewer/87cee25886915ab1d072d807abc234b743899f7c/README.md",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "beads_viewer",
+      "ref": "v0.25.0",
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/beads_viewer/v0.25.0/LICENSE",
+      "sha256": "32a82e0a5754e72e51fae44b65a936c831c07376f21c90f5fb9e76897fcc3509",
+      "resolved_commit": "87cee25886915ab1d072d807abc234b743899f7c",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/beads_viewer/87cee25886915ab1d072d807abc234b743899f7c/LICENSE",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "repo_updater",
+      "ref": "main",
+      "file": "README.md",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/repo_updater/main/README.md",
+      "sha256": "8c549b41d8bfa1b50c9adaf67280cb49d71ec61b9b54d58b838a568929356f9f",
+      "resolved_commit": "e9fe7c96b667a4ef06ff124a63de78e23a10f4f1",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/repo_updater/e9fe7c96b667a4ef06ff124a63de78e23a10f4f1/README.md",
+      "commit_content_verified": true
+    },
+    {
+      "repo": "repo_updater",
+      "ref": "main",
+      "file": "LICENSE",
+      "url": "https://raw.githubusercontent.com/Dicklesworthstone/repo_updater/main/LICENSE",
+      "sha256": "32a82e0a5754e72e51fae44b65a936c831c07376f21c90f5fb9e76897fcc3509",
+      "resolved_commit": "e9fe7c96b667a4ef06ff124a63de78e23a10f4f1",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/repo_updater/e9fe7c96b667a4ef06ff124a63de78e23a10f4f1/LICENSE",
+      "commit_content_verified": true
+    }
+  ]
+}
