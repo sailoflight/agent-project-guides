@@ -1,5 +1,7 @@
 # Agent Project Guides 4.0
 
+[发布副本说明](docs/verification/PUBLICATION-PRIVACY.md)
+
 > Harness 中立的治理内核：精确治理上下文、受拥有关系约束的物化/迁移，以及只读本机组件发现。保留 schema 1 兼容性与 schema 2 的 selected-inline / shared-runtime 变体。
 
 当前包版本：`4.0.0`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
