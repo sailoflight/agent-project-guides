@@ -104,16 +104,16 @@ docs/generated/                  # schema/字段参考
 
 不要让开发 agent 把生产数据当作试错环境。优先使用小样本、fixture、replay、dry-run 和硬预算。
 
-## 5. 角色分离
+## 5. 平面和角色分离
 
-Application/service 项目常出现四种角色：
+Application/service 项目通常包含：
 
-- 开发 agent：架构、模块和验证；
-- API/产品消费者：usage、API schema、用户流程；
-- operator：部署、监控和恢复；
-- 最终用户：产品帮助和可观察行为。
+- Development / Developer、Maintainer、Reviewer：架构、实现、维护和隔离验证；
+- Development / Field Evaluator：在 dev/test/staging 使用脱敏或获批数据副本做动态场景评估；
+- Production / User：usage、API schema 和用户流程；
+- Production / Operator：部署、监控、事件响应和恢复。
 
-即使这些角色由同一个人承担，也不应把所有说明塞进自动加载的开发入口。
+即使这些角色由同一个客户明确授予，也必须保持投递面和生产权限边界，不能把所有说明塞进根自动入口。
 
 ## 6. 生成和校验
 

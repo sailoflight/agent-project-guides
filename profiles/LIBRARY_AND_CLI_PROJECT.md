@@ -15,15 +15,15 @@
 - 性能或资源约束；
 - 最小真实示例。
 
-纯函数库通常不需要 operations、部署或生产 agent 路由。不要为了统一目录结构创建这些空文档。
+纯函数库通常不需要 operations 或 Operator 入口。User 仍通过发布后的公共 API/SDK/CLI 投递面工作；不要为了统一目录结构创建空运维文档。
 
 ## 2. Library 推荐入口
 
 ```text
-AGENTS.md                            开发 agent 路由
+AGENTS.md                            两层角色路由、适配状态和项目红线
 docs/architecture/OVERVIEW.md       包和层次边界
 docs/modules/<package>.md           重要包契约
-docs/usage/API.md                   人工消费者指南
+docs/usage/API.md                   User API/SDK 指南
 docs/generated/API_REFERENCE.md     从类型/源码/schema 生成
 docs/verification/MATRIX.md         unit/type/compat/perf 验证
 ```
@@ -104,4 +104,4 @@ Library 开发 agent 应能从一个公共符号定位实现、测试、兼容�
 
 CLI 开发 agent 应能从一个命令定位 parser、应用逻辑、副作用 adapter、退出码和验证命令。
 
-消费者只读取 usage/generated reference，不应加载内部开发 `AGENTS.md` 或模块实现说明。
+User 只读取 usage/generated reference，不应加载内部开发 `AGENTS.md` 正文或模块实现说明。

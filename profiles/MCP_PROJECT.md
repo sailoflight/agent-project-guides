@@ -2,30 +2,30 @@
 
 > 只有项目包含 MCP server、MCP gateway 或 MCP tool provider 时读取。与角色指南组合使用，不替代通用规则。
 
-## 1. 必须分离的三种角色
+## 1. 必须分离的两个平面
 
-### MCP 开发 agent
+### Development / MCP roles
 
-通过仓库 `AGENTS.md`、development、architecture、modules 和 verification 工作。需要了解注册、handler、transport、schema 生成、测试和部署边界。
+Developer、Maintainer、Reviewer 和 Field Evaluator 通过仓库 `AGENTS.md`、development、architecture、modules 和 verification 工作。按各自子模式只读取注册、handler、transport、schema 生成、测试或非生产场景评估所需证据。
 
-### MCP 消费 agent
+### Production / User
 
-通过 MCP server 的 `instructions`、tool schema、resources/prompts 和有界发现入口工作。它不应依赖开发仓库，也不应被要求读取开发 `AGENTS.md`。
+通过 MCP server 的 `instructions`、tool schema、resources/prompts 和有界发现入口工作。User 不应依赖开发仓库，也不应被要求读取开发内容。
 
-### MCP operator
+### Production / Operator
 
 通过 operations/runbook 工作，负责部署、进程、transport、凭据、状态、日志、升级和恢复。
 
-三种角色可能使用相同事实，但必须通过各自投递渠道获得适合自身的最小视图。
+这些角色可能使用相同事实，但必须通过各自投递渠道获得适合自身的最小视图。
 
 ## 2. 推荐项目文档和投递面
 
 ```text
-AGENTS.md                              开发 agent 薄入口
+AGENTS.md                              两层角色路由、适配状态和跨项目红线
 docs/architecture/MCP.md              注册、dispatch、transport、状态边界
 docs/modules/<server-or-module>.md     模块契约
-docs/verification/MATRIX.md           协议、schema、offline/live 验证
-docs/usage/MCP_CONSUMER.md             消费者规范的 authored source
+docs/verification/MATRIX.md           协议、schema、offline/sandbox/staging 验证
+docs/usage/MCP_CONSUMER.md             User 规范的 authored source
 docs/operations/MCP_RUNBOOK.md         部署和恢复
 docs/generated/TOOL_REFERENCE.md       从注册表/schema 生成
 MCP instructions/resources/prompts     运行时消费者投递面

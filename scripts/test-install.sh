@@ -16,117 +16,196 @@ assert_contains() {
   grep -Fq -- "$text" "$file" || fail "$file does not contain: $text"
 }
 
+assert_not_contains() {
+  file=$1
+  text=$2
+  if grep -Fq -- "$text" "$file"; then
+    fail "$file unexpectedly contains: $text"
+  fi
+}
+
 copy_package() {
   destination=$1
   mkdir -p "$destination"
-  cp -R "$ROOT/bootstrap" "$ROOT/scripts" "$ROOT/profiles" "$ROOT/templates" "$destination/"
-  cp "$ROOT/README.md" "$ROOT/DEVELOPER_AGENT_GUIDE.md" "$ROOT/MAINTAINER_AGENT_GUIDE.md" "$destination/"
+  cp -R "$ROOT/bootstrap" "$ROOT/routing" "$ROOT/scripts" "$ROOT/profiles" "$ROOT/templates" "$destination/"
+  cp "$ROOT/PACKAGE_VERSION" \
+    "$ROOT/PACKAGE_ADAPTATION_PROCEDURE.md" \
+    "$ROOT/DEVELOPER_AGENT_GUIDE.md" \
+    "$ROOT/MAINTAINER_AGENT_GUIDE.md" \
+    "$ROOT/REVIEWER_AGENT_GUIDE.md" \
+    "$ROOT/FIELD_EVALUATOR_AGENT_GUIDE.md" \
+    "$ROOT/USER_AGENT_GUIDE.md" \
+    "$ROOT/OPERATOR_AGENT_GUIDE.md" \
+    "$destination/"
+}
+
+assert_original_prefix() {
+  original=$1
+  merged=$2
+  bytes=$(wc -c < "$original" | tr -d '[:space:]')
+  dd if="$merged" bs=1 count="$bytes" 2>/dev/null | cmp - "$original" >/dev/null || fail 'original AGENTS.md prefix changed'
 }
 
 "$ROOT/scripts/install.sh" --help >/dev/null
+if grep -Eq '(^|[[:space:]])(dsh|claude|codex)([[:space:]]|$)' "$ROOT/scripts/install.sh"; then
+  fail 'installer appears to invoke an LLM runner'
+fi
 
-# Existing instructions are preserved byte-for-byte through install and restore.
-PROJECT_ONE="$TMP/existing project"
+# Scheme 1 appends only permanent routing and preserves the original byte prefix.
+PROJECT_ONE="$TMP/scheme one"
 PACKAGE_ONE="$PROJECT_ONE/tools/agent project guides"
 mkdir -p "$PROJECT_ONE/.git" "$PROJECT_ONE/tools"
 copy_package "$PACKAGE_ONE"
-printf '# Existing instructions\n\n- Preserve this rule.\n' > "$PROJECT_ONE/AGENTS.md"
-cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-agents.md"
+printf '# Original project rules\n\n- Preserve this exact rule.\n' > "$PROJECT_ONE/AGENTS.md"
+cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 
-"$PACKAGE_ONE/scripts/install.sh" handoff
-[ -f "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'original instructions were not preserved'
-cmp "$PROJECT_ONE/AGENTS_origin.md" "$TMP/original-agents.md" || fail 'preserved instructions changed'
-assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:handoff:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:origin-mirror:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" '- Preserve this rule.'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'tools/agent project guides/'
-handoff_line=$(grep -nF '<!-- agent-project-guides:handoff:start -->' "$PROJECT_ONE/AGENTS.md" | cut -d: -f1)
-mirror_line=$(grep -nF '<!-- agent-project-guides:origin-mirror:start -->' "$PROJECT_ONE/AGENTS.md" | cut -d: -f1)
-[ "$handoff_line" -lt "$mirror_line" ] || fail 'handoff instructions do not precede the original mirror'
+"$PACKAGE_ONE/scripts/install.sh" merge
+assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
+assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.0.0; verified_at=never; scope=repo; reason=not_adapted'
+assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
+[ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
 "$PACKAGE_ONE/scripts/install.sh" check
-if "$PACKAGE_ONE/scripts/install.sh" handoff >/dev/null 2>&1; then
-  fail 'duplicate handoff unexpectedly succeeded'
-fi
-"$PACKAGE_ONE/scripts/install.sh" restore
-cmp "$PROJECT_ONE/AGENTS.md" "$TMP/original-agents.md" || fail 'restore did not reproduce original instructions'
-[ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'origin backup remained after restore'
+before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
+"$PACKAGE_ONE/scripts/install.sh" merge >/dev/null
+after=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
+[ "$before" = "$after" ] || fail 'scheme 1 merge is not idempotent'
 
-# A dangling origin backup also blocks installation instead of being overwritten.
-ln -s missing-origin "$PROJECT_ONE/AGENTS_origin.md"
-if "$PACKAGE_ONE/scripts/install.sh" handoff >/dev/null 2>&1; then
-  fail 'handoff overwrote a dangling origin backup'
-fi
-cmp "$PROJECT_ONE/AGENTS.md" "$TMP/original-agents.md" || fail 'failed handoff changed original instructions'
-rm "$PROJECT_ONE/AGENTS_origin.md"
-
-# A project without instructions gets a temporary entry that can be removed cleanly.
-PROJECT_TWO="$TMP/new-project"
+# Scheme 2 appends routing then one temporary trigger; it never renames the root file.
+PROJECT_TWO="$TMP/scheme-two"
 PACKAGE_TWO="$PROJECT_TWO/agent-project-guides"
 mkdir -p "$PROJECT_TWO/.git"
 copy_package "$PACKAGE_TWO"
-"$PACKAGE_TWO/scripts/install.sh" handoff
-[ ! -e "$PROJECT_TWO/AGENTS_origin.md" ] || fail 'unexpected origin backup for new project'
-"$PACKAGE_TWO/scripts/install.sh" restore
-[ ! -e "$PROJECT_TWO/AGENTS.md" ] || fail 'temporary entry remained after restore'
+printf '# Existing safety rules\n\n- Production writes require approval.\n' > "$PROJECT_TWO/AGENTS.md"
+cp "$PROJECT_TWO/AGENTS.md" "$TMP/original-two.md"
 
-# A regular-file symlink is preserved as a symlink through handoff and restore.
-PROJECT_THREE="$TMP/symlink-project"
+"$PACKAGE_TWO/scripts/install.sh" trigger
+assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
+[ ! -e "$PROJECT_TWO/AGENTS_origin.md" ] || fail 'scheme 2 renamed original AGENTS.md'
+routing_line=$(grep -nF '<!-- agent-project-guides:routing:start -->' "$PROJECT_TWO/AGENTS.md" | cut -d: -f1)
+trigger_line=$(grep -nF '<!-- agent-project-guides:adapter-trigger:start -->' "$PROJECT_TWO/AGENTS.md" | cut -d: -f1)
+[ "$routing_line" -lt "$trigger_line" ] || fail 'temporary trigger does not follow permanent routing'
+"$PACKAGE_TWO/scripts/install.sh" check
+before=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
+"$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
+after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
+[ "$before" = "$after" ] || fail 'scheme 2 trigger is not idempotent'
+if "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null 2>&1; then
+  fail 'pending trigger was removed before adaptation completed'
+fi
+before=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
+if "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at never --scope repo --reason none >/dev/null 2>&1; then
+  fail 'adapted state accepted an invalid timestamp'
+fi
+if "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-0x-24T12:00:00Z --scope repo --reason none >/dev/null 2>&1; then
+  fail 'state accepted a non-digit timestamp'
+fi
+if "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason 'secret;detail' >/dev/null 2>&1; then
+  fail 'state accepted a non-compact reason'
+fi
+after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
+[ "$before" = "$after" ] || fail 'invalid state arguments changed root instructions'
+
+# A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
+"$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
+"$PACKAGE_TWO/scripts/install.sh" check
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.0.0; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+"$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.0.0; verified_at=never; scope=repo; reason=missing_owner_decision'
+"$PACKAGE_TWO/scripts/install.sh" check
+"$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.0.0; verified_at=never; scope=repo; reason=retry_requested'
+
+# Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
+"$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
+"$PACKAGE_TWO/scripts/install.sh" check
+before=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
+"$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
+after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
+[ "$before" = "$after" ] || fail 'adapted crash recovery repeated or changed adaptation'
+"$PACKAGE_TWO/scripts/install.sh" remove-trigger
+assert_not_contains "$PROJECT_TWO/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
+[ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'trigger removal left trailing blank lines'
+assert_contains "$PROJECT_TWO/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
+assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
+"$PACKAGE_TWO/scripts/install.sh" check
+
+# Explicit later trigger marks an adapted project stale for re-adaptation.
+"$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.0.0; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+"$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
+"$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
+[ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'
+"$PACKAGE_TWO/scripts/install.sh" unmerge
+assert_not_contains "$PROJECT_TWO/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
+assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
+
+# Other auto-loaded root candidates are refused rather than creating ambiguous precedence.
+PROJECT_THREE="$TMP/sibling-project"
 PACKAGE_THREE="$PROJECT_THREE/agent-project-guides"
-mkdir -p "$PROJECT_THREE/.git"
+mkdir -p "$PROJECT_THREE"
+printf 'gitdir: elsewhere\n' > "$PROJECT_THREE/.git"
 copy_package "$PACKAGE_THREE"
-printf '# Shared instructions\n' > "$PROJECT_THREE/shared-agents.md"
-ln -s shared-agents.md "$PROJECT_THREE/AGENTS.md"
-"$PACKAGE_THREE/scripts/install.sh" handoff >/dev/null
-[ -L "$PROJECT_THREE/AGENTS_origin.md" ] || fail 'original AGENTS.md symlink was not preserved'
-assert_contains "$PROJECT_THREE/AGENTS.md" '# Shared instructions'
-"$PACKAGE_THREE/scripts/install.sh" restore >/dev/null
-[ -L "$PROJECT_THREE/AGENTS.md" ] || fail 'AGENTS.md symlink was not restored'
-[ "$(readlink "$PROJECT_THREE/AGENTS.md")" = 'shared-agents.md' ] || fail 'restored symlink target changed'
-
-# Other auto-loaded root candidates make automatic handoff ambiguous and are refused.
-PROJECT_FOUR="$TMP/sibling-project"
-PACKAGE_FOUR="$PROJECT_FOUR/agent-project-guides"
-mkdir -p "$PROJECT_FOUR"
-printf 'gitdir: elsewhere\n' > "$PROJECT_FOUR/.git"
-copy_package "$PACKAGE_FOUR"
-printf '# Existing instructions\n' > "$PROJECT_FOUR/AGENTS.md"
+if "$PACKAGE_THREE/scripts/install.sh" check 2> "$TMP/missing-root.err"; then
+  fail 'check accepted a missing root AGENTS.md'
+fi
+assert_contains "$TMP/missing-root.err" 'root AGENTS.md does not exist'
 for candidate in CLAUDE.md AGENTS.local.md CLAUDE.local.md; do
-  printf '# Sibling instructions\n' > "$PROJECT_FOUR/$candidate"
-  if "$PACKAGE_FOUR/scripts/install.sh" handoff >/dev/null 2>&1; then
-    fail "handoff ignored sibling candidate $candidate"
+  printf '# Sibling instructions\n' > "$PROJECT_THREE/$candidate"
+  if "$PACKAGE_THREE/scripts/install.sh" merge >/dev/null 2>&1; then
+    fail "merge ignored sibling candidate $candidate"
   fi
-  [ ! -e "$PROJECT_FOUR/AGENTS_origin.md" ] || fail 'failed sibling check created an origin backup'
-  rm "$PROJECT_FOUR/$candidate"
+  [ ! -e "$PROJECT_THREE/AGENTS.md" ] || fail 'failed sibling check created AGENTS.md'
+  rm "$PROJECT_THREE/$candidate"
 done
 
-# A handoff that cannot leave shared budget headroom refuses with the original intact.
-PROJECT_FIVE="$TMP/large-project"
-PACKAGE_FIVE="$PROJECT_FIVE/agent-project-guides"
-mkdir -p "$PROJECT_FIVE/.git"
-copy_package "$PACKAGE_FIVE"
-dd if=/dev/zero bs=15000 count=1 2>/dev/null | tr '\000' x > "$PROJECT_FIVE/AGENTS.md"
-if "$PACKAGE_FIVE/scripts/install.sh" handoff >/dev/null 2>&1; then
-  fail 'oversized temporary handoff unexpectedly succeeded'
+# Legacy root-replacement handoff markers require explicit old-version recovery.
+printf '# Legacy\n<!-- agent-project-guides:handoff:start -->\n' > "$PROJECT_THREE/AGENTS.md"
+cp "$PROJECT_THREE/AGENTS.md" "$TMP/legacy-root.md"
+if "$PACKAGE_THREE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'append-only merge accepted a legacy root-replacement handoff'
 fi
-[ "$(wc -c < "$PROJECT_FIVE/AGENTS.md" | tr -d '[:space:]')" -eq 15000 ] || fail 'size refusal changed original instructions'
-[ ! -e "$PROJECT_FIVE/AGENTS_origin.md" ] || fail 'size refusal created an origin backup'
+cmp "$PROJECT_THREE/AGENTS.md" "$TMP/legacy-root.md" >/dev/null || fail 'legacy refusal changed root instructions'
+rm "$PROJECT_THREE/AGENTS.md"
 
-# Invalid UTF-8 is rejected before any root instruction file is moved.
-PROJECT_SIX="$TMP/invalid-utf8-project"
-PACKAGE_SIX="$PROJECT_SIX/agent-project-guides"
-mkdir -p "$PROJECT_SIX/.git"
-copy_package "$PACKAGE_SIX"
-printf '\377' > "$PROJECT_SIX/AGENTS.md"
-if "$PACKAGE_SIX/scripts/install.sh" handoff >/dev/null 2>&1; then
-  fail 'invalid UTF-8 handoff unexpectedly succeeded'
+# Root symlinks are refused so append-only merge cannot change their semantics.
+printf '# Shared instructions\n' > "$PROJECT_THREE/shared-agents.md"
+ln -s shared-agents.md "$PROJECT_THREE/AGENTS.md"
+if "$PACKAGE_THREE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'merge replaced or followed a root AGENTS.md symlink'
 fi
-[ -f "$PROJECT_SIX/AGENTS.md" ] || fail 'UTF-8 refusal moved original instructions'
-[ ! -e "$PROJECT_SIX/AGENTS_origin.md" ] || fail 'UTF-8 refusal created an origin backup'
+[ -L "$PROJECT_THREE/AGENTS.md" ] || fail 'failed symlink check changed root AGENTS.md'
+rm "$PROJECT_THREE/AGENTS.md"
 
-# Legacy temporary manual prompts cannot be nested into a handoff.
-printf '\n<!-- agent-project-guides:manual-merge:start -->\n' >> "$PROJECT_ONE/AGENTS.md"
-if "$PACKAGE_ONE/scripts/install.sh" handoff >/dev/null 2>&1; then
-  fail 'handoff nested itself inside a legacy manual-merge block'
+# Invalid UTF-8 and oversized roots fail before the original file is replaced.
+printf '\377' > "$PROJECT_THREE/AGENTS.md"
+if "$PACKAGE_THREE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'invalid UTF-8 merge unexpectedly succeeded'
 fi
+[ "$(wc -c < "$PROJECT_THREE/AGENTS.md" | tr -d '[:space:]')" -eq 1 ] || fail 'UTF-8 refusal changed original instructions'
+rm "$PROJECT_THREE/AGENTS.md"
+dd if=/dev/zero bs=16000 count=1 2>/dev/null | tr '\000' x > "$PROJECT_THREE/AGENTS.md"
+if "$PACKAGE_THREE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'oversized root merge unexpectedly succeeded'
+fi
+[ "$(wc -c < "$PROJECT_THREE/AGENTS.md" | tr -d '[:space:]')" -eq 16000 ] || fail 'size refusal changed original instructions'
 
-printf 'PASS: handoff safety, restore, candidate refusal, encoding, and budget cap\n'
+# Updating the package revision marks an existing adaptation stale without adding a trigger.
+PROJECT_FOUR="$TMP/version-project"
+PACKAGE_FOUR="$PROJECT_FOUR/agent-project-guides"
+mkdir -p "$PROJECT_FOUR/.git"
+copy_package "$PACKAGE_FOUR"
+"$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
+"$PACKAGE_FOUR/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T14:00:00Z --scope repo --reason none >/dev/null
+printf '1.1.0\n' > "$PACKAGE_FOUR/PACKAGE_VERSION"
+"$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.1.0; verified_at=2026-08-24T14:00:00Z; scope=repo; reason=package_revision_changed'
+assert_not_contains "$PROJECT_FOUR/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
+"$PACKAGE_FOUR/scripts/install.sh" check
+"$PACKAGE_FOUR/scripts/install.sh" trigger >/dev/null
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'Package trigger revision: 1.1.0'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.1.0'
+[ "$(grep -Fc '<!-- agent-project-guides:adapter-trigger:start -->' "$PROJECT_FOUR/AGENTS.md")" -eq 1 ] || fail 'version refresh duplicated the trigger'
+"$PACKAGE_FOUR/scripts/install.sh" check
+
+printf 'PASS: append-only schemes, state lifecycle, trigger cleanup, role routing, and safety guards\n'

@@ -1,136 +1,236 @@
 # Agent 项目开发治理文档包
 
-> 本目录是交付给项目 agents 的执行规范，不是需要所有角色全文阅读的总报告。
+> 本目录提供项目角色路由、包适配流程和按项目类型裁剪的文档规范。它不是要求所有 agents 全文预读的总提示词。
 
 ## 自动加载边界
 
-DeepSeek Harness 的项目指令加载基于文件名和目录链，不基于 README 链接：
+DeepSeek Harness 的项目指令加载基于文件名和目录链：
 
-- session 启动时从 `.git` 项目根到当前工作目录自动加载精确命名的 `AGENTS.md`、`CLAUDE.md` 及其 local overlay；
-- 已加载的 baseline 路径会在每个 model step 前重新探测，因此通过 shell 在运行中的 session 创建或修改根 `AGENTS.md`，通常会在下一步自动投递更新；
-- `README.md` 不会作为 agent 指令自动加载；
-- 将本包仅放进项目子目录不会使包内文档自动进入初始上下文；
-- 新出现的后代目录级 `AGENTS.md` 仍需 agent 通过 `read`、`write` 或 `edit` 触碰对应路径后才会按需注入；
-- DSH code preset 的自动指令总预算当前为 65,536 bytes，超出后可能截断，因此根入口仍应保持精简；
-- 此机制要求 preset 启用 `dsh-agent-instructions`；DSH 自带的 minimal preset 不启用该插件，不能承诺零提示词加载。
+- session 启动时，从 `.git` 项目根到当前工作目录自动加载精确命名的 `AGENTS.md`、`CLAUDE.md` 及 local overlay；
+- 已加载 baseline 会在每个 model step 前重新探测，因此运行中追加根 `AGENTS.md` 通常会在下一步投递；
+- `README.md`、本包角色指南和 routing 文件不会因为放在项目子目录就自动加载；
+- 新出现的后代目录级 `AGENTS.md` 需要 agent 通过文件工具触碰对应路径后按需注入；
+- DSH code preset 的自动指令总预算当前为 65,536 bytes，本包把合并后的根入口限制为 16,384 bytes；
+- 该机制要求 preset 启用 `dsh-agent-instructions`，minimal preset 不启用该插件。
 
-所以本包提供两种交付：方案一由负责人直接写成最终项目根入口；方案二用一次性根 bootstrap 强制首个 agent 选择并读取匹配指南。只有方案二会把治理提示词注入自动上下文；两种方案完成后，日常 agent 都只接收项目专属规则。
+因此根 `AGENTS.md` 只追加短小的永久路由和适配状态，不放完整角色指南、User 生产使用提示或 Operator runbook。
 
-## 放入项目与接入
+## 两层角色路由
 
-在启动新的 agent session 前，先将本目录放在目标项目内部，例如：
+agent 在读取角色简介前先判断工作平面：
+
+```text
+Production plane
+  -> User：通过公开 UI/API/SDK/CLI/MCP 使用已部署产品
+  -> Operator：部署、配置、观察、事件响应、备份、恢复和回滚
+
+Development plane
+  -> Developer：新行为、功能和有意契约变化
+  -> Maintainer：Bug、测试、行为保持型整理和已有项目重新适配
+  -> Reviewer：静态审查和隔离环境动态分析
+  -> Field Evaluator：非生产真实场景动态验证和需求探索
+```
+
+平面不明确时，agent 必须询问“这是生产使用/运维还是开发工作”，并在回答前停止读取两个平面的角色索引。进入一个平面后只读：
+
+- Production：`routing/PRODUCTION_ROLES.md`
+- Development：`routing/DEVELOPMENT_ROLES.md`
+
+角色仍不明确时再次询问，确认后只读一个角色指南。用户明确授予多个兼容角色或子模式时，无需重复询问；但生产凭据、真实数据、破坏性动作和外部费用仍需要单独明确授权。
+
+## 包适配不是顶级角色
+
+包适配是两个 Development 子模式共享的流程：
+
+- 新或实际上为空的项目：Developer / Project Initializer
+- 已有项目：Maintainer / Package Re-adapter
+
+两者读取自己的角色指南和 `PACKAGE_ADAPTATION_PROCEDURE.md`。普通 Feature Developer 和 Code Maintainer 不预读包适配流程。
+
+Package Re-adapter 可以在后期重复执行，用于包版本变化、路由漂移、文档边界失效或局部重新规整。
+
+## 适配状态
+
+永久根路由包含一行短状态：
+
+```text
+Package adaptation: status=pending; package_revision=1.0.0; verified_at=never; scope=repo; reason=not_adapted
+```
+
+字段含义：
+
+- `status`：`pending`、`partial`、`adapted`、`stale` 或 `blocked`
+- `package_revision`：当前合并的 `PACKAGE_VERSION`
+- `verified_at`：完整/部分验收的 ISO-8601 UTC 时间；未验收为 `never`
+- `scope`：`repo` 或准确的局部适配范围
+- `reason`：`adapted` 时为 `none`，其他状态为简短非敏感 reason code
+
+Project Initializer 和 Package Re-adapter 通过 `set-state` 写入 `partial`、`adapted` 或 `blocked` 结果；安装器在初次合并、包版本变化和显式重新适配时管理 `pending`/`stale`。时间字段本身不能证明适配完成，必须通过流程中的证据和冷启动验收。
+
+## 放入目标项目
+
+在目标项目内部放置本包，例如：
 
 ```text
 <project>/
   agent-project-guides/
-  AGENTS.md                 # 已有或待生成的项目根入口
+  AGENTS.md
 ```
 
-方案二使用的脚本全部位于包内，不在目标项目额外投放安装程序。
+脚本全部位于包内，不向目标项目投放额外安装程序。独立 clone 作为普通 vendored 目录时应移除内层 `.git`；作为 submodule 时不要从 submodule 内启动针对宿主项目的 agent。
 
-### 方式一：人工合并最终项目入口（不注入提示词）
+## 方案一：永久路由原样合并，客户显式调用
 
-方案一不向项目根 `AGENTS.md` 写入治理包路径、角色判断、自删除 block 或其他临时提示词。由负责人或明确承担初始化/治理任务的 agent 主动完成一次最终合并：
-
-1. 新项目读取 `DEVELOPER_AGENT_GUIDE.md` 第 0-8 节；已有项目治理读取 `MAINTAINER_AGENT_GUIDE.md`。只选择一个角色指南和匹配 profile。
-2. 读取现有的 `AGENTS.md`、`CLAUDE.md` 及 local overlay，明确必须保留和需要人工协调的规则。
-3. 按 `templates/CORE_DOCUMENT_TEMPLATES.md` 第 1 节，直接创建或修改最终的项目根 `AGENTS.md`；写入项目专属约束和路由，不写入本治理包的跳转。
-4. 创建并验证项目实际需要的 `docs/INDEX.md`、验证矩阵和模块契约。
-5. 启动或继续兼容 session，确认最终根入口能自动加载并通过冷启动验收。
-
-方案一完成后没有 bootstrap 需要保留或删除，日常 agent 只会看到最终项目规则。本包可以继续作为人工治理参考留在项目内，也可以在交付后移除；两种情况都不影响最终根入口。
-
-### 方式二：临时接管并由首个 agent 自行合并（零额外提示词）
-
-在项目内运行：
+运行：
 
 ```bash
-./agent-project-guides/scripts/install.sh handoff
+./agent-project-guides/scripts/install.sh merge
 ```
 
-安装器会：
+脚本只执行机械文件迁移：
 
-1. 从包目录的父级向上查找最近的 `.git` 目标项目根；也可显式传入 `--target <project>`。
-2. 若项目已有根 `AGENTS.md`，原样移动为 `AGENTS_origin.md`，同时把其内容镜像进临时根入口，使原项目约束在 handoff 期间继续自动生效；已有该备份时拒绝覆盖。
-3. 将 `bootstrap/AGENTS.handoff.md` 渲染为临时的项目根 `AGENTS.md`。
-4. 首个兼容 agent 自动收到临时入口，先读取原入口和一个匹配角色指南，再生成最终项目 `AGENTS.md`。
-5. agent 对比确认原约束已保留后，删除临时 handoff/origin-mirror 指令，保留未修改的 `AGENTS_origin.md` 作为人工复核和回滚依据，重新读取最终入口，再继续原始任务。
+1. 保留现有根 `AGENTS.md` 的原始字节前缀；
+2. 在文件末尾原样追加 `bootstrap/AGENTS.routing-block.md` 的渲染结果；
+3. 初始化 `pending` 适配状态；
+4. 校验路径、marker、UTF-8、候选冲突和体积；
+5. 不启动或调用任何 LLM，不追加适配触发。
 
-安装后可以检查或在合并前回滚：
+随后由客户显式命令 LLM：
+
+```text
+新项目：以 Development / Developer / Project Initializer 子模式执行包适配。
+已有项目：以 Development / Maintainer / Package Re-adapter 子模式执行包适配。
+```
+
+适配 agent 完成后运行 `set-state`。方案一没有临时提示词需要删除。
+
+## 方案二：在现有入口末尾追加一次性触发
+
+运行：
 
 ```bash
+./agent-project-guides/scripts/install.sh trigger
+```
+
+脚本先确保永久路由存在，然后在同一个现有 `AGENTS.md` 末尾追加 `bootstrap/AGENTS.adapter-trigger.md`：
+
+1. 不替换、移动、改名或停用原 `AGENTS.md`；
+2. 不创建 `AGENTS_origin.md`；
+3. 下一个兼容 agent 先判断新/已有项目，选择 Project Initializer 或 Package Re-adapter；
+4. 完成规范和验证后更新状态为 `adapted`；
+5. 运行 `remove-trigger`，只删除一次性 trigger，保留原项目内容和永久路由；
+6. 重新读取根入口，再处理用户的原始任务。
+
+若状态已经 `adapted` 但 trigger 因中断尚未删除，下一个 agent 只执行清理，不重复适配。无法安全完成时写 `blocked` 和 reason，保留 trigger 并询问用户是否重试、缩小范围、跳过或人工移除，避免无限重入。
+
+## 脚本命令
+
+```bash
+./agent-project-guides/scripts/install.sh merge
+./agent-project-guides/scripts/install.sh trigger
 ./agent-project-guides/scripts/install.sh check
-./agent-project-guides/scripts/install.sh restore
+./agent-project-guides/scripts/install.sh set-state \
+  --status adapted \
+  --verified-at 2026-08-24T12:00:00Z \
+  --scope repo \
+  --reason none
+./agent-project-guides/scripts/install.sh remove-trigger
+./agent-project-guides/scripts/install.sh unmerge
 ```
 
-handoff 仅处理单一根 `AGENTS.md`。若根目录还存在 `CLAUDE.md`、`AGENTS.local.md` 或 `CLAUDE.local.md`，安装器会拒绝接管，避免重复或覆盖优先级不明的指令，此时按方案一人工生成最终入口。临时根入口必须是有效 UTF-8 且不超过 16,384 bytes；超过时同样回退到方案一，为全局和目录级 authority instructions 保留预算。
+所有命令支持 `--target <project>`。省略时从包父目录向上查找最近 `.git` 文件或目录。
 
-`restore` 只在根文件仍包含完整 handoff 标记时执行；一旦 agent 已写成最终项目入口，脚本拒绝覆盖它。`AGENTS_origin.md` 本身不属于 harness 自动加载候选，所以安装器将其内容镜像进临时根入口，并由临时指令要求 agent 显式读取备份后再合并。自动 handoff 不删除该精确备份；由负责人复核最终入口后决定何时清理。
+安全约束：
 
-DSH 会在每个 model step 前重探测 baseline，因此在运行中的 session 通过 shell 安装根入口后，下一步通常即可收到新增或更新指令；新 session 仍可用于更干净的冷启动验收，但不是加载前提。其他 harness 或禁用 instruction plugin 的 preset 必须单独验证。包内路径按安装器选定的 `.git` 项目根记录，若 agent 从更深工作目录启动，临时入口要求用 `git rev-parse --show-toplevel` 解析当前 session 的项目根再读取对应文件。嵌套仓库或 submodule 会形成自己的 `.git` 根，需要在实际启动 agent 的仓库中分别安装。
+- 发现旧版 root-replacement `handoff` marker 时拒绝继续；先使用对应旧版本回滚或人工恢复原入口，再使用 append-only 安装器；
+- `CLAUDE.md`、`AGENTS.local.md` 或 `CLAUDE.local.md` 同时存在时拒绝自动合并，要求客户先协调优先级；
+- 根 `AGENTS.md` 是 symlink 时拒绝，避免改变链接语义；
+- 无效 UTF-8、marker 冲突和合并后超过 16,384 bytes 时原文件保持不变；
+- 同版本重复 `merge`/`trigger` 幂等；
+- `PACKAGE_VERSION` 变化后再次 `merge` 会刷新 managed routing 并把状态标记为 `stale`；已有 trigger 会在再次 `trigger` 时同步刷新；
+- `remove-trigger` 只接受 `status=adapted`；
+- `unmerge` 只删除 managed routing，且要求 trigger 已先移除。
 
-若通过独立 clone 把本包放入目标项目，本包自身的 `.git` 会让“从包目录内部启动”的 session 把治理包识别为另一个项目。作为普通 vendored 目录复制时应去掉内层 `.git`；作为 submodule 使用时则不要从 submodule 内启动针对宿主项目的 agent。
+## 角色入口
 
-> `bootstrap/AGENTS.handoff.md` 故意不命名为包内的 `AGENTS.md`。否则 agent 维护或读取 bootstrap 目录时，harness 会把模板误当成该目录的真实局部指令。
-
-## 只读取与你当前角色匹配的入口
-
-| 当前角色或任务 | 必读 | 按需读取 | 不应预读 |
+| 平面/角色 | 必读 | 按需读取 | 不应预读 |
 |---|---|---|---|
-| 已有项目的文档/流程维护 agent | `MAINTAINER_AGENT_GUIDE.md` | 与项目类型匹配的 `profiles/*.md`；实际创建文档时读 `templates/CORE_DOCUMENT_TEMPLATES.md` | `DEVELOPER_AGENT_GUIDE.md` 和不匹配的 profiles |
-| 新项目初始化的开发 agent | `DEVELOPER_AGENT_GUIDE.md` 的“新项目初始化”部分 | `templates/CORE_DOCUMENT_TEMPLATES.md`；匹配的 profile | 维护迁移指南和不匹配的 profiles |
-| 已完成初始化后的日常开发 agent | 项目自身的 `AGENTS.md`，不是本目录全文 | 仅当项目文档明确要求时回查 `DEVELOPER_AGENT_GUIDE.md` | 维护指南、模板和 profiles |
-| 代码审查/验证 agent | 项目自身 `AGENTS.md` 与验证矩阵 | 对应模块契约 | 本目录中的迁移和初始化流程 |
-| 产品消费者、MCP 调用 agent 或最终用户 | 项目生成的 usage/协议说明 | 项目公开文档 | 本目录全部内容 |
-| 部署和运维角色 | 项目生成的 operations/runbook | 架构运行时部分 | 本目录全部内容 |
+| Production / User | `USER_AGENT_GUIDE.md` | 项目 `docs/usage/`、公共协议或 MCP 投递面 | 源码开发指南、内部架构、operations |
+| Production / Operator | `OPERATOR_AGENT_GUIDE.md` | 项目 operations/runbook 和有限运行时架构 | 开发指南、User 提示、包适配流程 |
+| Development / Feature Developer | `DEVELOPER_AGENT_GUIDE.md` 第 9-13 节 | 一个模块契约、验证矩阵、匹配 profile | 包适配流程和生产投递面 |
+| Development / Project Initializer | `DEVELOPER_AGENT_GUIDE.md` 第 0-8 节 | `PACKAGE_ADAPTATION_PROCEDURE.md`、匹配 profile 和精确模板小节 | Maintainer、生产投递面 |
+| Development / Code Maintainer | `MAINTAINER_AGENT_GUIDE.md` | 一个模块契约、验证矩阵 | 包适配流程、生产投递面 |
+| Development / Package Re-adapter | `MAINTAINER_AGENT_GUIDE.md` | `PACKAGE_ADAPTATION_PROCEDURE.md`、匹配 profile 和精确模板小节 | Developer、生产投递面 |
+| Development / Reviewer | `REVIEWER_AGENT_GUIDE.md` | 目标 diff、契约和 sandbox 验证 | 生产环境/数据、包适配流程 |
+| Development / Field Evaluator | `FIELD_EVALUATOR_AGENT_GUIDE.md` | dev/test/staging 使用入口和获批数据边界 | production、Operator runbook、整仓源码 |
 
-## 文档包内容
+项目 profiles：
+
+- MCP：`profiles/MCP_PROJECT.md`
+- library/CLI：`profiles/LIBRARY_AND_CLI_PROJECT.md`
+- application/service/GUI/monorepo/data：`profiles/APPLICATION_SERVICE_MONOREPO.md`
+
+只读取匹配 profile。项目组合形态可读取多个匹配文件，但不能预载无关 profile。
+
+## 子 agents 权限
+
+父 agent 必须为每个子 agent 显式传递：
+
+```text
+plane
+role / submode
+objective and deliverable
+read scope
+writable paths
+environment and data permissions
+network / cost / destructive permissions
+verification
+escalation target
+```
+
+子 agent 不继承父 agent 的全部角色或权限，不自行切换平面，不读取其他角色指南。分配缺失或冲突时向父 agent/captain 请求澄清，而不是直接扩大权限或绕过用户授权。只有明确分配的 Project Initializer/Package Re-adapter 可以修改适配状态；只有 Operator 可以执行获批生产运维动作。
+
+## 包结构
 
 ```text
 agent-project-guides/
+  PACKAGE_VERSION
   README.md
-  MAINTAINER_AGENT_GUIDE.md
   DEVELOPER_AGENT_GUIDE.md
+  MAINTAINER_AGENT_GUIDE.md
+  REVIEWER_AGENT_GUIDE.md
+  FIELD_EVALUATOR_AGENT_GUIDE.md
+  USER_AGENT_GUIDE.md
+  OPERATOR_AGENT_GUIDE.md
+  PACKAGE_ADAPTATION_PROCEDURE.md
+  routing/
+    PRODUCTION_ROLES.md
+    DEVELOPMENT_ROLES.md
   bootstrap/
-    AGENTS.handoff.md
+    AGENTS.routing-block.md
+    AGENTS.adapter-trigger.md
   scripts/
     install.sh
     test-install.sh
-  templates/
-    CORE_DOCUMENT_TEMPLATES.md
   profiles/
     MCP_PROJECT.md
     LIBRARY_AND_CLI_PROJECT.md
     APPLICATION_SERVICE_MONOREPO.md
+  templates/
+    CORE_DOCUMENT_TEMPLATES.md
 ```
 
-- `bootstrap/AGENTS.handoff.md`：仅供方案二临时接管项目根入口的首轮自合并模板，不应在包内改名为 `AGENTS.md`。
-- `scripts/install.sh`：安装、检查和回滚方案二的临时根入口；不覆盖未完成的备份或已合并的最终入口。
-- `scripts/test-install.sh`：验证方案二的约束镜像、投递顺序、候选冲突拒绝、编码/预算检查和回滚。
-- `MAINTAINER_AGENT_GUIDE.md`：治理已有项目的混合、缺失或失效文档。
-- `DEVELOPER_AGENT_GUIDE.md`：新项目初始化和后续日常开发纪律。
-- `templates/CORE_DOCUMENT_TEMPLATES.md`：只有实际创建项目文档时才读取；包含应写入项目指定位置的内嵌模板。
-- `profiles/*.md`：只有项目类型匹配时才读取。项目可组合 profile，例如 monorepo 中同时存在 MCP server 和 library package。
+bootstrap 模板故意不命名为包内精确 `AGENTS.md`，避免 agent 读取或维护模板目录时被 harness 当作真实目录级指令注入。
 
-## 使用规则
+## 交付完成标准
 
-1. 只有方案二使用自动 bootstrap；它只负责确定角色和强制最小读取顺序，不把整个治理包复制进根上下文。方案一直接交付最终项目入口。
-2. 先确定角色，再打开一份角色指南；不要把整个目录加入每轮上下文。
-3. 角色指南要求创建项目文档时，再读取模板文件中的精确小节。
-4. 识别项目类型后，只打开匹配的 profile。
-5. 本文档包只指导初始化和治理。项目完成初始化后，方案二删除临时 bootstrap；日常 agent 由项目自己的精简 `AGENTS.md` 路由。
-6. 生产消费者和运维人员不应直接使用本治理包；初始化或维护 agent 应为他们生成独立的 usage/operations 文档或协议投递面。
-7. 任何模板都允许按项目规模裁剪；不得为不适用的角色创建空目录或空文档。
-8. 结论只能标记为 `verified`、`inferred` 或 `unknown`；不得将猜测写成当前事实。
+没有历史上下文的 agent 应能在不预读本包全文的情况下回答：
 
-## 交付完成的共同标准
+1. 当前任务属于 Production 还是 Development？
+2. 当前角色和子模式是什么；不明确时应向谁询问？
+3. 该角色只应读取哪个入口、允许哪些环境和数据？
+4. 修改或操作前有哪些安全、兼容和副作用约束？
+5. 应运行哪些验证，结果投递到哪里？
+6. 包适配状态、版本、时间、范围和 reason 是否可信？
 
-无论初始化还是治理，完成后一个没有历史上下文的开发 agent 都应能在不读取本治理包全文的情况下回答：
-
-1. 项目是什么，当前任务应进入哪个模块？
-2. 该模块负责和不负责什么？
-3. 修改前必须遵守哪些安全、兼容或副作用约束？
-4. 修改后运行哪些验证？
-5. 哪些变化需要更新公共契约、架构、运行手册或经验？
-
-不能回答上述问题，或方案二的根 `AGENTS.md` 仍包含 `handoff`/`origin-mirror` 标记，说明项目内的开发入口仍未完成。
+不能回答这些问题、存在重复 routing block、方案二仍有已完成但未清理的 trigger，或状态与实际证据不一致，说明入口治理尚未完成。
