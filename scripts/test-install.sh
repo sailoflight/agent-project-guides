@@ -48,22 +48,26 @@ for obsolete in \
 do
   [ ! -e "$ROOT/$obsolete" ] || fail "obsolete preload-prone path remains: $obsolete"
 done
-[ "$(wc -c < "$ROOT/bootstrap/AGENTS.routing-block.md" | tr -d '[:space:]')" -le 1600 ] || fail 'per-step routing block exceeded token-oriented byte budget'
+[ "$(wc -c < "$ROOT/bootstrap/AGENTS.routing-block.md" | tr -d '[:space:]')" -le 2000 ] || fail 'per-step routing block exceeded token-oriented byte budget'
 assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'ask_user_question'
-assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'Trigger is active iff this injected root contains its managed block'
-assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'Otherwise route now; never glob/search/read package files for one'
-assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'literal label'
-assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'Skip plane/full registries'
-assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'parent/captain, never the end user'
-[ "$(wc -c < "$ROOT/bootstrap/AGENTS.adapter-trigger.md" | tr -d '[:space:]')" -le 2850 ] || fail 'temporary trigger exceeded token-oriented byte budget'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" '`agent-project-guides:adapter-trigger:start`'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" '`agent-project-guides:adapter-trigger:end`'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'Routing/state and `pending/stale` are not triggers'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'Before pwd/list/glob/read'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'No fuzzy regex'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'under `{{GUIDES_PATH}}/`, never relative to registry/cwd'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'failure is package integrity, not permission to glob'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'parent/captain, never end user'
+[ "$(wc -c < "$ROOT/bootstrap/AGENTS.adapter-trigger.md" | tr -d '[:space:]')" -le 3000 ] || fail 'temporary trigger exceeded token-oriented byte budget'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'check-update'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'package_missing'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'Never Read/cat a registry'
-assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'Explicit compatible role/mode wins'
+assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'Before repository discovery, explicit compatible role/mode wins'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'assigned literal alias'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'do not read `planes.jsonl`'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'project_type'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'resume only recorded scope/reason'
+assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'resolving both under `{{GUIDES_PATH}}/`, never relative to the registry or cwd'
 assert_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'never preload templates'
 routing_bytes=$(wc -c < "$ROOT/routing/planes.jsonl")
 routing_bytes=$((routing_bytes + $(wc -c < "$ROOT/routing/production.roles.jsonl") + $(wc -c < "$ROOT/routing/development.roles.jsonl")))
@@ -71,11 +75,22 @@ routing_bytes=$((routing_bytes + $(wc -c < "$ROOT/routing/production.roles.jsonl
 maintainer_alias=$(grep -F '"仓库维护者"' "$ROOT/routing/development.roles.jsonl")
 printf '%s\n' "$maintainer_alias" | grep -Fq '"id":"maintainer"' || fail '仓库维护者 alias does not resolve directly to maintainer'
 [ "$(grep -Fc '"仓库维护者"' "$ROOT/routing/development.roles.jsonl")" -eq 1 ] || fail '仓库维护者 alias is not unique within development routing'
+maintainer_guide=$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.guide)' "$maintainer_alias")
+maintainer_procedure=$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.procedure_by_mode.readapt)' "$maintainer_alias")
+[ -f "$ROOT/$maintainer_guide" ] || fail 'maintainer guide did not resolve from package root'
+[ -f "$ROOT/$maintainer_procedure" ] || fail 'maintainer procedure did not resolve from package root'
+[ ! -e "$ROOT/routing/$maintainer_guide" ] || fail 'test fixture accidentally permits registry-relative guide resolution'
+[ ! -e "$ROOT/routing/$maintainer_procedure" ] || fail 'test fixture accidentally permits registry-relative procedure resolution'
 [ "$(wc -c < "$ROOT/routing/project-types.jsonl" | tr -d '[:space:]')" -le 700 ] || fail 'project type registry exceeded token-oriented byte budget'
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '不得预读多个 profile'
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '禁止批量预读模板'
+assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '不得先询问是否跳过'
+assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '不提前提问'
+assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '必须与工具轨迹一致'
+assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '相对治理包根目录解析'
+assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '禁止用 glob 猜路径'
 [ "$(wc -c < "$ROOT/roles/development/DEVELOPER.md" | tr -d '[:space:]')" -le 4000 ] || fail 'Developer guide regained initializer duplication'
-[ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 7000 ] || fail 'adaptation procedure exceeded compact budget'
+[ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 7500 ] || fail 'adaptation procedure exceeded compact budget'
 if grep -Eq '(^|[[:space:]])(dsh|claude|codex)([[:space:]]|$)' "$ROOT/scripts/install.sh"; then
   fail 'installer appears to invoke an LLM runner'
 fi
@@ -91,9 +106,9 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 "$PACKAGE_ONE/scripts/install.sh" merge
 assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.3.1; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.3.2; verified_at=never; scope=repo; reason=not_adapted'
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'Otherwise route now; never glob/search/read package files for one.'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'Routing/state and `pending/stale` are not triggers'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
 "$PACKAGE_ONE/scripts/install.sh" check
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
@@ -103,14 +118,14 @@ after=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
 
 # Cloud freshness checks are read-only and distinguish current, differing, and unavailable sources.
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
-current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.3.1%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
+current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.3.2%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$current" | grep -Fq '"status":"current"' || fail 'check-update did not report current remote revision'
 different=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,9.9.9%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$different" | grep -Fq '"status":"remote_differs"' || fail 'check-update did not report differing remote revision'
 unavailable=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,not%20a%20revision' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$unavailable" | grep -Fq '"status":"unavailable"' || fail 'check-update did not report invalid remote metadata as unavailable'
 mkdir -p "$TMP/fake-bin"
-printf '#!/bin/sh\nprintf "MS4zLjE=\\n"\n' > "$TMP/fake-bin/gh"
+printf '#!/bin/sh\nprintf "MS4zLjI=\\n"\n' > "$TMP/fake-bin/gh"
 chmod 0755 "$TMP/fake-bin/gh"
 private=$(PATH="$TMP/fake-bin:$PATH" "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$private" | grep -Fq '"transport":"gh"' || fail 'check-update did not use authenticated gh fallback for a private repository'
@@ -158,12 +173,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.3.1; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.3.2; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.3.1; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.3.2; verified_at=never; scope=repo; reason=missing_owner_decision'
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.3.1; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.3.2; verified_at=never; scope=repo; reason=retry_requested'
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -181,7 +196,7 @@ assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.3.1; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.3.2; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 [ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'

@@ -12,8 +12,8 @@ DeepSeek Harness 按 `.git` 根到 cwd 的路径链自动加载精确命名的 `
 
 不要列出、glob 或预读 `roles/`。顺序：
 
-1. `adapter-trigger` 只有在当前已注入根上下文含成对 managed trigger block 时才激活；不存在时立即普通路由。禁止通过 glob/search/read `bootstrap/` 模板寻找或激活 trigger。
-2. 用户/父 agent 已给 plane/role/mode 时，在 `routing/*.roles.jsonl` 精确 grep quoted `id` 或 literal alias，直接读唯一命中记录；不再判断 plane/role。
+1. `adapter-trigger` 只有在当前已注入根上下文同时含 exact `adapter-trigger:start/end` markers 时才激活。routing/state block 和 `pending/stale` 都不是 trigger；`bootstrap/` 只含模板。markers 不存在时禁止重读/搜索，立即普通路由。
+2. 用户/父 agent 已给 plane/role/mode 时，在任何 pwd/list/glob/read 前，对 `routing/*.roles.jsonl` content-grep exact quoted `id` 或 literal alias；直接使用唯一记录。禁止模糊正则、发现式搜索和重新判断 plane/role。
 3. 未指定时只读 `routing/planes.jsonl` 的两行；Production/Development 不明确时调用可用的结构化问答工具（DSH 为 `ask_user_question`），在收到回答前停止。
 4. 确定 plane 后只搜索对应 registry；role/mode 不明确时使用同一问答工具，并在角色指南前停止。
 5. 适配 trigger 另外从 `routing/project-types.jsonl` 精确 grep 一个主项目类型；不允许通过预读多个 profile 反推类型。未定义或证据实质匹配多个类型时，必须使用结构化问答说明包内没有明确匹配架构，让用户确认最近类型、更新包定义或判定不适用。
@@ -29,7 +29,7 @@ routing/development.roles.jsonl
 routing/project-types.jsonl
 ```
 
-每行都是完整 JSON object，角色记录包含全局唯一 `aliases`。例如 `grep -F '"仓库维护者"' routing/development.roles.jsonl` 直接返回 Maintainer；明确标签时禁止 Read/cat 整个 registry，也不读取 plane registry。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID/alias、plane、role、project type、mode、profile 和包内路径。
+每行都是完整 JSON object，角色记录包含全局唯一 `aliases`。例如 `grep -F '"仓库维护者"' routing/development.roles.jsonl` 直接返回 Maintainer；明确标签时禁止 Read/cat 整个 registry，也不读取 plane registry。记录内 `guide`、`profile` 和 `procedure_by_mode` 全部相对治理包根目录解析，不相对 registry 或 cwd；读取失败是包完整性问题，不能用 glob 猜路径。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID/alias、plane、role、project type、mode、profile 和包内路径。
 
 ## Plane、角色和子模式
 
@@ -60,7 +60,7 @@ routing/project-types.jsonl
 永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.3.1; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.3.2; verified_at=never; scope=repo; reason=not_adapted
 ```
 
 - `pending/stale`：安装器管理。
@@ -78,7 +78,7 @@ Package adaptation: status=pending; package_revision=1.3.1; verified_at=never; s
 - `remote_differs`：云端 revision 不同；必须通过结构化问答选择同步包、明确继续所报告的本地版本或停止。
 - `unavailable`：网络、HTTP 或元数据校验失败；不得误报 current，必须选择重试、明确离线继续或停止。
 
-命令不修改包、根指令或状态。trigger 在读取任何包指南前检查本地关键文件；缺失时使用 `package_missing` 问题，让用户选择从 trigger 中渲染的 Source 恢复 vendored 包、移除 managed blocks 或停止。不存在的包绝不能被当作已是最新版。
+命令不修改包、根指令或状态。用户授权执行适配后自动运行，不先询问是否跳过；仅在结果为 `remote_differs/unavailable` 时调用结构化问答。若当前只要求确认文档或禁止动作，则确认后停止，把 `check-update` 作为获准开工后的第一步，不提前给 prose A/B 选项。trigger 在读取任何包指南前检查本地关键文件；缺失时使用 `package_missing` 问题，让用户选择从 trigger 中渲染的 Source 恢复 vendored 包、移除 managed blocks 或停止。不存在的包绝不能被当作已是最新版。
 
 ## 安装位置
 
@@ -144,7 +144,8 @@ node scripts/validate-routing.mjs
 - 同版本 `merge/trigger` 幂等；版本变化刷新 routing 并标记 `stale`。
 - `remove-trigger` 只接受 `adapted`；`unmerge` 要求 trigger 已删除。
 - `check-update` 只读云端版本，不自动下载或覆盖；`remote_differs/unavailable` 不能静默继续。
-- 测试强制 routing/trigger/JSONL/Developer/适配流程 byte budgets，并断言精确 grep、单 profile 和逐个模板规则。
+- 文档确认/完成报告必须与工具轨迹一致，包含实际读取、搜索和失败路径；不得在已读 plane/profile 后声称未读。
+- 测试强制 routing/trigger/JSONL/Developer/适配流程 byte budgets，并断言 trigger markers、包根路径解析、精确 literal grep、单 profile 和逐个模板规则。
 
 运行：
 
@@ -204,11 +205,11 @@ agent-project-guides/
 
 当前回归上限：
 
-- 永久 routing template：不超过 1,600 bytes
-- 临时 trigger：不超过 2,850 bytes
+- 永久 routing template：不超过 2,000 bytes
+- 临时 trigger：不超过 3,000 bytes
 - plane 和 role JSONL 合计：不超过 2,200 bytes
 - project type JSONL：不超过 700 bytes
 - Developer guide：不超过 4,000 bytes
-- Package adaptation procedure：不超过 7,000 bytes
+- Package adaptation procedure：不超过 7,500 bytes
 
 README 是人类权威说明，不自动加载，不为 token 目标牺牲完整性。
