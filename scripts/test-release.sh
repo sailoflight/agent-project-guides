@@ -53,6 +53,12 @@ node scripts/test-external-provenance.mjs
 # observing leaves the root file and its neighbourhood untouched, and that a marker
 # version bump is reported as a version change rather than as a clobber.
 node scripts/test-observation-ledger.mjs
+# ADR 0009: the shared component store. This gate is the contract's only enforcement
+# point, because D7 deliberately keeps the store off the distribution surface - so it
+# has to carry the whole claim on its own: one copy per machine, an exact file set, no
+# fetch action, and four falsifiable discovery states driven against real loopback
+# servers. It opens no sockets beyond 127.0.0.1 and needs no third-party bytes.
+node scripts/test-component-store.mjs
 # Project memory is tracked in git, and the index that makes it searchable
 # rewrites an access timestamp on every read, so the file went dirty after almost
 # any session. This gate pins the clean filter that removes the churn without
