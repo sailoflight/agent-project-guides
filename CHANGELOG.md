@@ -138,6 +138,19 @@ over-refusing.**
   two of three is not three of three. The census's earlier "four writers keep no
   recovery point" is corrected to three stable, one unstable, six none, recorded
   next to the original number rather than quietly replacing it.
+- Repository-side (not distributed): the P7 block-size comparison was measuring
+  two different templates. `decisions/0006` compared APG's own **v2** block
+  (2,063 B installed: a descriptor line plus 7 doctrine rules, 1,758 B of rules)
+  against the 731-758 B its consumers use - which is the **v3 CLI** shape, a 647 B
+  template carrying one 383 B paragraph. So the target shape is not hypothetical;
+  this repository already ships it, and every v2 rule is either covered by that
+  paragraph or enforced by the toolchain rather than by prose. A per-rule byte
+  budget is recorded (R3 alone is 24% and bundles four instructions, one of them a
+  file-writing procedure whose template already ships in the package), together
+  with three priced options. No distributed file was touched: the template,
+  `bootstrap.bytes`, the `integrity` hash and `test-install.sh`'s pinned values
+  are all unchanged, because porting the text is a public-contract change that
+  needs the owner's signature.
 
 ## 3.0.9
 
