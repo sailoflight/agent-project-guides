@@ -9,6 +9,18 @@ APG is a harness-neutral governance core: it decides *what* a project commits to
 runtime and it never executes a model. Entries below are grouped by the surface
 they change.
 
+
+## Unreleased — 2026-09-23
+
+- Make canonical catalogs, runtime/file ordering and component digests locale-independent; add English/Chinese/Swedish regression fixtures.
+- Keep the trusted-local model, adding exclusive temporary writes and checkout-bound Git metadata checks without a hostile multi-tenant security layer.
+- Split component resolution and HTTP probing from CLI dispatch; aggregate singleton instances, propagate dependency failures/cycles, refuse remote endpoints and bound identity/health responses.
+- Separate context presentation and private generation state; reuse one durable atomic-write primitive while preserving recovery contracts.
+- Add source-only architecture navigation: human-owned module declarations, compile-only ESM dependency facts, generated module cards/flows, locate/impact queries and drift/dependency gates.
+- Keep project documentation and generated architecture views out of generic policy distribution; restore this repository's own documentation/verification entrypoints.
+
+No release tag, remote push, component acquisition or production operation is implied by these source changes.
+
 ## 4.0.0
 
 This is the version bump the 3.0.10 entries deferred. They recorded that `main`'s

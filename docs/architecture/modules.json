@@ -1,0 +1,1318 @@
+{
+  "schema_version": 1,
+  "scope": [
+    "lib",
+    "scripts",
+    "tools/architecture"
+  ],
+  "modules": [
+    {
+      "id": "files",
+      "title": "安全文件原语",
+      "summary": "排他创建、原子替换与可选耐久写入",
+      "not_owned": "业务事务、权限授予或敌对文件系统隔离",
+      "owns": [
+        "lib/files.mjs"
+      ],
+      "allowed_dependencies": [],
+      "entries": [
+        {
+          "file": "lib/files.mjs",
+          "symbol": "writeFileAtomic",
+          "change": "文件替换与临时文件清理"
+        }
+      ],
+      "tests": [
+        "scripts/test-local-write-safety.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "排他创建、原子替换与可选耐久写入",
+            "entry": "writeFileAtomic"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/STORAGE_RUNTIME.md"
+    },
+    {
+      "id": "foundation",
+      "title": "基础类型与摘要",
+      "summary": "错误、规范序列化、路径与发行文件集合",
+      "not_owned": "路由选择和项目业务状态",
+      "owns": [
+        "lib/core.mjs",
+        "lib/crypto.mjs"
+      ],
+      "allowed_dependencies": [
+        "files"
+      ],
+      "entries": [
+        {
+          "file": "lib/core.mjs",
+          "symbol": "compareCanonical",
+          "change": "跨环境规范排序"
+        },
+        {
+          "file": "lib/core.mjs",
+          "symbol": "listDistributionFiles",
+          "change": "发行文件边界"
+        },
+        {
+          "file": "lib/core.mjs",
+          "symbol": "resolveInside",
+          "change": "项目相对路径校验"
+        }
+      ],
+      "tests": [
+        "scripts/test-determinism.mjs",
+        "scripts/test-boundary.mjs",
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "错误、规范序列化、路径与发行文件集合",
+            "entry": "compareCanonical"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/STORAGE_RUNTIME.md"
+    },
+    {
+      "id": "descriptor",
+      "title": "描述符兼容层",
+      "summary": "校验 schema 1/2 与变体约束",
+      "not_owned": "物化或自动修复项目",
+      "owns": [
+        "lib/descriptor.mjs",
+        "lib/descriptor-v3.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/descriptor.mjs",
+          "symbol": "validateDescriptor",
+          "change": "描述符版本分派"
+        },
+        {
+          "file": "lib/descriptor-v3.mjs",
+          "symbol": "validateV3Descriptor",
+          "change": "schema 2 变体约束"
+        }
+      ],
+      "tests": [
+        "scripts/test-schema.py",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "校验 schema 1/2 与变体约束",
+            "entry": "validateDescriptor"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "root-policy",
+      "title": "根指令与完整性",
+      "summary": "生成和验证拥有的根指令块",
+      "not_owned": "重写用户拥有的其它字节",
+      "owns": [
+        "lib/bootstrap.mjs",
+        "lib/bootstrap-v3.mjs",
+        "lib/block-integrity.mjs",
+        "lib/root-marker-grammar.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files"
+      ],
+      "entries": [
+        {
+          "file": "lib/bootstrap.mjs",
+          "symbol": "installBootstrap",
+          "change": "schema 1 块安装"
+        },
+        {
+          "file": "lib/bootstrap-v3.mjs",
+          "symbol": "inspectV3Root",
+          "change": "schema 2 根块验证"
+        }
+      ],
+      "tests": [
+        "scripts/test-local-write-safety.mjs",
+        "scripts/test-install.sh",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "生成和验证拥有的根指令块",
+            "entry": "installBootstrap"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "catalog",
+      "title": "内容目录与精确路由",
+      "summary": "索引治理章节并校验路由预算",
+      "not_owned": "运行时权限或语义检索",
+      "owns": [
+        "lib/catalog.mjs",
+        "lib/context-routes.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files"
+      ],
+      "entries": [
+        {
+          "file": "lib/catalog.mjs",
+          "symbol": "buildCatalog",
+          "change": "章节目录生成"
+        },
+        {
+          "file": "lib/context-routes.mjs",
+          "symbol": "validateContextRoutes",
+          "change": "角色章节与预算约束"
+        }
+      ],
+      "tests": [
+        "scripts/test-determinism.mjs",
+        "scripts/validate-routing.mjs",
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "索引治理章节并校验路由预算",
+            "entry": "buildCatalog"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "closure",
+      "title": "选择闭包",
+      "summary": "构造所选角色和文档的有界内容视图",
+      "not_owned": "修改目标项目或决定操作权限",
+      "owns": [
+        "lib/closure.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "catalog",
+        "descriptor"
+      ],
+      "entries": [
+        {
+          "file": "lib/closure.mjs",
+          "symbol": "buildSelectedClosure",
+          "change": "文档选择、依赖和拥有关系"
+        }
+      ],
+      "tests": [
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "构造所选角色和文档的有界内容视图",
+            "entry": "buildSelectedClosure"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "generation",
+      "title": "上下文选择凭据",
+      "summary": "保存本机 generation 状态并绑定选择票据",
+      "not_owned": "授予执行权限或选择具体路由",
+      "owns": [
+        "lib/generation-state.mjs",
+        "lib/context-choice.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/generation-state.mjs",
+          "symbol": "loadGenerationReference",
+          "change": "私有引用读取与完整性"
+        },
+        {
+          "file": "lib/context-choice.mjs",
+          "symbol": "verifyCompactChoice",
+          "change": "目标、选择和过期绑定"
+        }
+      ],
+      "tests": [
+        "scripts/test-context-state.mjs",
+        "scripts/test-context-choice.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "保存本机 generation 状态并绑定选择票据",
+            "entry": "loadGenerationReference"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/CONTEXT.md"
+    },
+    {
+      "id": "runtime",
+      "title": "发行与运行时提供器",
+      "summary": "安装和校验精确摘要的内容及 packed runtime",
+      "not_owned": "解释任务或运行第三方服务",
+      "owns": [
+        "lib/provider.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "catalog",
+        "generation"
+      ],
+      "entries": [
+        {
+          "file": "lib/provider.mjs",
+          "symbol": "openProvider",
+          "change": "提供器选择"
+        },
+        {
+          "file": "lib/provider.mjs",
+          "symbol": "buildPackedRuntimeArtifact",
+          "change": "打包内容与运行时"
+        },
+        {
+          "file": "lib/provider.mjs",
+          "symbol": "gitExcludeFile",
+          "change": "Git 排除写入目标"
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs",
+        "scripts/test-determinism.mjs",
+        "scripts/test-local-write-safety.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "安装和校验精确摘要的内容及 packed runtime",
+            "entry": "openProvider"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/STORAGE_RUNTIME.md"
+    },
+    {
+      "id": "context",
+      "title": "任务上下文",
+      "summary": "任务分类、选路、预算和面向人的展示",
+      "not_owned": "物化写入或隐式权限授予",
+      "owns": [
+        "lib/context.mjs",
+        "lib/context-presentation.mjs",
+        "lib/context-errors.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "catalog",
+        "closure",
+        "generation"
+      ],
+      "entries": [
+        {
+          "file": "lib/context.mjs",
+          "symbol": "compileContext",
+          "change": "路由和有界加载"
+        },
+        {
+          "file": "lib/context-presentation.mjs",
+          "symbol": "renderContext",
+          "change": "人读展示"
+        },
+        {
+          "file": "lib/context.mjs",
+          "symbol": "validateContextMatrix",
+          "change": "路由矩阵验证"
+        }
+      ],
+      "tests": [
+        "scripts/test-context-choice.mjs",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [
+        "角色",
+        "路由",
+        "上下文",
+        "预算"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "任务分类、选路、预算和面向人的展示",
+            "entry": "compileContext"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/CONTEXT.md"
+    },
+    {
+      "id": "materialization",
+      "title": "项目物化",
+      "summary": "预览、应用和验证 schema 2 项目状态",
+      "not_owned": "旧版迁移策略或生产操作",
+      "owns": [
+        "lib/materializer.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "closure",
+        "descriptor",
+        "root-policy",
+        "runtime"
+      ],
+      "entries": [
+        {
+          "file": "lib/materializer.mjs",
+          "symbol": "previewMaterialization",
+          "change": "零写入预览"
+        },
+        {
+          "file": "lib/materializer.mjs",
+          "symbol": "applyMaterialization",
+          "change": "锁、journal、应用与恢复"
+        },
+        {
+          "file": "lib/materializer.mjs",
+          "symbol": "validateMaterializedProject",
+          "change": "物化结果验证"
+        }
+      ],
+      "tests": [
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [
+        "物化",
+        "失败恢复",
+        "事务"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "preview",
+            "label": "预览候选与前后像",
+            "entry": "previewMaterialization"
+          },
+          {
+            "id": "review",
+            "label": "调用方审查与权限确认"
+          },
+          {
+            "id": "apply",
+            "label": "重验、锁、journal 和拥有字节应用",
+            "entry": "applyMaterialization"
+          },
+          {
+            "id": "verify",
+            "label": "验证物化结果",
+            "entry": "validateMaterializedProject"
+          },
+          {
+            "id": "recover",
+            "label": "遇到失败按 journal 恢复或显式冲突"
+          }
+        ],
+        "edges": [
+          {
+            "from": "preview",
+            "to": "review"
+          },
+          {
+            "from": "review",
+            "to": "apply"
+          },
+          {
+            "from": "apply",
+            "to": "verify",
+            "label": "成功"
+          },
+          {
+            "from": "apply",
+            "to": "recover",
+            "label": "失败"
+          }
+        ]
+      },
+      "contract": "docs/modules/TRANSACTIONS.md"
+    },
+    {
+      "id": "migration",
+      "title": "迁移与回滚",
+      "summary": "审核计划、拥有字节和恢复边界",
+      "not_owned": "任意删除用户文件或自动升级到 latest",
+      "owns": [
+        "lib/migration.mjs",
+        "lib/migration-v3.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "descriptor",
+        "root-policy",
+        "runtime",
+        "materialization",
+        "closure",
+        "catalog"
+      ],
+      "entries": [
+        {
+          "file": "lib/migration.mjs",
+          "symbol": "planMigration",
+          "change": "旧版迁移预览"
+        },
+        {
+          "file": "lib/migration-v3.mjs",
+          "symbol": "applyV2ToV3Migration",
+          "change": "schema 1 到 2 的审核应用"
+        },
+        {
+          "file": "lib/migration-v3.mjs",
+          "symbol": "rollbackV3Migration",
+          "change": "冲突检查与恢复"
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "审核计划、拥有字节和恢复边界",
+            "entry": "planMigration"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/TRANSACTIONS.md"
+    },
+    {
+      "id": "components",
+      "title": "组件发现与可复用性",
+      "summary": "文件完整性、回环健康探测和最终依赖判定",
+      "not_owned": "下载、启动、停止或修复外部组件",
+      "owns": [
+        "lib/components.mjs",
+        "lib/service-probe.mjs",
+        "lib/component-resolution.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/components.mjs",
+          "symbol": "readStoreEntryRecords",
+          "change": "组件记录读取"
+        },
+        {
+          "file": "lib/service-probe.mjs",
+          "symbol": "probeService",
+          "change": "单次有界健康请求"
+        },
+        {
+          "file": "lib/component-resolution.mjs",
+          "symbol": "resolveDependencyGraph",
+          "change": "传递依赖和环"
+        },
+        {
+          "file": "lib/component-resolution.mjs",
+          "symbol": "probeComponents",
+          "change": "服务分组、单实例和汇总"
+        },
+        {
+          "file": "lib/component-resolution.mjs",
+          "symbol": "verifyComponents",
+          "change": "无网络的文件验证"
+        }
+      ],
+      "tests": [
+        "scripts/test-component-store.mjs",
+        "scripts/test-component-regressions.mjs"
+      ],
+      "tags": [
+        "健康",
+        "available",
+        "singleton",
+        "依赖",
+        "HTTP"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "records",
+            "label": "读取组件声明",
+            "entry": "readStoreEntryRecords"
+          },
+          {
+            "id": "group",
+            "label": "按 ID 分组并检查声明一致性",
+            "entry": "probeComponents"
+          },
+          {
+            "id": "probe",
+            "label": "仅回环：HTTP 状态、身份、版本、大小、时限",
+            "entry": "probeService"
+          },
+          {
+            "id": "dependencies",
+            "label": "传递依赖与环检查",
+            "entry": "resolveDependencyGraph"
+          },
+          {
+            "id": "result",
+            "label": "available / degraded / conflict"
+          }
+        ],
+        "edges": [
+          {
+            "from": "records",
+            "to": "group"
+          },
+          {
+            "from": "group",
+            "to": "probe",
+            "label": "声明一致"
+          },
+          {
+            "from": "group",
+            "to": "result",
+            "label": "冲突"
+          },
+          {
+            "from": "probe",
+            "to": "dependencies"
+          },
+          {
+            "from": "dependencies",
+            "to": "result"
+          }
+        ]
+      },
+      "contract": "docs/modules/COMPONENTS.md"
+    },
+    {
+      "id": "memory",
+      "title": "记忆提案与晋升",
+      "summary": "提案、独立审查、晋升和替代",
+      "not_owned": "索引或检索引擎",
+      "owns": [
+        "lib/memory.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "descriptor"
+      ],
+      "entries": [
+        {
+          "file": "lib/memory.mjs",
+          "symbol": "proposeMemory",
+          "change": "创建提案"
+        },
+        {
+          "file": "lib/memory.mjs",
+          "symbol": "promoteMemory",
+          "change": "审查后的拥有字节写入"
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "提案、独立审查、晋升和替代",
+            "entry": "proposeMemory"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "observation",
+      "title": "观察账本",
+      "summary": "追加记录观察到的根指令块变化",
+      "not_owned": "修改被观察根文件或声称模型已遵循",
+      "owns": [
+        "lib/observation-ledger.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "root-policy"
+      ],
+      "entries": [
+        {
+          "file": "lib/observation-ledger.mjs",
+          "symbol": "observeRootBlocks",
+          "change": "无目标写入的块观察"
+        }
+      ],
+      "tests": [
+        "scripts/test-observation-ledger.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "追加记录观察到的根指令块变化",
+            "entry": "observeRootBlocks"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "risk",
+      "title": "风险组合",
+      "summary": "单调组合声明的操作效果",
+      "not_owned": "授予权限或执行操作",
+      "owns": [
+        "lib/risk.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/risk.mjs",
+          "symbol": "composeRisk",
+          "change": "效果分类与风险合并"
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "单调组合声明的操作效果",
+            "entry": "composeRisk"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "cli",
+      "title": "CLI 与冷启动",
+      "summary": "解析命令、选择用例和校验固定运行时",
+      "not_owned": "组件领域判定、上下文展示实现",
+      "owns": [
+        "scripts/apg.mjs",
+        "scripts/apg-launcher.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "catalog",
+        "descriptor",
+        "root-policy",
+        "runtime",
+        "generation",
+        "context",
+        "materialization",
+        "migration",
+        "components",
+        "memory",
+        "observation",
+        "risk"
+      ],
+      "entries": [
+        {
+          "file": "scripts/apg.mjs",
+          "symbol": "main",
+          "change": "公共命令分派"
+        },
+        {
+          "file": "scripts/apg-launcher.mjs",
+          "symbol": "validatePackedRuntime",
+          "change": "导入前固定摘要校验"
+        }
+      ],
+      "tests": [
+        "scripts/test-boundary.mjs",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "解析命令、选择用例和校验固定运行时",
+            "entry": "main"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "legacy",
+      "title": "旧版兼容工具",
+      "summary": "维护旧安装器、根块边界和版本检查入口",
+      "not_owned": "新项目的默认物化路径",
+      "owns": [
+        "scripts/install.sh",
+        "scripts/manage-root-blocks.mjs",
+        "scripts/check-update.mjs"
+      ],
+      "allowed_dependencies": [
+        "root-policy"
+      ],
+      "entries": [
+        {
+          "file": "scripts/install.sh",
+          "change": "旧版安装与回退"
+        },
+        {
+          "file": "scripts/manage-root-blocks.mjs",
+          "symbol": "markerRange",
+          "change": "块所有权边界"
+        }
+      ],
+      "tests": [
+        "scripts/test-install.sh",
+        "scripts/test-interop-writers.sh"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "维护旧安装器、根块边界和版本检查入口",
+            "entry": "scripts/install.sh"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "author-tools",
+      "title": "源码维护工具",
+      "summary": "验证路由、暂存组件和过滤本地索引噪声",
+      "not_owned": "进入默认运行时或自动抓取组件",
+      "owns": [
+        "scripts/validate-routing.mjs",
+        "scripts/build-component-store.mjs",
+        "scripts/git-filter-mnemon-index.mjs",
+        "scripts/setup-git-filters.sh"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "components",
+        "catalog"
+      ],
+      "entries": [
+        {
+          "file": "scripts/build-component-store.mjs",
+          "symbol": "main",
+          "change": "显式来源的本机组件暂存"
+        },
+        {
+          "file": "scripts/validate-routing.mjs",
+          "change": "路由注册表验证"
+        }
+      ],
+      "tests": [
+        "scripts/test-component-store.mjs",
+        "scripts/test-mnemon-index-filter.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "验证路由、暂存组件和过滤本地索引噪声",
+            "entry": "main"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "architecture",
+      "title": "架构导航工具",
+      "summary": "从声明和静态代码事实生成导航、定位和改动说明",
+      "not_owned": "执行被分析源码、完整调用图或治理权威",
+      "owns": [
+        "tools/architecture/*.mjs",
+        "scripts/architecture.mjs"
+      ],
+      "allowed_dependencies": [],
+      "entries": [
+        {
+          "file": "tools/architecture/model.mjs",
+          "symbol": "inspectArchitecture",
+          "change": "所有权、依赖、锚点检查"
+        },
+        {
+          "file": "tools/architecture/model.mjs",
+          "symbol": "changeImpact",
+          "change": "保守改动影响"
+        },
+        {
+          "file": "tools/architecture/render.mjs",
+          "symbol": "renderArchitecture",
+          "change": "模块卡片和流程图"
+        },
+        {
+          "file": "scripts/architecture.mjs",
+          "symbol": "main",
+          "change": "离线作者命令"
+        }
+      ],
+      "tests": [
+        "scripts/test-architecture.mjs"
+      ],
+      "tags": [
+        "架构",
+        "导航",
+        "流程图",
+        "修改",
+        "定位"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "从声明和静态代码事实生成导航、定位和改动说明",
+            "entry": "inspectArchitecture"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/ARCHITECTURE_NAVIGATION.md"
+    },
+    {
+      "id": "verification",
+      "title": "验证套件",
+      "summary": "使用隔离 fixture 验证公共契约与失败分支",
+      "not_owned": "生产验证或自动发布",
+      "owns": [
+        "scripts/test-*.mjs",
+        "scripts/test-*.sh",
+        "scripts/test-*.py"
+      ],
+      "allowed_dependencies": [
+        "files",
+        "foundation",
+        "descriptor",
+        "root-policy",
+        "catalog",
+        "closure",
+        "generation",
+        "runtime",
+        "context",
+        "materialization",
+        "migration",
+        "components",
+        "memory",
+        "observation",
+        "risk",
+        "cli",
+        "legacy",
+        "author-tools",
+        "architecture"
+      ],
+      "entries": [
+        {
+          "file": "scripts/test-release.sh",
+          "change": "聚合验证门禁"
+        },
+        {
+          "file": "scripts/test-architecture.mjs",
+          "change": "导航派生物与边界验证"
+        }
+      ],
+      "tests": [
+        "scripts/test-release.sh"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "使用隔离 fixture 验证公共契约与失败分支",
+            "entry": "scripts/test-release.sh"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    }
+  ]
+}

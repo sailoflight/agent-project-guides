@@ -31,7 +31,7 @@ A project commits `.agent-project-guides.json`. It contains only portable projec
 - the recorded hash of the managed v2 bootstrap block (`integrity.root_block_hash`), so the block has an anchor outside the file it protects;
 - project-native scratch and memory bindings.
 
-Machine paths, caches, receipts, journals, ACL/audit metadata, generic package bytes, and generated search state remain outside the descriptor. APG's project-owned `docs/memory/` research records are excluded from release distribution files.
+Machine paths, caches, receipts, journals, ACL/audit metadata, generic package bytes, and generated search state remain outside the descriptor. APG's project-owned `docs/memory/`, `docs/INDEX.md`, `docs/architecture/`, `docs/modules/` and `docs/verification/` are excluded from both release distribution and the governance catalog. Source-only architecture tooling is not a runtime dependency; generated views never replace canonical policy.
 
 ## Provider modes
 

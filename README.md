@@ -1,8 +1,8 @@
-# Agent Project Guides 3.0
+# Agent Project Guides 4.0
 
-> Harness 中立的治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
+> Harness 中立的治理内核：精确治理上下文、受拥有关系约束的物化/迁移，以及只读本机组件发现。保留 schema 1 兼容性与 schema 2 的 selected-inline / shared-runtime 变体。
 
-当前版本：`3.0.9`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
+当前包版本：`4.0.0`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
 ## 1. 互信与责任
 
@@ -24,7 +24,7 @@
   "schema_version": 2,
   "project_id": "example.project",
   "variant": "selected-inline.none",
-  "release": {"policy": "pinned", "version": "3.0.9", "digest": "sha256:<64 lowercase hex>"},
+  "release": {"policy": "pinned", "version": "4.0.0", "digest": "sha256:<64 lowercase hex>"},
   "documents": {
     "placement": "selected-local",
     "lifecycle": "maintenance",
@@ -203,12 +203,8 @@ APG_RUN_REAL_PILOTS=1 APG_PILOT_STRICT=1 ./scripts/test-release.sh   # 外部源
 
 ### 11.1 Release pilots
 
-默认不跑时打印显式 skip 与范围。每条报 `status=ran|skipped`、`kind=synthetic|external-source-copy|real-host-task`；stderr 汇总 `ran n/m` 与各 skip 原因。`real-host-task` 恒为 0，属独立证据。
-
-- **synthetic**（`fixtures/pilots/synthetic-cli.json`）：源树在包内，无需外部 checkout；`baseline` 逐字复用 `small-cli.json` 的冻结阈值与 required ids。
-- **external-source-copy**（`small-cli.json`、`complex-content-package.json`）：阈值冻结，源在包外（`APG_PILOT_ROOT`，默认本仓上一级）。缺 `package_revision=1.4.3` 根入口时按 `root-entry-drifted`/`root-entry-missing`/`source-unavailable` 报 skip，并输出冻结基准的位置与恢复路径。
-
-1.4.3 根入口从未进入任何提交，故冻结基准**不可再生**；其位置、恢复路径与「不得重录 v3 根入口为基线」的禁则见 `fixtures/pilots/sources/synthetic-cli/README.md`。
+默认跳过，启用后区分 synthetic、external-source-copy 与 real-host-task，不把缺失源当通过。
+冻结基线、不可再生限制与恢复路径见 [pilot 验证说明](docs/verification/PILOTS.md)。
 
 基础设施命令不调用 LLM，也不自动 stage、commit、付款、使用生产凭据或执行破坏性动作。
 
@@ -225,3 +221,18 @@ APG_RUN_REAL_PILOTS=1 APG_PILOT_STRICT=1 ./scripts/test-release.sh   # 外部源
 | `docs/` | 2.0 compatibility 与 3.0 minimal-slice contracts |
 | `decisions/` | 已接受架构决策 |
 | `plans/` | 路线图和实施边界，不覆盖当前代码事实 |
+
+## 13. 源码维护与架构导航
+
+从 [项目入口](docs/INDEX.md) 选择契约和测试，或打开
+[模块地图与流程卡片](docs/architecture/generated/INDEX.md) 定位代码。
+
+```bash
+node scripts/architecture.mjs build
+node scripts/architecture.mjs check
+node scripts/architecture.mjs locate 健康
+node scripts/architecture.mjs impact lib/service-probe.mjs
+```
+
+这是离线源码工具，不是 `apg` 命令，不进入治理包或每轮上下文。修改模块声明/源码后
+重建，勿手改生成图。证据层级、限制和跨项目使用见 [工具说明](tools/architecture/README.md)。
