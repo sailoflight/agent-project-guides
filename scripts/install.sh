@@ -11,11 +11,26 @@ LEGACY_HANDOFF='<!-- agent-project-guides:handoff:start -->'
 STATE_PREFIX='Package adaptation:'
 MAX_ROOT_BYTES=16384
 RESERVED_MANAGED_BYTES=4096
+# P8 (decisions/0006): recovery point for the selected root instructions.
+# Deliberately distinct from br's `.md.bak` and ee's `.ee-backup` so the three
+# writers of a root instruction file never fight over one backup path.
+ROOT_BACKUP_SUFFIX='.agent-project-guides.bak'
 
 fail() {
   printf 'error: %s\n' "$*" >&2
   exit 1
 }
+
+backup_file_before_write() (
+  # P8 (decisions/0006): never rewrite a managed instruction file without a
+  # recovery point. Creating a file is not a mutation, so there is nothing to
+  # back up when it does not exist yet.
+  backup_target=$1
+  [ -f "$backup_target" ] || return 0
+  [ ! -L "$backup_target" ] || return 0
+  cp -- "$backup_target" "$backup_target$ROOT_BACKUP_SUFFIX" \
+    || fail "could not write instruction-file backup: $backup_target$ROOT_BACKUP_SUFFIX"
+)
 
 usage() {
   cat <<'EOF'
@@ -228,6 +243,55 @@ render_common() {
     "$template"
 }
 
+stamp_managed_block() (
+  # P9 (decisions/0006): give the routing block its integrity line, inserted as
+  # the second line so the start marker stays the first byte and every existing
+  # byte-0 and exactly-once assertion still holds.
+  stamp_file=$1
+  stamp_tmp=$(mktemp "$TARGET/.agent-project-guides.stamp.XXXXXX")
+  trap 'rm -f "$stamp_tmp"' EXIT HUP INT TERM
+  node "$BLOCK_HELPER" stamp "$stamp_file" "$stamp_tmp" "$ROUTING_START" "$ROUTING_END"
+  cp -- "$stamp_tmp" "$stamp_file"
+  rm -f "$stamp_tmp"
+  trap - EXIT HUP INT TERM
+)
+
+render_routing_block() (
+  # Every routing block APG writes is rendered and then stamped.
+  routing_out=$1
+  render_common "$ROUTING_TEMPLATE" "$2" "$3" "$4" "$5" > "$routing_out"
+  stamp_managed_block "$routing_out"
+)
+
+verify_managed_integrity() {
+  # P9 (decisions/0006): a hand-edited APG block is detected rather than silently
+  # replaced. A block with no integrity line is a pre-P9 install and is accepted;
+  # the next write upgrades it. Safe to call before the root or the block exists.
+  #
+  # Override semantics differ from ee's --force-managed-block, deliberately. ee
+  # re-renders its block, so the hand edit IS overwritten. APG's block carries live
+  # adaptation state that must never be reset, so the update path reuses the
+  # installed block instead of re-rendering it: with the override, APG accepts the
+  # hand-edited block and re-attests it by recomputing the hash. The pre-change
+  # file was copied to the P8 backup, so nothing is unrecoverable.
+  [ -f "$ROOT_FILE" ] || return 0
+  [ "$(count_marker "$ROUTING_START" "$ROOT_FILE")" -eq 1 ] || return 0
+  integrity_status=0
+  integrity_message=$(node "$BLOCK_HELPER" verify "$ROOT_FILE" "$ROUTING_START" "$ROUTING_END" 2>&1) \
+    || integrity_status=$?
+  if [ "$integrity_status" -eq 0 ]; then
+    return 0
+  fi
+  if [ "${AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK:-0}" = 1 ]; then
+    printf 'warning: %s\n' "${integrity_message#error: }" >&2
+    printf 'warning: proceeding under AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1; the pre-change root is copied at %s%s\n' \
+      "$ROOT_FILE" "$ROOT_BACKUP_SUFFIX" >&2
+    return 0
+  fi
+  printf '%s\n' "$integrity_message" >&2
+  fail 'managed routing block was edited outside the installer; re-run with AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1 to accept and re-attest it'
+}
+
 count_marker() {
   marker=$1
   file=$2
@@ -322,6 +386,7 @@ validate_routing() {
   [ "$(count_marker "$ROUTING_START" "$ROOT_FILE")" -eq 1 ] || fail 'routing start marker must appear exactly once'
   [ "$(count_marker "$ROUTING_END" "$ROOT_FILE")" -eq 1 ] || fail 'routing end marker must appear exactly once'
   [ "$(sed -n '1p' "$ROOT_FILE")" = "$ROUTING_START" ] || fail 'routing block must begin at byte 0 of the selected root instructions'
+  verify_managed_integrity
 
   managed=$(sed -n "/$ROUTING_START/,/$ROUTING_END/p" "$ROOT_FILE")
   ! printf '%s\n' "$managed" | grep -Fq '{{' || fail 'routing block contains unresolved placeholders'
@@ -430,11 +495,14 @@ sync_claude_scope() {
   build_claude_scope_file "$tmp"
   trap 'rm -f "$tmp"' EXIT HUP INT TERM
   validate_text_file "$tmp"
+  backup_file_before_write "$CLAUDE_FILE"
   mv -f -- "$tmp" "$CLAUDE_FILE"
   trap - EXIT HUP INT TERM
   validate_claude_scope
   printf 'Synchronized role-scope gate to sibling CLAUDE.md.\n'
 }
+
+backup_root_file() { backup_file_before_write "$ROOT_FILE"; }
 
 rebuild_root_prefix() (
   routing_file=$1
@@ -459,6 +527,7 @@ rebuild_root_prefix() (
   [ -z "$trigger_file" ] || cat -- "$trigger_file" >> "$tmp"
   cat -- "$unmanaged" >> "$tmp"
   validate_text_file "$tmp"
+  backup_root_file
   mv -f -- "$tmp" "$ROOT_FILE"
   rm -f "$unmanaged"
   trap - EXIT HUP INT TERM
@@ -474,6 +543,7 @@ replace_marked_block() (
   node "$BLOCK_HELPER" replace "$ROOT_FILE" "$tmp" "$start" "$end" "$replacement_file"
   chmod --reference="$ROOT_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
   validate_text_file "$tmp"
+  backup_root_file
   mv -f -- "$tmp" "$ROOT_FILE"
   trap - EXIT HUP INT TERM
 )
@@ -485,7 +555,7 @@ rewrite_state() {
   next_reason=$4
   block=$(mktemp "$TARGET/.agent-project-guides.routing.state.XXXXXX")
   trap 'rm -f "$block"' EXIT HUP INT TERM
-  render_common "$ROUTING_TEMPLATE" "$next_status" "$next_verified" "$next_scope" "$next_reason" > "$block"
+  render_routing_block "$block" "$next_status" "$next_verified" "$next_scope" "$next_reason"
   replace_marked_block "$ROUTING_START" "$ROUTING_END" "$block"
   rm -f "$block"
   trap - EXIT HUP INT TERM
@@ -496,7 +566,7 @@ refresh_routing_for_revision() {
   old_scope=$(state_field scope)
   block=$(mktemp "$TARGET/.agent-project-guides.routing.refresh.XXXXXX")
   trap 'rm -f "$block"' EXIT HUP INT TERM
-  render_common "$ROUTING_TEMPLATE" stale "$old_verified" "$old_scope" package_revision_changed > "$block"
+  render_routing_block "$block" stale "$old_verified" "$old_scope" package_revision_changed
   replace_marked_block "$ROUTING_START" "$ROUTING_END" "$block"
   rm -f "$block"
   trap - EXIT HUP INT TERM
@@ -521,6 +591,7 @@ canonicalize_root_prefix() {
   trigger_block=''
   trap 'rm -f "$routing_block"; [ -z "$trigger_block" ] || rm -f "$trigger_block"' EXIT HUP INT TERM
   sed -n "/$ROUTING_START/,/$ROUTING_END/p" "$ROOT_FILE" > "$routing_block"
+  stamp_managed_block "$routing_block"
   if [ "$(count_marker "$TRIGGER_START" "$ROOT_FILE")" -eq 1 ]; then
     [ "$(count_marker "$TRIGGER_END" "$ROOT_FILE")" -eq 1 ] || fail 'adapter trigger markers are unbalanced'
     trigger_block=$(mktemp "$TARGET/.agent-project-guides.trigger.current.XXXXXX")
@@ -547,6 +618,7 @@ validate_existing_root_markers() {
 merge_routing() {
   reject_conflicting_managed_roots
   validate_existing_root_markers
+  verify_managed_integrity
   if [ "$SYNC_CLAUDE_SCOPE" -eq 1 ]; then
     case "$(transaction_mode)" in none|sync-claude-scope) ;; *) fail 'another installation transaction requires recovery first' ;; esac
   else
@@ -582,7 +654,7 @@ merge_routing() {
 
   block=$(mktemp "$TARGET/.agent-project-guides.routing.XXXXXX")
   trap 'rm -f "$block"' EXIT HUP INT TERM
-  render_common "$ROUTING_TEMPLATE" pending never repo not_adapted > "$block"
+  render_routing_block "$block" pending never repo not_adapted
   rebuild_root_prefix "$block" ''
   rm -f "$block"
   trap - EXIT HUP INT TERM
@@ -637,6 +709,7 @@ append_trigger() {
   trap 'rm -f "$block" "$routing_block"' EXIT HUP INT TERM
   render_common "$TRIGGER_TEMPLATE" pending never repo trigger_requested > "$block"
   sed -n "/$ROUTING_START/,/$ROUTING_END/p" "$ROOT_FILE" > "$routing_block"
+  stamp_managed_block "$routing_block"
   rebuild_root_prefix "$routing_block" "$block"
   rm -f "$block" "$routing_block"
   trap - EXIT HUP INT TERM
@@ -654,6 +727,7 @@ remove_marked_block_from_file() (
   node "$BLOCK_HELPER" strip "$remove_target" "$remove_tmp" "$remove_start" "$remove_end"
   chmod --reference="$remove_target" "$remove_tmp" 2>/dev/null || chmod 0644 "$remove_tmp"
   validate_text_file "$remove_tmp"
+  backup_file_before_write "$remove_target"
   mv -f -- "$remove_tmp" "$remove_target"
   trap - EXIT HUP INT TERM
 )

@@ -1234,3 +1234,53 @@ exit=1
 > 这也是 P5 harness 必须给目标目录自己的 `.git`、且在写入前先用 `br agents --check` 确认路径落在工作目录内才继续的原因——**安全校验已固化进脚本**，不靠人记得。
 
 **未验证项（如实记录）**：本机没有 `minisign`，所以只验了 SHA256，**签名未验**。`br` 的源码引用来自 `main` 分支，而二进制是 v0.6.0 —— 两者可能有细节差异，行为结论以二进制实测为准，行号引用以 `main` 为准。
+
+### 13.11 P8 + P9 已实施并验证（ADR 0006 的两条缺口）
+
+**P8 —— 改写前先写恢复点**
+
+新增 `backup_file_before_write`（定义在 `scripts/install.sh:24`），并在**全部 4 个**改写指令文件的 `mv -f` 之前调用：
+
+| 落点 | 目标文件 |
+|---|---|
+| `sync_claude_scope` | `CLAUDE.md` |
+| `rebuild_root_prefix` | 选定的根指令文件 |
+| `replace_marked_block` | 选定的根指令文件 |
+| `remove_marked_block_from_file` | 根指令文件或 `CLAUDE.md` |
+
+备份后缀 `AGENTS.md.agent-project-guides.bak` —— **刻意**与 `br` 的 `.md.bak`、`ee` 的 `.ee-backup` 区分，避免三个写入方抢同一个备份路径。创建文件不算改写，所以文件不存在时不产生备份。
+
+证据：`scripts/test-install.sh` 断言备份存在且 `cmp` 等于 merge 前的根文件；**负向验证**——注释掉备份调用后套件报 `FAIL: P8: root was rewritten with no recovery point`（exit 1），还原后逐字节一致。
+
+**P9 —— 管理块完整性**
+
+标记行**不动**（`routing:start` 仍是第 1 行、字节 0 不变），完整性作为**第 2 行**进入块内：
+
+```
+<!-- agent-project-guides:routing:start -->
+<!-- agent-project-guides:integrity sha256=<hex> -->
+```
+
+`<hex>` = 对完整性行之后、结束标记之前的正文行逐行 `\n` 结尾做 sha256。这样 `install.sh:324` 的字节 0 断言、`count_marker` 的"恰好一次"断言、`sed` 区间提取全部继续成立。
+
+`scripts/manage-root-blocks.mjs` 新增 `stamp` 与 `verify`（`strip`/`replace` 字节行为不变）。安装器在**每次**写路由块时戳记（`render_routing_block`），并在 `merge_routing` 与 `validate_routing` 处设门禁；`replace` 自身也拒绝不匹配的块。逃生开关是环境变量 `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`。**P9 之前的块（无完整性行）视为 legacy：接受，并在下次写入时升级** —— 所以已装的消费者项目不会因为这次改动而坏掉。
+
+实测（`scripts/test-install.sh` + 手工复现）：
+
+| 场景 | 结果 |
+|---|---|
+| 首次安装 | 块内第 2 行出现 integrity 行；`check` 通过 |
+| 手改块正文 | `check` 与 `merge` 均报 `managed block integrity mismatch: recorded …, computed …`，exit 1 |
+| 带 override | 成功（exit 0），且块重新校验通过 |
+| 无完整性行的 legacy 块 | `verify` 报 legacy 并 exit 0；`replace` 照常工作 |
+| `replace` 单独面对篡改块 | exit 1；带 override exit 0 |
+
+**override 语义与 `ee` 刻意不同**：`ee` 重建自己的块，所以 `--force-managed-block` 是**覆盖**手改（手改留在备份里）。APG 的块承载**活的适配状态**（status / revision / verified-at / scope / reason），重建就会把这些状态清零，所以 APG 的更新路径复用已安装的块而不重渲染。带 override 时 APG 是**接受并重新背书**（re-attest）手改内容——因为 P8 已经保证改动前的文件有备份，所以这个取舍是显式的：不静默丢数据，代价是手改在被主人同意后会被保留。
+
+**P5 结果更新**：`scripts/test-interop-br.sh` 从 **13 通过 / 0 失败 / 2 缺口** 变为 **18 通过 / 0 失败 / 1 缺口** —— P9 缺口闭合，只剩 P3（内容被静默挪位，不在本次批准范围）。
+
+**一处必须说清的边界**：`docs/memory/finding.h1.bootstrap-token-only-validation.json`（confidence=high）记录的是**另一个块**——`lib/bootstrap.mjs` 的 `inspectBootstrap`（:97-108）对 schema-1 的 **v2 bootstrap 块**只做「字节 0 + 三个 `includes`」校验，**完全不比 hash**，所以块内其余治理指令可被改写而 `project validate` 仍报 ready。schema 2 用 `integrity.root_block_hash`（`schemas/project-v3.schema.json`，与 `manifest_digest` 同为必填）在设计上回答了这个问题，但 **schema-1 路径仍是 token-only**。
+
+**P9 没有闭合那条 finding**——它管的是 `install.sh` 写进消费者根的 `routing:start|end` 块，不是 `inspectBootstrap` 检查的 `v2:start|end` 块。但 P9 给出了**已经测过的机制**：把 `stamp`/`verify` 用到 `V2_START`/`V2_END` 上、让 `inspectBootstrap` 比对记录的 hash，现在是一个小改动而不是设计问题。这是一条明确的后续项。
+
+**ADR 0006 中仍未闭合的**：P3（前缀之上的内容被静默挪位，已由 P5 case B 实测定位）、P6（观测账本未实现）、P7（APG 自身块仍 1,706 B，消费者用的是 731–758 B）。

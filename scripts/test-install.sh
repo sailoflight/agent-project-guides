@@ -183,6 +183,31 @@ assert_contains "$PROJECT_ONE/AGENTS.md" "status=pending; package_revision=$PACK
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 assert_contains "$PROJECT_ONE/AGENTS.md" 'Routing/state and `pending/stale` are not triggers'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
+# P8 (decisions/0006): the root was rewritten, so a recovery point must exist, and
+# it must be a copy of the pre-merge file rather than a rename of it.
+BACKUP_ONE="$PROJECT_ONE/AGENTS.md.agent-project-guides.bak"
+[ -f "$BACKUP_ONE" ] || fail 'P8: root was rewritten with no recovery point'
+cmp "$TMP/original-one.md" "$BACKUP_ONE" >/dev/null || fail 'P8: recovery point is not the pre-merge root'
+# P9 (decisions/0006): a hand edit of APG's own managed block is detected instead of
+# silently overwritten, and the documented override lets the owner proceed.
+ROUTING_START_MARK='<!-- agent-project-guides:routing:start -->'
+ROUTING_END_MARK='<!-- agent-project-guides:routing:end -->'
+grep -qF '<!-- agent-project-guides:integrity sha256=' "$PROJECT_ONE/AGENTS.md" || fail 'P9: routing block has no integrity line'
+node "$PACKAGE_ONE/scripts/manage-root-blocks.mjs" verify "$PROJECT_ONE/AGENTS.md" "$ROUTING_START_MARK" "$ROUTING_END_MARK" \
+  || fail 'P9: freshly installed routing block does not verify'
+awk -v end="$ROUTING_END_MARK" '{ if ($0 == end) print "- hand edited inside the managed block"; print }' \
+  "$PROJECT_ONE/AGENTS.md" > "$TMP/tampered-root.md"
+cp "$TMP/tampered-root.md" "$PROJECT_ONE/AGENTS.md"
+if "$PACKAGE_ONE/scripts/install.sh" check >/dev/null 2>&1; then
+  fail 'P9: check accepted a hand-edited managed block'
+fi
+if "$PACKAGE_ONE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'P9: merge overwrote a hand-edited managed block without the override'
+fi
+AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1 "$PACKAGE_ONE/scripts/install.sh" merge >/dev/null 2>&1 \
+  || fail 'P9: merge refused even with the documented override'
+node "$PACKAGE_ONE/scripts/manage-root-blocks.mjs" verify "$PROJECT_ONE/AGENTS.md" "$ROUTING_START_MARK" "$ROUTING_END_MARK" \
+  || fail 'P9: block does not verify after the override merge'
 "$PACKAGE_ONE/scripts/install.sh" check
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
 "$PACKAGE_ONE/scripts/install.sh" merge >/dev/null
