@@ -34,6 +34,14 @@ they change.
 - `project validate` reports `bootstrap.anchor` (`block` | `descriptor` | `both`)
   and `bootstrap.root_block_hash`.
 
+**Upgrade note.** A schema-1 project installed by any release up to and including
+3.0.8 has neither anchor, so it now fails `project validate` with
+`bootstrap_unverifiable` where it used to pass. `project reattest --target <dir>` is
+the repair: it verifies the block that is installed, installs a stamped one for the
+descriptor's release, and records the anchor. Schema-2 projects
+(`shared-runtime.pinned`, `selected-inline.none`) take a different path and are
+unaffected.
+
 **Root instruction-block ownership (ADR 0006) — P3 widened to the measured vocabulary.**
 
 - The census over the external checkouts found **two more writers** than the ADR's
