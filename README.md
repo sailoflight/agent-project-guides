@@ -1,75 +1,73 @@
-# Agent 项目开发治理文档包
+# Agent 项目开发治理包
 
-> 本目录提供项目角色路由、包适配流程和按项目类型裁剪的文档规范。它不是要求所有 agents 全文预读的总提示词。
+> 根入口只提供短路由和状态；agent 通过 JSONL 精确命中一个角色，再读取一个指南。README 不自动加载。
 
-## 自动加载边界
+## Harness 边界
 
-DeepSeek Harness 的项目指令加载基于文件名和目录链：
+DeepSeek Harness 按 `.git` 根到 cwd 的路径链自动加载精确命名的 `AGENTS.md`、`CLAUDE.md` 和 local overlay，并在每个 model step 前重探测 baseline。嵌套 README、JSONL、角色和模板不会自动加载；DSH minimal preset 未启用 instruction plugin。
 
-- session 启动时，从 `.git` 项目根到当前工作目录自动加载精确命名的 `AGENTS.md`、`CLAUDE.md` 及 local overlay；
-- 已加载 baseline 会在每个 model step 前重新探测，因此运行中追加根 `AGENTS.md` 通常会在下一步投递；
-- `README.md`、本包角色指南和 routing 文件不会因为放在项目子目录就自动加载；
-- 新出现的后代目录级 `AGENTS.md` 需要 agent 通过文件工具触碰对应路径后按需注入；
-- DSH code preset 的自动指令总预算当前为 65,536 bytes，本包把合并后的根入口限制为 16,384 bytes；
-- 该机制要求 preset 启用 `dsh-agent-instructions`，minimal preset 不启用该插件。
+本包把合并后的根入口限制为 16,384 bytes。永久 routing block 设计为每步重复成本，必须保持短小；角色、流程、profiles 和模板只按需读取。
 
-因此根 `AGENTS.md` 只追加短小的永久路由和适配状态，不放完整角色指南、User 生产使用提示或 Operator runbook。
+## JSONL 精确路由
 
-## 两层角色路由
+不要列出、glob 或预读 `roles/`。顺序：
 
-agent 在读取角色简介前先判断工作平面：
+1. `adapter-trigger` 优先。
+2. 用户/父 agent 已给 plane/role/mode 时，在 `routing/*.roles.jsonl` 精确 grep `id`，直接读命中记录。
+3. 未指定时只读 `routing/planes.jsonl` 的两行；Production/Development 不明确则询问并停止。
+4. 确定 plane 后只搜索对应 registry；role/mode 不明确则在角色指南前询问。
+5. 只读记录中的 `guide` 和当前 mode 的 `procedure_by_mode`。
+
+注册表：
 
 ```text
-Production plane
-  -> User：通过公开 UI/API/SDK/CLI/MCP 使用已部署产品
-  -> Operator：部署、配置、观察、事件响应、备份、恢复和回滚
-
-Development plane
-  -> Developer：新行为、功能和有意契约变化
-  -> Maintainer：Bug、测试、行为保持型整理和已有项目重新适配
-  -> Reviewer：静态审查和隔离环境动态分析
-  -> Field Evaluator：非生产真实场景动态验证和需求探索
+routing/planes.jsonl
+routing/production.roles.jsonl
+routing/development.roles.jsonl
 ```
 
-平面不明确时，agent 必须询问“这是生产使用/运维还是开发工作”，并在回答前停止读取两个平面的角色索引。进入一个平面后只读：
+每行都是完整 JSON object，适合 `grep -F '"id":"maintainer"'`；不要全文读取普通 pretty JSON。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID、plane、mode 和包内路径。
 
-- Production：`routing/PRODUCTION_ROLES.md`
-- Development：`routing/DEVELOPMENT_ROLES.md`
+## Plane、角色和子模式
 
-角色仍不明确时再次询问，确认后只读一个角色指南。用户明确授予多个兼容角色或子模式时，无需重复询问；但生产凭据、真实数据、破坏性动作和外部费用仍需要单独明确授权。
+| Plane | Role | Modes | Guide |
+|---|---|---|---|
+| Production | User | end-user、api-sdk、cli、mcp | `roles/production/USER.md` |
+| Production | Operator | deploy/configure、observe、incident、backup/recovery、rollback | `roles/production/OPERATOR.md` |
+| Development | Developer | feature、initialize | `roles/development/DEVELOPER.md` |
+| Development | Maintainer | code、readapt | `roles/development/MAINTAINER.md` |
+| Development | Reviewer | static、sandbox-dynamic | `roles/development/REVIEWER.md` |
+| Development | Field Evaluator | scenario-validation、exploratory-evaluation | `roles/development/FIELD_EVALUATOR.md` |
 
-## 包适配不是顶级角色
+包适配不是顶级角色：
 
-包适配是两个 Development 子模式共享的流程：
+- 新或实际上为空的项目：Developer / `initialize`
+- 已有项目：Maintainer / `readapt`
 
-- 新或实际上为空的项目：Developer / Project Initializer
-- 已有项目：Maintainer / Package Re-adapter
+两者额外读取 `procedures/PACKAGE_ADAPTATION.md`。普通 feature/code 任务不读适配流程。
 
-两者读取自己的角色指南和 `PACKAGE_ADAPTATION_PROCEDURE.md`。普通 Feature Developer 和 Code Maintainer 不预读包适配流程。
+用户明确授予多个兼容角色时不重复询问；生产凭据、真实数据、费用和破坏性动作仍需单独授权。
 
-Package Re-adapter 可以在后期重复执行，用于包版本变化、路由漂移、文档边界失效或局部重新规整。
+## 子 agents
+
+父 agent 先读 `templates/SUBAGENT_ASSIGNMENT.md`，逐项给出 plane、role/mode、目标、读写路径、环境/数据、网络/费用、破坏性权限、验证和升级对象。子 agent 不继承未传递权限；分配冲突时询问 parent/captain，不自行读其他角色。
 
 ## 适配状态
 
-永久根路由包含一行短状态：
+永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.0.0; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.1.0; verified_at=never; scope=repo; reason=not_adapted
 ```
 
-字段含义：
+- `pending/stale`：安装器管理。
+- `partial/adapted/blocked`：initialize/readapt 通过 `set-state` 记录。
+- `adapted`：当前版本、UTC 时间、实际 scope、`reason=none`。
+- `partial/blocked`：精确范围和非敏感 reason code。
 
-- `status`：`pending`、`partial`、`adapted`、`stale` 或 `blocked`
-- `package_revision`：当前合并的 `PACKAGE_VERSION`
-- `verified_at`：完整/部分验收的 ISO-8601 UTC 时间；未验收为 `never`
-- `scope`：`repo` 或准确的局部适配范围
-- `reason`：`adapted` 时为 `none`，其他状态为简短非敏感 reason code
+时间不能替代适配证据。
 
-Project Initializer 和 Package Re-adapter 通过 `set-state` 写入 `partial`、`adapted` 或 `blocked` 结果；安装器在初次合并、包版本变化和显式重新适配时管理 `pending`/`stale`。时间字段本身不能证明适配完成，必须通过流程中的证据和冷启动验收。
-
-## 放入目标项目
-
-在目标项目内部放置本包，例如：
+## 安装位置
 
 ```text
 <project>/
@@ -77,118 +75,95 @@ Project Initializer 和 Package Re-adapter 通过 `set-state` 写入 `partial`�
   AGENTS.md
 ```
 
-脚本全部位于包内，不向目标项目投放额外安装程序。独立 clone 作为普通 vendored 目录时应移除内层 `.git`；作为 submodule 时不要从 submodule 内启动针对宿主项目的 agent。
+包必须位于目标项目内部。vendored clone 应移除内层 `.git`；submodule 场景不要从 submodule 内启动宿主项目 agent。
 
-## 方案一：永久路由原样合并，客户显式调用
-
-运行：
+## 方案一：只合并永久路由
 
 ```bash
 ./agent-project-guides/scripts/install.sh merge
 ```
 
-脚本只执行机械文件迁移：
+脚本保留原根文件字节前缀，只在末尾追加渲染后的永久 routing/state；不调用 LLM、不追加 trigger、不创建或改名 `AGENTS_origin.md`。
 
-1. 保留现有根 `AGENTS.md` 的原始字节前缀；
-2. 在文件末尾原样追加 `bootstrap/AGENTS.routing-block.md` 的渲染结果；
-3. 初始化 `pending` 适配状态；
-4. 校验路径、marker、UTF-8、候选冲突和体积；
-5. 不启动或调用任何 LLM，不追加适配触发。
-
-随后由客户显式命令 LLM：
+客户随后显式指定：
 
 ```text
-新项目：以 Development / Developer / Project Initializer 子模式执行包适配。
-已有项目：以 Development / Maintainer / Package Re-adapter 子模式执行包适配。
+新项目：Development / Developer / initialize
+已有项目：Development / Maintainer / readapt
 ```
 
-适配 agent 完成后运行 `set-state`。方案一没有临时提示词需要删除。
+完成后运行 `set-state`。方案一没有临时提示需要删除。
 
-## 方案二：在现有入口末尾追加一次性触发
-
-运行：
+## 方案二：追加一次性 trigger
 
 ```bash
 ./agent-project-guides/scripts/install.sh trigger
 ```
 
-脚本先确保永久路由存在，然后在同一个现有 `AGENTS.md` 末尾追加 `bootstrap/AGENTS.adapter-trigger.md`：
+脚本先确保永久路由存在，再在同一个现有 `AGENTS.md` 末尾追加 `bootstrap/AGENTS.adapter-trigger.md`。下一个 agent 判断 initialize/readapt，完成后更新 `adapted` 并运行 `remove-trigger`；只删除 trigger，原项目内容和永久路由保留。
 
-1. 不替换、移动、改名或停用原 `AGENTS.md`；
-2. 不创建 `AGENTS_origin.md`；
-3. 下一个兼容 agent 先判断新/已有项目，选择 Project Initializer 或 Package Re-adapter；
-4. 完成规范和验证后更新状态为 `adapted`；
-5. 运行 `remove-trigger`，只删除一次性 trigger，保留原项目内容和永久路由；
-6. 重新读取根入口，再处理用户的原始任务。
+中断恢复：
 
-若状态已经 `adapted` 但 trigger 因中断尚未删除，下一个 agent 只执行清理，不重复适配。无法安全完成时写 `blocked` 和 reason，保留 trigger 并询问用户是否重试、缩小范围、跳过或人工移除，避免无限重入。
+- 当前版本已经 `adapted`：只清理 trigger，不重复适配。
+- `partial`：只继续未验证 scope/reason。
+- `blocked`：保留 trigger，询问重试、缩小、跳过或人工移除，不循环。
 
 ## 脚本命令
 
 ```bash
-./agent-project-guides/scripts/install.sh merge
-./agent-project-guides/scripts/install.sh trigger
-./agent-project-guides/scripts/install.sh check
-./agent-project-guides/scripts/install.sh set-state \
-  --status adapted \
-  --verified-at 2026-08-24T12:00:00Z \
-  --scope repo \
-  --reason none
-./agent-project-guides/scripts/install.sh remove-trigger
-./agent-project-guides/scripts/install.sh unmerge
+scripts/install.sh merge
+scripts/install.sh trigger
+scripts/install.sh check
+scripts/install.sh set-state --status adapted --verified-at <UTC> --scope repo --reason none
+scripts/install.sh remove-trigger
+scripts/install.sh unmerge
+node scripts/validate-routing.mjs
 ```
 
-所有命令支持 `--target <project>`。省略时从包父目录向上查找最近 `.git` 文件或目录。
+所有 install 命令支持 `--target <project>`；省略时从包父目录向上寻找最近 `.git`。
 
-安全约束：
+## 安全和回归约束
 
-- 发现旧版 root-replacement `handoff` marker 时拒绝继续；先使用对应旧版本回滚或人工恢复原入口，再使用 append-only 安装器；
-- `CLAUDE.md`、`AGENTS.local.md` 或 `CLAUDE.local.md` 同时存在时拒绝自动合并，要求客户先协调优先级；
-- 根 `AGENTS.md` 是 symlink 时拒绝，避免改变链接语义；
-- 无效 UTF-8、marker 冲突和合并后超过 16,384 bytes 时原文件保持不变；
-- 同版本重复 `merge`/`trigger` 幂等；
-- `PACKAGE_VERSION` 变化后再次 `merge` 会刷新 managed routing 并把状态标记为 `stale`；已有 trigger 会在再次 `trigger` 时同步刷新；
-- `remove-trigger` 只接受 `status=adapted`；
-- `unmerge` 只删除 managed routing，且要求 trigger 已先移除。
+- 其他根候选 `CLAUDE.md`、`AGENTS.local.md`、`CLAUDE.local.md` 存在时拒绝自动合并。
+- 根 `AGENTS.md` 是 symlink、无效 UTF-8、marker 冲突或合并后超限时保持原文件不变。
+- 旧 root-replacement handoff marker 必须先按旧版本恢复。
+- 同版本 `merge/trigger` 幂等；版本变化刷新 routing 并标记 `stale`。
+- `remove-trigger` 只接受 `adapted`；`unmerge` 要求 trigger 已删除。
+- 测试强制 routing/trigger/JSONL/Developer/适配流程 byte budgets，防止 token 成本回涨。
 
-## 角色入口
+运行：
 
-| 平面/角色 | 必读 | 按需读取 | 不应预读 |
-|---|---|---|---|
-| Production / User | `USER_AGENT_GUIDE.md` | 项目 `docs/usage/`、公共协议或 MCP 投递面 | 源码开发指南、内部架构、operations |
-| Production / Operator | `OPERATOR_AGENT_GUIDE.md` | 项目 operations/runbook 和有限运行时架构 | 开发指南、User 提示、包适配流程 |
-| Development / Feature Developer | `DEVELOPER_AGENT_GUIDE.md` 第 9-14 节 | 一个模块契约、验证矩阵、匹配 profile | 包适配流程和生产投递面 |
-| Development / Project Initializer | `DEVELOPER_AGENT_GUIDE.md` 第 0-8 节 | `PACKAGE_ADAPTATION_PROCEDURE.md`、匹配 profile 和精确模板小节 | Maintainer、生产投递面 |
-| Development / Code Maintainer | `MAINTAINER_AGENT_GUIDE.md` | 一个模块契约、验证矩阵 | 包适配流程、生产投递面 |
-| Development / Package Re-adapter | `MAINTAINER_AGENT_GUIDE.md` | `PACKAGE_ADAPTATION_PROCEDURE.md`、匹配 profile 和精确模板小节 | Developer、生产投递面 |
-| Development / Reviewer | `REVIEWER_AGENT_GUIDE.md` | 目标 diff、契约和 sandbox 验证 | 生产环境/数据、包适配流程 |
-| Development / Field Evaluator | `FIELD_EVALUATOR_AGENT_GUIDE.md` | dev/test/staging 使用入口和获批数据边界 | production、Operator runbook、整仓源码 |
+```bash
+./scripts/test-install.sh
+```
 
-项目 profiles：
+## 精确模板
 
-- MCP：`profiles/MCP_PROJECT.md`
-- library/CLI：`profiles/LIBRARY_AND_CLI_PROJECT.md`
-- application/service/GUI/monorepo/data：`profiles/APPLICATION_SERVICE_MONOREPO.md`
-
-只读取匹配 profile。项目组合形态可读取多个匹配文件，但不能预载无关 profile。
-
-## 子 agents 权限
-
-父 agent 必须为每个子 agent 显式传递：
+模板物理拆分，禁止全文枚举：
 
 ```text
-plane
-role / submode
-objective and deliverable
-read scope
-writable paths
-environment and data permissions
-network / cost / destructive permissions
-verification
-escalation target
+templates/ROOT_AGENTS.md
+templates/DOC_INDEX.md
+templates/DEVELOPMENT_START.md
+templates/ARCHITECTURE_OVERVIEW.md
+templates/MODULE_CONTRACT.md
+templates/VERIFICATION_MATRIX.md
+templates/USER_USAGE.md
+templates/OPERATOR_RUNBOOK.md
+templates/FIELD_EVALUATION.md
+templates/ADR.md
+templates/SUBAGENT_ASSIGNMENT.md
 ```
 
-子 agent 不继承父 agent 的全部角色或权限，不自行切换平面，不读取其他角色指南。分配缺失或冲突时向父 agent/captain 请求澄清，而不是直接扩大权限或绕过用户授权。只有明确分配的 Project Initializer/Package Re-adapter 可以修改适配状态；只有 Operator 可以执行获批生产运维动作。
+`procedures/PACKAGE_ADAPTATION.md` 按产物点名一个模板；不能把整个目录加入上下文。
+
+## Profiles
+
+- `profiles/MCP_PROJECT.md`
+- `profiles/LIBRARY_AND_CLI_PROJECT.md`
+- `profiles/APPLICATION_SERVICE_MONOREPO.md`
+
+只读取匹配 profile；组合项目只增加实际形态。
 
 ## 包结构
 
@@ -196,41 +171,27 @@ escalation target
 agent-project-guides/
   PACKAGE_VERSION
   README.md
-  DEVELOPER_AGENT_GUIDE.md
-  MAINTAINER_AGENT_GUIDE.md
-  REVIEWER_AGENT_GUIDE.md
-  FIELD_EVALUATOR_AGENT_GUIDE.md
-  USER_AGENT_GUIDE.md
-  OPERATOR_AGENT_GUIDE.md
-  PACKAGE_ADAPTATION_PROCEDURE.md
-  routing/
-    PRODUCTION_ROLES.md
-    DEVELOPMENT_ROLES.md
   bootstrap/
-    AGENTS.routing-block.md
-    AGENTS.adapter-trigger.md
-  scripts/
-    install.sh
-    test-install.sh
+  routing/
+  roles/
+    production/
+    development/
+  procedures/
   profiles/
-    MCP_PROJECT.md
-    LIBRARY_AND_CLI_PROJECT.md
-    APPLICATION_SERVICE_MONOREPO.md
   templates/
-    CORE_DOCUMENT_TEMPLATES.md
+  scripts/
 ```
 
-bootstrap 模板故意不命名为包内精确 `AGENTS.md`，避免 agent 读取或维护模板目录时被 harness 当作真实目录级指令注入。
+包内 bootstrap 故意不使用精确文件名 `AGENTS.md`，避免进入目录时被 harness 当作真实局部指令。角色放入二级目录并由 JSONL 给出精确路径；目录布局是上下文软隔离，不是安全权限边界。
 
-## 交付完成标准
+## Token 目标
 
-没有历史上下文的 agent 应能在不预读本包全文的情况下回答：
+当前回归上限：
 
-1. 当前任务属于 Production 还是 Development？
-2. 当前角色和子模式是什么；不明确时应向谁询问？
-3. 该角色只应读取哪个入口、允许哪些环境和数据？
-4. 修改或操作前有哪些安全、兼容和副作用约束？
-5. 应运行哪些验证，结果投递到哪里？
-6. 包适配状态、版本、时间、范围和 reason 是否可信？
+- 永久 routing template：不超过 1,600 bytes
+- 临时 trigger：不超过 1,600 bytes
+- 三个 JSONL registry 合计：不超过 2,200 bytes
+- Developer guide：不超过 4,000 bytes
+- Package adaptation procedure：不超过 7,000 bytes
 
-不能回答这些问题、存在重复 routing block、方案二仍有已完成但未清理的 trigger，或状态与实际证据不一致，说明入口治理尚未完成。
+README 是人类权威说明，不自动加载，不为 token 目标牺牲完整性。

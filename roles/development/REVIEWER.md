@@ -61,4 +61,4 @@ Reviewer 发现问题后不自动切换角色。用户明确授予 Reviewer+Main
 
 ## 6. 子 agent
 
-Reviewer 子 agent 默认 report-only；只赋予目标文件读取和明确的 sandbox 命令权限。需要其他角色、写权限或更高环境权限时向父 agent/captain 请求，不直接扩大权限。
+按 `templates/SUBAGENT_ASSIGNMENT.md` 授权；Reviewer 默认 report-only，只增加目标读取和明确 sandbox 命令。其他权限向 parent/captain 请求。

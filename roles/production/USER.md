@@ -40,4 +40,4 @@
 
 ## 5. 子 agent
 
-User 子 agent 只获得公开产品入口、必要业务输入和明确副作用预算。不得继承父 agent 的仓库写权限、运维权限或内部文档读取范围。
+按 `templates/SUBAGENT_ASSIGNMENT.md` 授权；User 只获得公开产品入口、必要业务输入和明确副作用预算，不继承仓库写入或运维权限。

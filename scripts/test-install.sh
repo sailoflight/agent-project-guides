@@ -27,16 +27,8 @@ assert_not_contains() {
 copy_package() {
   destination=$1
   mkdir -p "$destination"
-  cp -R "$ROOT/bootstrap" "$ROOT/routing" "$ROOT/scripts" "$ROOT/profiles" "$ROOT/templates" "$destination/"
-  cp "$ROOT/PACKAGE_VERSION" \
-    "$ROOT/PACKAGE_ADAPTATION_PROCEDURE.md" \
-    "$ROOT/DEVELOPER_AGENT_GUIDE.md" \
-    "$ROOT/MAINTAINER_AGENT_GUIDE.md" \
-    "$ROOT/REVIEWER_AGENT_GUIDE.md" \
-    "$ROOT/FIELD_EVALUATOR_AGENT_GUIDE.md" \
-    "$ROOT/USER_AGENT_GUIDE.md" \
-    "$ROOT/OPERATOR_AGENT_GUIDE.md" \
-    "$destination/"
+  cp -R "$ROOT/bootstrap" "$ROOT/routing" "$ROOT/scripts" "$ROOT/profiles" "$ROOT/templates" "$ROOT/roles" "$ROOT/procedures" "$destination/"
+  cp "$ROOT/PACKAGE_VERSION" "$destination/"
 }
 
 assert_original_prefix() {
@@ -47,6 +39,22 @@ assert_original_prefix() {
 }
 
 "$ROOT/scripts/install.sh" --help >/dev/null
+node "$ROOT/scripts/validate-routing.mjs" >/dev/null
+for obsolete in \
+  DEVELOPER_AGENT_GUIDE.md MAINTAINER_AGENT_GUIDE.md REVIEWER_AGENT_GUIDE.md \
+  FIELD_EVALUATOR_AGENT_GUIDE.md USER_AGENT_GUIDE.md OPERATOR_AGENT_GUIDE.md \
+  PACKAGE_ADAPTATION_PROCEDURE.md routing/PRODUCTION_ROLES.md routing/DEVELOPMENT_ROLES.md \
+  templates/CORE_DOCUMENT_TEMPLATES.md
+do
+  [ ! -e "$ROOT/$obsolete" ] || fail "obsolete preload-prone path remains: $obsolete"
+done
+[ "$(wc -c < "$ROOT/bootstrap/AGENTS.routing-block.md" | tr -d '[:space:]')" -le 1600 ] || fail 'per-step routing block exceeded token-oriented byte budget'
+[ "$(wc -c < "$ROOT/bootstrap/AGENTS.adapter-trigger.md" | tr -d '[:space:]')" -le 1600 ] || fail 'temporary trigger exceeded token-oriented byte budget'
+routing_bytes=$(wc -c < "$ROOT/routing/planes.jsonl")
+routing_bytes=$((routing_bytes + $(wc -c < "$ROOT/routing/production.roles.jsonl") + $(wc -c < "$ROOT/routing/development.roles.jsonl")))
+[ "$routing_bytes" -le 2200 ] || fail 'JSONL registries exceeded token-oriented byte budget'
+[ "$(wc -c < "$ROOT/roles/development/DEVELOPER.md" | tr -d '[:space:]')" -le 4000 ] || fail 'Developer guide regained initializer duplication'
+[ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 7000 ] || fail 'adaptation procedure exceeded compact budget'
 if grep -Eq '(^|[[:space:]])(dsh|claude|codex)([[:space:]]|$)' "$ROOT/scripts/install.sh"; then
   fail 'installer appears to invoke an LLM runner'
 fi
@@ -62,7 +70,7 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 "$PACKAGE_ONE/scripts/install.sh" merge
 assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.0.0; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.1.0; verified_at=never; scope=repo; reason=not_adapted'
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
 "$PACKAGE_ONE/scripts/install.sh" check
@@ -109,12 +117,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.0.0; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.1.0; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.0.0; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.1.0; verified_at=never; scope=repo; reason=missing_owner_decision'
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.0.0; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.1.0; verified_at=never; scope=repo; reason=retry_requested'
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -132,7 +140,7 @@ assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.0.0; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.1.0; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 [ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'
@@ -197,15 +205,26 @@ mkdir -p "$PROJECT_FOUR/.git"
 copy_package "$PACKAGE_FOUR"
 "$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
 "$PACKAGE_FOUR/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T14:00:00Z --scope repo --reason none >/dev/null
-printf '1.1.0\n' > "$PACKAGE_FOUR/PACKAGE_VERSION"
+printf '1.2.0\n' > "$PACKAGE_FOUR/PACKAGE_VERSION"
 "$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.1.0; verified_at=2026-08-24T14:00:00Z; scope=repo; reason=package_revision_changed'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.2.0; verified_at=2026-08-24T14:00:00Z; scope=repo; reason=package_revision_changed'
 assert_not_contains "$PROJECT_FOUR/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 "$PACKAGE_FOUR/scripts/install.sh" check
 "$PACKAGE_FOUR/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'Package trigger revision: 1.1.0'
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.1.0'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'Trigger revision: 1.2.0'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.2.0'
 [ "$(grep -Fc '<!-- agent-project-guides:adapter-trigger:start -->' "$PROJECT_FOUR/AGENTS.md")" -eq 1 ] || fail 'version refresh duplicated the trigger'
 "$PACKAGE_FOUR/scripts/install.sh" check
 
-printf 'PASS: append-only schemes, state lifecycle, trigger cleanup, role routing, and safety guards\n'
+# Invalid JSONL or unresolved registry paths fail before root instructions change.
+PROJECT_FIVE="$TMP/jsonl-project"
+PACKAGE_FIVE="$PROJECT_FIVE/agent-project-guides"
+mkdir -p "$PROJECT_FIVE/.git"
+copy_package "$PACKAGE_FIVE"
+printf '{invalid-json}\n' >> "$PACKAGE_FIVE/routing/planes.jsonl"
+if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'installer accepted invalid routing JSONL'
+fi
+[ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'invalid JSONL failure created root instructions'
+
+printf 'PASS: append-only schemes, JSONL routing, token budgets, state lifecycle, and safety guards\n'

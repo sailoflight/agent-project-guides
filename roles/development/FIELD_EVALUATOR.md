@@ -65,4 +65,4 @@
 
 ## 7. 子 agent
 
-Field Evaluator 子 agent 必须获得明确环境、数据、账号、网络、费用和写入范围。父 agent 不能仅以“Field Evaluator”标签隐含授予真实数据或外部成本权限；缺少字段时子 agent 向父 agent/captain 请求澄清并停止实战操作。
+按 `templates/SUBAGENT_ASSIGNMENT.md` 授权，并明确环境、数据、账号、网络、费用和写入；缺失字段时向 parent/captain 请求并停止实战操作。

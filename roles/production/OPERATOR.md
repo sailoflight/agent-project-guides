@@ -61,4 +61,4 @@
 
 ## 6. 子 agent
 
-Operator 子 agent 使用最小生产权限，每个 agent 只承担一个明确动作或只读调查。父 agent 必须逐项传递环境、动作、凭据级别、影响范围、停止条件和批准；子 agent 不继承父 agent 的全部生产权限，也不得自行切换 User 或 Development 角色。
+按 `templates/SUBAGENT_ASSIGNMENT.md` 授权；每个 Operator 子 agent 只承担一个明确生产动作或只读调查，并逐项给出环境、影响、停止条件和批准。
