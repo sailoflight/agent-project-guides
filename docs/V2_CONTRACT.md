@@ -76,6 +76,12 @@ identity is a conflict; failed health is not reusable. The CLI groups service re
 by ID, rejects inconsistent declarations, deduplicates equivalent endpoints, and
 reports multiple available instances of a singleton as a conflict.
 
+A package and a service may share an ID: an archived artifact and its running service
+are distinct observations, not duplicate installations. They retain separate verdicts.
+An unqualified `{component: id}` prerequisite resolves to the package when one is
+present, otherwise to the service. A failed package never falls back to healthy service
+identity. A service may therefore depend on its same-ID package without a false cycle.
+
 Component prerequisites use final dependency verdicts, including transitive failures;
 cycles are not usable. `verify` hashes packages but performs no network requests, so a
 package depending on unprobed service health is degraded. `probe` verifies only packages

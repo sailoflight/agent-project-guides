@@ -190,7 +190,7 @@
             "component": {
               "type": "string",
               "minLength": 1,
-              "description": "An id whose final verdict, including all transitive prerequisites, must be available. Cycles and unprobed service health are not satisfied. probe verifies required packages only; verify never probes services."
+              "description": "An id whose final verdict, including transitive prerequisites, must be available. Resolve the package if declared, otherwise the service; never fall back from a failed package to service health. Package/service observations may share an id. Cycles and unprobed health are not satisfied."
             }
           }
         },

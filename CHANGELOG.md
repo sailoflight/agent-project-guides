@@ -12,6 +12,8 @@ they change.
 
 ## Unreleased — 2026-09-23
 
+- Latest-source self-hosting exposed same-ID artifact/service coexistence being misclassified as a conflict; keep kind-scoped verdicts and package-first prerequisite resolution.
+
 - Make canonical catalogs, runtime/file ordering and component digests locale-independent; add English/Chinese/Swedish regression fixtures.
 - Keep the trusted-local model, adding exclusive temporary writes and checkout-bound Git metadata checks without a hostile multi-tenant security layer.
 - Split component resolution and HTTP probing from CLI dispatch; aggregate singleton instances, propagate dependency failures/cycles, refuse remote endpoints and bound identity/health responses.
