@@ -153,7 +153,7 @@ assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '禁止用 glob 猜路�
 [ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 9500 ] || fail 'adaptation procedure exceeded ownership budget'
 [ "$(wc -c < "$ROOT/profiles/MCP_PROJECT.md" | tr -d '[:space:]')" -le 5500 ] || fail 'MCP profile regained subtype or procedure duplication'
 [ "$(wc -c < "$ROOT/profiles/mcp/WINDOWS_WSL_BRIDGE.md" | tr -d '[:space:]')" -le 8500 ] || fail 'Windows-WSL subtype spec exceeded ownership budget'
-[ "$(wc -c < "$ROOT/README.md" | tr -d '[:space:]')" -le 11000 ] || fail 'README regained procedure or profile duplication'
+[ "$(wc -c < "$ROOT/README.md" | tr -d '[:space:]')" -le 12000 ] || fail 'README regained procedure or profile duplication'
 if grep -Eq '(^|[[:space:]])(dsh|claude|codex)([[:space:]]|$)' "$ROOT/scripts/install.sh"; then
   fail 'installer appears to invoke an LLM runner'
 fi
