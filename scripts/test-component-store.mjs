@@ -1,124 +1,45 @@
 #!/usr/bin/env node
-// ADR 0009: one component store per machine, shared by every project on it, and
-// discovery that is falsifiable.
+// ADR 0009 (the store) and ADR 0010 (its contract on the distribution surface).
 //
-// This gate exists because the store's whole value proposition is a claim that is easy
-// to assert and hard to hold: "the project reuses what is already there". Three ways
-// that claim goes quietly false, and each has an assertion below. A store that copies
-// per project still resolves; a probe that trusts "the port answers" still returns
-// something; a manifest that tolerates an extra file still verifies. So the gate pins
-// the sibling root, the single copy, the exact file set, and the four discovery states
-// against real loopback servers.
+// This gate exists because the store's value proposition is a claim that is easy to
+// assert and hard to hold: "the project reuses what is already there". Four ways that
+// claim goes quietly false, and each has an assertion below. A store that copies per
+// project still resolves; a probe that trusts "the port answers" still returns
+// something; a manifest that tolerates an extra file still verifies; and a builder that
+// ignores the acquisition record still produces directories. So the gate pins the
+// sibling root, the single copy, the exact file set, the four discovery states against
+// real loopback servers, and the builder's behaviour when the record and the bytes
+// disagree.
 //
-// The validator and probe live here rather than in lib/ on purpose: ADR 0009 D7 keeps
-// this contract off the distribution surface, and row 2 of the owner arbitration keeps
-// decision 2 (the declarative manifest) closed. Lifting this code into lib/ is that
-// decision, not this commit.
+// The implementation under test lives in lib/components.mjs on purpose (ADR 0010).
+// Until that ADR, this gate carried its own copy of the validator, which meant the gate
+// tested a helper no consumer would ever run.
 
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { canonicalJson, platformHomes, sha256 } from '../lib/core.mjs';
+import {
+  SERVICE_DIR,
+  componentsRoot,
+  entryDir,
+  packageManifest,
+  probeService,
+  readStoreEntryRecords,
+  resolvePackage,
+  resolveService,
+  validateEntry,
+  verifyEntry,
+  writePackageEntry,
+} from '../lib/components.mjs';
 
+const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-components-test-'));
 process.on('exit', () => fs.rmSync(temporary, { recursive: true, force: true }));
-
-const COMPONENT_MANIFEST = 'component-manifest.json';
-
-function componentsRoot(env) {
-  return path.join(platformHomes(env).data, 'components');
-}
-
-function entryDir(env, id, digest) {
-  return path.join(componentsRoot(env), id, digest.replace(':', '-'));
-}
-
-function sha256Of(bytes) {
-  return `sha256:${sha256(bytes)}`;
-}
-
-function buildManifest(files) {
-  const entries = [];
-  for (const [relative, bytes] of files) entries.push({ path: relative, bytes: bytes.length, sha256: sha256Of(bytes) });
-  entries.sort((left, right) => left.path.localeCompare(right.path));
-  const portable = { schema_version: 1, kind: 'package', files: entries };
-  return { ...portable, digest: `sha256:${sha256(canonicalJson(portable))}` };
-}
-
-function writeEntry(dir, files, { manifestMode = 0o444, manifest = buildManifest(files) } = {}) {
-  fs.mkdirSync(dir, { recursive: true });
-  for (const [relative, bytes] of files) {
-    const target = path.join(dir, relative);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, bytes, { mode: 0o644 });
-  }
-  fs.writeFileSync(path.join(dir, COMPONENT_MANIFEST), canonicalJson(manifest), { mode: manifestMode });
-  return manifest;
-}
-
-// Verification mirrors the shipped release validator (`lib/provider.mjs`): canonical
-// digest over the manifest without its own digest, safe relative paths, no case
-// collisions, a read-only manifest, and - the assertion that carries the most weight -
-// a file set that matches EXACTLY, with the manifest excluded from its own content
-// set. The set comparison runs before the per-file hashes so that a missing file is
-// reported as a missing file rather than as a read error.
-function verifyEntry(dir) {
-  const manifestPath = path.join(dir, COMPONENT_MANIFEST);
-  const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-  const { digest, ...portable } = manifest;
-  assert.equal(`sha256:${sha256(canonicalJson(portable))}`, digest, 'component manifest digest is invalid');
-  assert.equal(path.basename(dir), digest.replace(':', '-'), 'component directory is not named by its digest');
-  assert.equal(fs.statSync(manifestPath).mode & 0o777, 0o444, 'a component manifest must be read-only');
-  const declared = new Set();
-  const folded = new Set();
-  for (const entry of manifest.files) {
-    assert.ok(typeof entry.path === 'string' && !path.isAbsolute(entry.path) && !entry.path.includes('\\') && !entry.path.split('/').some((part) => !part || part === '..'), `unsafe component path: ${entry.path}`);
-    const key = entry.path.toLocaleLowerCase('und');
-    assert.ok(!declared.has(entry.path) && !folded.has(key), `duplicate or case-colliding component path: ${entry.path}`);
-    declared.add(entry.path);
-    folded.add(key);
-  }
-  const observed = [];
-  const visit = (relative = '') => {
-    for (const item of fs.readdirSync(path.join(dir, relative), { withFileTypes: true })) {
-      const child = relative ? `${relative}/${item.name}` : item.name;
-      assert.ok(!item.isSymbolicLink(), `component contains a symlink: ${child}`);
-      if (item.isDirectory()) visit(child);
-      else observed.push(child);
-    }
-  };
-  visit();
-  assert.deepEqual(observed.sort(), [...declared, COMPONENT_MANIFEST].sort(), 'component file set is not exactly its manifest');
-  for (const entry of manifest.files) {
-    const bytes = fs.readFileSync(path.join(dir, entry.path));
-    assert.equal(bytes.length, entry.bytes, `component size mismatch: ${entry.path}`);
-    assert.equal(sha256Of(bytes), entry.sha256, `component hash mismatch: ${entry.path}`);
-  }
-  return manifest;
-}
-
-// A record names an identity, never a location: the same rule the shipped provenance
-// gate already enforces for component records (`scripts/test-external-provenance.mjs:56`).
-function validateEntry(entry) {
-  if (entry.kind === 'service') {
-    assert.equal(entry.delivery, 'staged', 'a service entry cannot be delivery: fetched - an already-running service cannot be downloaded');
-    assert.ok(/^[A-Za-z0-9._-]+:[0-9]{1,5}$/.test(entry.endpoint || ''), 'a service endpoint must be host:port');
-    assert.equal(typeof entry.singleton, 'boolean', 'a service entry must declare singleton');
-  }
-  const serialized = JSON.stringify(entry);
-  assert.ok(!/"(?:file|path|local)"\s*:/.test(serialized), 'a component record must not name a local file/path');
-  assert.ok(!serialized.includes(temporary), 'a component record must not contain a machine path');
-  return entry;
-}
-
-function resolveFile(entry, env) {
-  const dir = entryDir(env, entry.id, entry.digest);
-  if (!fs.existsSync(dir)) return { state: 'not-installed', reusable: false, action: 'none' };
-  verifyEntry(dir);
-  return { state: 'available', reusable: true, dir };
-}
 
 function startService(id, revision) {
   const requests = [];
@@ -127,44 +48,18 @@ function startService(id, revision) {
     response.writeHead(200, { 'content-type': 'application/json' });
     response.end(JSON.stringify({ id, revision }));
   });
-  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({ port: server.address().port, requests, close: () => new Promise((done) => server.close(done)) })));
-}
-
-function probe(entry, timeout = 400) {
-  return new Promise((resolve) => {
-    const [host, port] = entry.endpoint.split(':');
-    const request = http.get({ host, port: Number(port), path: entry.health, timeout }, (response) => {
-      let body = '';
-      response.on('data', (chunk) => { body += chunk; });
-      response.on('end', () => {
-        let observed;
-        try { observed = JSON.parse(body); } catch { resolve({ state: 'conflict', reusable: false, reason: 'the endpoint answered with something that is not a component identity' }); return; }
-        if (observed.id !== entry.id) resolve({ state: 'conflict', reusable: false, reason: `the endpoint belongs to ${observed.id}` });
-        else if (!entry.revision) resolve({ state: 'degraded', reusable: true, reason: 'the declaration pins no revision, so the identity is unverified' });
-        else if (observed.revision !== entry.revision) resolve({ state: 'degraded', reusable: true, reason: `revision ${observed.revision} does not match the pinned ${entry.revision}` });
-        else resolve({ state: 'available', reusable: true });
-      });
-    });
-    request.on('timeout', () => { request.destroy(); resolve({ state: 'degraded', reusable: false, reason: 'the health probe timed out' }); });
-    request.on('error', () => resolve({ state: 'not-installed', reusable: false, action: 'none' }));
-  });
-}
-
-// A singleton with two live instances must be a conflict, not a choice: picking one
-// would silently reintroduce the second deployment this store exists to prevent.
-function resolveService(entry, observations) {
-  const available = observations.filter((observation) => observation.state === 'available');
-  if (entry.singleton && available.length > 1) return { state: 'conflict', reusable: false, reason: `${available.length} instances of a singleton are live` };
-  if (available.length) return { state: 'available', reusable: true, instances: available.length };
-  const conflicted = observations.find((observation) => observation.state === 'conflict');
-  if (conflicted) return { state: 'conflict', reusable: false, reason: conflicted.reason };
-  const degraded = observations.find((observation) => observation.state === 'degraded');
-  if (degraded) return { state: 'degraded', reusable: false, reason: degraded.reason };
-  return { state: 'not-installed', reusable: false, action: 'none' };
+  return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({
+    port: server.address().port,
+    requests,
+    // closeAllConnections because the probes above are keep-alive by default in modern
+    // Node: without it server.close() waits on a socket no one will send on again.
+    close: () => new Promise((done) => { server.closeAllConnections?.(); server.close(() => done()); }),
+  })));
 }
 
 // 1. The store sits beside APG's own package store, under the variable that already
-// exists. A second variable for the same machine would be one more thing to keep in sync.
+// exists. A second root variable for the same machine would be one more thing to keep in
+// sync, and the sibling relationship is the assertion that pins it.
 const override = { AGENT_PROJECT_GUIDES_HOME: path.join(temporary, 'home') };
 const xdg = { XDG_DATA_HOME: path.join(temporary, 'xdg'), HOME: path.join(temporary, 'nohome') };
 for (const env of [override, xdg]) {
@@ -174,68 +69,144 @@ for (const env of [override, xdg]) {
 assert.equal(platformHomes(override).data, path.join(override.AGENT_PROJECT_GUIDES_HOME, 'data'), 'the documented variable alone decides the root');
 assert.notEqual(componentsRoot(override), path.join(platformHomes(override).data, 'releases'));
 
-// 2. A valid entry verifies, and two projects referencing it resolve to one copy. This
-// is the "别到处都是" assertion: the count is the contract, not the path.
+// 2. A valid entry verifies, and two projects referencing it resolve to one copy. This is
+// the "别到处都是" assertion: the count is the contract, not the path.
 const env = override;
-const files = new Map([['bin/tool', Buffer.from('#!/bin/sh\necho tool\n')], ['README.md', Buffer.from('# tool\n')]]);
-const manifest = buildManifest(files);
-const entry = validateEntry({ kind: 'package', id: 'tool', digest: manifest.digest, version: '1.0.0', delivery: 'staged' });
-writeEntry(entryDir(env, 'tool', entry.digest), files, { manifest });
-const resolvedA = resolveFile(entry, env);
-const resolvedB = resolveFile(entry, env);
+const root = componentsRoot(env);
+const files = [{ path: 'bin/tool', content: Buffer.from('#!/bin/sh\necho tool\n') }, { path: 'README.md', content: Buffer.from('# tool\n') }];
+const manifest = packageManifest({ id: 'tool', version: '1.0.0', files });
+writePackageEntry(entryDir(root, 'tool', manifest.digest), manifest, files);
+const entry = validateEntry({ kind: 'package', id: 'tool', digest: manifest.digest });
+const resolvedA = resolvePackage(entry, root);
+const resolvedB = resolvePackage(entry, root);
 assert.equal(resolvedA.state, 'available');
 assert.equal(resolvedA.dir, resolvedB.dir, 'two projects must resolve to the same directory');
-assert.deepEqual(fs.readdirSync(path.join(componentsRoot(env), 'tool')), [entry.digest.replace(':', '-')], 'the store must hold exactly one copy of the component');
+assert.deepEqual(fs.readdirSync(path.join(root, 'tool')), [manifest.digest.replace(':', '-')], 'the store must hold exactly one copy of the component');
 
 // 3. The file set is exact. An extra file, a missing file, a tampered byte, a writable
 // manifest and a directory that does not match its digest must each fail - a store that
 // tolerates any of them cannot be trusted to serve the same component twice.
-const tamper = (name) => entryDir(env, `probe-${name}`, manifest.digest);
-writeEntry(tamper('extra'), files, { manifest });
+const tamper = (name) => entryDir(root, `probe-${name}`, manifest.digest);
+writePackageEntry(tamper('extra'), manifest, files);
 fs.writeFileSync(path.join(tamper('extra'), 'smuggled.bin'), 'x');
 assert.throws(() => verifyEntry(tamper('extra')), /file set is not exactly its manifest/);
-writeEntry(tamper('missing'), files, { manifest });
+writePackageEntry(tamper('missing'), manifest, files);
 fs.rmSync(path.join(tamper('missing'), 'README.md'));
 assert.throws(() => verifyEntry(tamper('missing')), /file set is not exactly its manifest/);
-writeEntry(tamper('tampered'), files, { manifest });
+writePackageEntry(tamper('tampered'), manifest, files);
 fs.writeFileSync(path.join(tamper('tampered'), 'bin/tool'), '#!/bin/sh\necho backdoor\n');
 assert.throws(() => verifyEntry(tamper('tampered')), /component (size|hash) mismatch/);
-writeEntry(tamper('writable'), files, { manifest, manifestMode: 0o644 });
+writePackageEntry(tamper('writable'), manifest, files, { mode: 0o644 });
 assert.throws(() => verifyEntry(tamper('writable')), /must be read-only/);
-const renamed = path.join(componentsRoot(env), 'probe-renamed', `sha256-${'b'.repeat(64)}`);
-writeEntry(renamed, files, { manifest });
+const renamed = path.join(root, 'probe-renamed', `sha256-${'b'.repeat(64)}`);
+writePackageEntry(renamed, manifest, files);
 assert.throws(() => verifyEntry(renamed), /not named by its digest/);
+// The five deliberately-broken entries above must not leak into the store walk or the
+// CLI check below: a store containing them is exactly what those two report on.
+for (const name of ['extra', 'missing', 'tampered', 'writable']) fs.rmSync(tamper(name), { recursive: true, force: true });
+fs.rmSync(path.dirname(renamed), { recursive: true, force: true });
 
 // 4. A missing component is not an error and produces no fetch action. This is the line
 // between a store and a package manager.
-const absent = validateEntry({ kind: 'package', id: 'mail', digest: `sha256:${'c'.repeat(64)}`, version: '0.1.0', delivery: 'staged' });
-assert.deepEqual(resolveFile(absent, env), { state: 'not-installed', reusable: false, action: 'none' });
+const absent = validateEntry({ kind: 'package', id: 'mail', digest: `sha256:${'c'.repeat(64)}` });
+assert.deepEqual(resolvePackage(absent, root), { id: 'mail', state: 'not-installed', reusable: false, action: 'none' });
 
-// 5. A service entry carries identity only, never bytes, and can never be fetched.
-assert.throws(() => validateEntry({ kind: 'service', id: 'mail', endpoint: '127.0.0.1:8765', transport: 'http', revision: '0.1.0', health: '/health', singleton: true, delivery: 'fetched' }), /cannot be delivery: fetched/);
-assert.throws(() => validateEntry({ kind: 'service', id: 'mail', endpoint: '127.0.0.1:8765', transport: 'http', revision: '0.1.0', health: '/health', singleton: true, delivery: 'staged', local: '/opt/mail' }), /must not name a local file\/path/);
-const service = validateEntry({ kind: 'service', id: 'mail', endpoint: '127.0.0.1:8765', transport: 'http', revision: '0.1.0', health: '/health', singleton: true, delivery: 'staged' });
+// 5. Identity, never location. A service entry cannot be fetched, cannot address a name
+// that would require resolution, and cannot carry a location field at all.
+const validService = { kind: 'service', id: 'mail', endpoint: '127.0.0.1:8765', transport: 'http', revision: '0.1.0', health: '/health', singleton: true, delivery: 'staged' };
+assert.throws(() => validateEntry({ ...validService, delivery: 'fetched' }), /cannot be delivery: fetched/);
+assert.throws(() => validateEntry({ ...validService, endpoint: 'example.com:8765' }), /must be a local host:port literal/);
+assert.throws(() => validateEntry({ ...validService, endpoint: 'deadbeef:8765' }), /must be a local host:port literal/);
+assert.throws(() => validateEntry({ ...validService, endpoint: '127.0.0.1' }), /must be a local host:port literal/);
+assert.throws(() => validateEntry({ ...validService, local: '/opt/mail' }), /must not name a local file\/path/);
+assert.throws(() => validateEntry({ ...validService, singleton: 'yes' }), /must declare singleton/);
+assert.throws(() => validateEntry({ ...validService, health: 'health' }), /must declare a health path/);
+for (const endpoint of ['127.0.0.1:8765', 'localhost:8765', '[::1]:8765']) assert.equal(validateEntry({ ...validService, endpoint }).endpoint, endpoint);
+const service = validateEntry(validService);
 assert.ok(!/"(?:file|path|local)"\s*:/.test(JSON.stringify(service)), 'a service record must name no location');
 
-// 6. The four discovery states, against real servers on loopback. "The port answers" is
+// 6. The shipped schema and the code agree. A schema that documents fields the manifest
+// never writes - or omits fields it does - would be a declaration nothing enforces.
+const schema = JSON.parse(fs.readFileSync(path.join(packageRoot, 'schemas', 'component-entry.schema.json'), 'utf8'));
+assert.deepEqual(schema.$defs.package.required.slice().sort(), Object.keys(manifest).filter((key) => key !== 'provenance').sort(), 'the package schema does not match what the manifest writes');
+assert.deepEqual(schema.$defs.service.required.slice().sort(), Object.keys(service).filter((key) => key !== 'revision').sort(), 'the service schema does not match what an entry carries');
+assert.equal(schema.$defs.service.properties.delivery.const, 'staged');
+assert.equal(schema.$defs.package.properties.kind.const, 'package');
+assert.ok(schema.$defs.service.properties.endpoint.pattern.includes('localhost'), 'the schema must pin the no-resolution rule too');
+
+// 7. Walking a real store finds both kinds, and a malformed service entry is refused
+// rather than skipped.
+fs.mkdirSync(path.join(root, SERVICE_DIR), { recursive: true });
+fs.writeFileSync(path.join(root, SERVICE_DIR, 'mail-0.1.0.json'), canonicalJson(service));
+const records = readStoreEntryRecords(root);
+assert.ok(records.packages.some((item) => item.id === 'tool'), 'the store walk must find the package');
+assert.ok(records.services.some((item) => item.id === 'mail'), 'the store walk must find the service');
+fs.writeFileSync(path.join(root, SERVICE_DIR, 'broken.json'), '{ not json');
+assert.throws(() => readStoreEntryRecords(root), /service entry is invalid/);
+fs.rmSync(path.join(root, SERVICE_DIR, 'broken.json'));
+
+// 8. The builder materialises staged bytes and refuses to disagree with the record. This
+// is the end-to-end assertion: a synthetic acquisition record, real bytes on disk, and
+// one artifact whose recorded digest is wrong.
+const staged = path.join(temporary, 'staged');
+fs.mkdirSync(staged, { recursive: true });
+const good = Buffer.from('archive payload\n');
+fs.writeFileSync(path.join(staged, 'good.tar.gz'), good);
+fs.writeFileSync(path.join(staged, 'bad.tar.gz'), Buffer.from('other payload\n'));
+const record = {
+  schema_version: 1,
+  released_artifacts: [
+    { id: 'good', repo: 'https://github.com/example/good.git', tag: 'v1.0.0', version_reported: 'good-1.0.0', asset: { id: '1', name: 'good.tar.gz', bytes: good.length, sha256: sha256(good) } },
+    { id: 'bad', repo: 'https://github.com/example/bad.git', tag: 'v1.0.0', version_reported: 'bad-1.0.0', asset: { id: '2', name: 'bad.tar.gz', bytes: 13, sha256: 'd'.repeat(64) } },
+  ],
+};
+const recordPath = path.join(temporary, 'record.json');
+fs.writeFileSync(recordPath, canonicalJson(record));
+const build = (extra = []) => spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'build-component-store.mjs'), '--record', recordPath, '--source', staged, '--store', root, ...extra], { encoding: 'utf8' });
+const dry = build(['--dry-run']);
+assert.equal(dry.status, 1, 'a record that disagrees with the bytes on disk must fail');
+const dryResult = JSON.parse(dry.stdout);
+assert.deepEqual(dryResult.record_mismatch, ['bad']);
+const planned = dryResult.entries.find((item) => item.id === 'good');
+assert.equal(planned.state, 'planned');
+assert.equal(fs.existsSync(entryDir(root, 'good', planned.digest)), false, 'a dry run must write nothing');
+const first = JSON.parse(build().stdout);
+assert.equal(first.entries.find((item) => item.id === 'good').state, 'materialised');
+assert.ok(['link', 'copy'].includes(first.entries.find((item) => item.id === 'good').mode), 'the builder must report how it materialised the bytes');
+const again = JSON.parse(build().stdout);
+assert.equal(again.entries.find((item) => item.id === 'good').state, 'present', 'a second run must be idempotent');
+assert.equal(resolvePackage(validateEntry({ kind: 'package', id: 'good', digest: planned.digest }), root).state, 'available', 'the materialised entry must verify');
+
+// 9. The shipped CLI surface reaches the store, read-only, and reports what it found.
+const cli = spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'apg.mjs'), 'components', 'verify', '--store', root], { encoding: 'utf8' });
+assert.equal(cli.status, 0, `apg components verify failed: ${cli.stderr}`);
+const verified = JSON.parse(cli.stdout);
+assert.equal(verified.present, true);
+assert.ok(verified.reusable.includes('tool'), 'the CLI must report the verified package as reusable');
+assert.ok(verified.services.some((item) => item.id === 'mail'), 'the CLI must list the declared service');
+const missingStore = spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'apg.mjs'), 'components', 'verify', '--store', path.join(temporary, 'nowhere')], { encoding: 'utf8' });
+assert.equal(missingStore.status, 0, 'an absent store is not an error');
+assert.equal(JSON.parse(missingStore.stdout).present, false);
+
+// 10. The four discovery states, against real servers on loopback. "The port answers" is
 // not evidence, so a foreign identity is a conflict and a revision mismatch is degraded
 // - never a silent reuse.
 const mail = await startService('mail', '0.1.0');
 const foreign = await startService('somethingelse', '9.9.9');
 const live = { ...service, endpoint: `127.0.0.1:${mail.port}` };
-assert.deepEqual(await probe(live), { state: 'available', reusable: true });
-assert.equal((await probe({ ...live, revision: '0.2.0' })).state, 'degraded', 'a revision mismatch must not be reused silently');
-assert.equal((await probe({ ...live, revision: undefined })).state, 'degraded', 'an unpinned revision cannot be verified');
-assert.equal((await probe({ ...service, endpoint: `127.0.0.1:${foreign.port}` })).state, 'conflict', 'a foreign identity on the declared port is a conflict');
+assert.deepEqual(await probeService(live), { id: 'mail', state: 'available', reusable: true });
+assert.equal((await probeService({ ...live, revision: '0.2.0' })).state, 'degraded', 'a revision mismatch must not be reused silently');
+assert.equal((await probeService({ ...live, revision: undefined })).state, 'degraded', 'an unpinned revision cannot be verified');
+assert.equal((await probeService({ ...service, endpoint: `127.0.0.1:${foreign.port}` })).state, 'conflict', 'a foreign identity on the declared port is a conflict');
 const closing = await startService('closed', '0.1.0');
 const closedPort = closing.port;
 await closing.close();
-assert.deepEqual(await probe({ ...service, endpoint: `127.0.0.1:${closedPort}` }), { state: 'not-installed', reusable: false, action: 'none' });
-assert.deepEqual(await resolveService(service, [{ state: 'available', reusable: true }]), { state: 'available', reusable: true, instances: 1 });
+assert.deepEqual(await probeService({ ...service, endpoint: `127.0.0.1:${closedPort}` }), { id: 'mail', state: 'not-installed', reusable: false, action: 'none' });
+assert.deepEqual(await resolveService(service, [{ state: 'available', reusable: true }]), { id: 'mail', state: 'available', reusable: true, instances: 1 });
 assert.equal((await resolveService(service, [{ state: 'available', reusable: true }, { state: 'available', reusable: true }])).state, 'conflict', 'two live instances of a singleton must be a conflict');
-assert.deepEqual(await resolveService(service, [{ state: 'not-installed', reusable: false }]), { state: 'not-installed', reusable: false, action: 'none' });
+assert.deepEqual(await resolveService(service, [{ state: 'not-installed', reusable: false }]), { id: 'mail', state: 'not-installed', reusable: false, action: 'none' });
 
-// 7. Discovery is read-only. The servers above recorded every request they received; a
+// 11. Discovery is read-only. The servers above recorded every request they received; a
 // probe that restarted, posted, or warmed the service would show up here.
 assert.ok(mail.requests.length >= 2, 'the probe must actually have reached the service');
 for (const request of [...mail.requests, ...foreign.requests]) {
@@ -245,4 +216,4 @@ for (const request of [...mail.requests, ...foreign.requests]) {
 await mail.close();
 await foreign.close();
 
-console.log('PASS: the component store is a sibling of the release store under the existing variable, holds one verified copy per machine, rejects an inexact file set, never fetches, never names a location, and resolves all four discovery states from real loopback probes without issuing a state-changing request');
+console.log('PASS: the component store is a sibling of the release store under the existing variable, holds one verified copy per machine, rejects an inexact file set, matches its shipped schema, never fetches, never names a location, resolves all four discovery states from real loopback probes without a state-changing request, and refuses to disagree with the acquisition record');

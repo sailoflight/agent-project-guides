@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "APG component store entry",
+  "description": "ADR 0009 defines the store, ADR 0010 puts its contract on the distribution surface. Two shapes share this document: a package manifest, which sits inside a digest-named directory and covers that directory's bytes exactly, and a service entry, which carries identity only. A record names an identity and never a machine path, because the store root is resolved at use time.",
+  "oneOf": [
+    { "$ref": "#/$defs/package" },
+    { "$ref": "#/$defs/service" }
+  ],
+  "$defs": {
+    "digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "componentId": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{1,63}$"
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\).*$",
+      "description": "Relative, forward-slash separated, and free of '..' segments; the loader enforces the same rule before reading anything."
+    },
+    "package": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema_version", "kind", "id", "version", "files", "digest"],
+      "properties": {
+        "schema_version": { "const": 1 },
+        "kind": { "const": "package" },
+        "id": { "$ref": "#/$defs/componentId" },
+        "version": { "type": "string", "pattern": "^[A-Za-z0-9._-]+$" },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["path", "bytes", "sha256"],
+            "properties": {
+              "path": { "$ref": "#/$defs/relativePath" },
+              "bytes": { "type": "integer", "minimum": 0 },
+              "sha256": { "$ref": "#/$defs/digest" }
+            }
+          }
+        },
+        "provenance": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Where the bytes came from, as acquisition coordinates rather than a location: the component record in scripts/external-components.json is the authority for these values.",
+          "properties": {
+            "repo": { "type": "string" },
+            "tag": { "type": "string" },
+            "asset_id": { "type": "string" }
+          }
+        },
+        "digest": {
+          "$ref": "#/$defs/digest",
+          "description": "sha256 over the canonical form of this manifest without the digest field, which is why the manifest is excluded from its own file set."
+        }
+      }
+    },
+    "service": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "id", "endpoint", "transport", "health", "singleton", "delivery"],
+      "properties": {
+        "kind": { "const": "service" },
+        "id": { "$ref": "#/$defs/componentId" },
+        "endpoint": {
+          "type": "string",
+          "pattern": "^(?:(?:\\d{1,3}\\.){3}\\d{1,3}|\\[[0-9a-fA-F:]+\\]|localhost):\\d{1,5}$",
+          "description": "A literal local address and port. Discovery performs no name resolution, so a record cannot point the probe at an arbitrary destination."
+        },
+        "transport": { "enum": ["http", "https"] },
+        "health": { "type": "string", "pattern": "^/", "description": "The read-only path discovery may request. No other request is issued." },
+        "revision": { "type": "string", "description": "The revision the project pinned. Without it the identity of whatever answers cannot be verified, and discovery reports degraded rather than available." },
+        "singleton": { "type": "boolean", "description": "A singleton with two live instances is a conflict, never a choice." },
+        "delivery": { "const": "staged", "description": "An already-running service cannot be downloaded, so a service entry can never be fetched." }
+      }
+    }
+  }
+}

@@ -29,6 +29,10 @@ const check = (condition, message) => { if (!condition) failures.push(message); 
 const EXPECTED_GROUPS = [
   'context', 'project', 'catalog', 'release', 'provider',
   'migrate', 'risk', 'memory', 'dsh',
+  // ADR 0010: read-only verification of a machine-local store. The group is named
+  // 'components' rather than 'store' because FORBIDDEN below rejects the latter - the
+  // name follows the authority side of ADR 0007, and the product is the component.
+  'components',
 ];
 const FORBIDDEN = /^(?:index|search|retriev\w*|schedule\w*|queue|job|jobs|run|execute|worker|daemon|serve|server|store|vector|cache|crawl|scrape)$/i;
 
