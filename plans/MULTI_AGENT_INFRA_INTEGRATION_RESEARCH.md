@@ -1519,12 +1519,12 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | 4 | 决策 7 命名空间 `agent-project-guides:external:<command-name>` | 实测建议已成文（版本作字段、完整性作三元组、词法定界，§13.12） | 签字 | **已落地** `decisions/0008-external-component-identifiers-and-observation.md`：四条规则逐条附实测依据，并记录三个被否方案及其实测理由（§13.19.1） |
 | 5 | 证据验收合同是否升级为**机器可判**（peer review vs formal IV&V） | 现状靠角色文档 + `lib/memory.mjs` 的非作者评审约束（§13.14 审计：承重） | 是否要机器可判形态（公共契约变更） | **未升级**（按裁定）；另做了一次实际审计：分发内容里唯一提及 formal IV&V 的 `roles/development/VERIFIER.md:21` **本身就是正确表述**，未发现过度声称（§13.19.1） |
 | 6 | 跨 harness 契约是否升级为**声明式清单** | 现状=门禁（`test-genericity.mjs`，3.0.10 才挂进 runner）+ ADR 0005 | 同 #2 | 未改 |
-| 7 | **P6 观测账本** | 未实现。普查把它的价值抬高了：`ntm`/`acfs`/`cass` 是整文件改写方，**没有账本就无法事后归因**（§13.13.7） | 是否批准 | 未实现 |
+| 7 | **P6 观测账本** | 未实现。普查把它的价值抬高了：`ntm`/`acfs`/`cass` 是整文件改写方，**没有账本就无法事后归因**（§13.13.7） | 是否批准 | → **已裁定：批准（最小形态）并已落地**：账本＋共用的标记词表＋`apg project observe`＋门禁（§13.19.4） |
 | 8 | **P7 APG 自身块瘦身** | 2,063 B（3.0.10 后）vs 消费者 731–758 B；**已补逐条字节预算**（R3 单条占 24%，七条共 1,758 B），并**更正了这条比较**：消费者那 731–758 B 是 **v3 CLI 形态**（模板 647 B，用 383 B 的一段话覆盖了 v2 用 1,758 B 七条规则在做的事）——目标形态本仓**已在给消费方发货**（§13.18.10） | 三选一：**A** 只搬文字、保留 v2 marker 与 schema（预计省 ~1,360 B ≈ 66%，属**公共契约变更**）／**B** 接受不对称并写清（免批准）／**C** 真做 v3 自迁移（被 §12.2 实测的 `applicable: false` 挡住） | **已落地 A**：模板 1,969 → 1,023 B、安装后 2,063 → **1,117 B**（省 946 B／45.9%，低于估算，因 **R7** 与建议信句实测必须保留）；`reattest` 重盖章、catalog/manifest 重算、`test-v2.mjs` 三处同步。见 §13.19.5 |
 | 9 | `docs/memory` 记录内嵌 `project_digest` 全面变旧 | **已量化：不是 18 次腐坏，是两个批次**，且两个批次**精确对应两个描述符纪元**：16 条 = 3.0.3 提交 `fefd4923` 的描述符摘要（`770fb1d4…`）、2 条 = 3.0.8 提交 `48a4c5a701` 的（`ffd693a0…`）；18/18 `state=promoted`，0 条与当前锚相符。根因由仓内既有记录定位到行号：**同一个锚被同时当作并发 CAS 护栏与历史溯源凭据**，于是描述符一动，此后**没有任何 promoted 记录还能被 supersede**（自托管项目每次升版必中）。（原写的"`project validate` 同名不同值"陷阱 **2026-09-20 复核撤销**：两者是同一函数同一值，见 §13.18.11） | 三选一：**A** 拆锚（唯一能让 supersede 恢复可用，属公共契约变更）／**B** 就地刷新摘要（**已定性为洗白历史，建议拒绝**）／**C** 加「纪元」字段让其可读。原附带的"给 `project validate` 同名字段改名"小项**已撤销**（前提不成立） | **已落地 A**：`lib/memory.mjs` 拆锚 ＋ `test-v2.mjs` 换成"畸形锚必拒／陈旧锚必通" ＋ `docs/V2_CONTRACT.md` 措辞；连带 `catalog`／`PACKAGE_MANIFEST` 重算。见 §13.19.6 |
 | 10 | git tag | 只有 `v3.0.3`；`3.0.4`–`3.0.10` 未打标签（判据见 CHANGELOG 原文） | 是否补打标签（会影响远端） | **已补打并推送** `v3.0.4`–`v3.0.10`（7 个附注标签，逐个复核）。见 §13.19.3 |
 | 11 | 消费者仓是否升到 3.0.10 | 12 个真实消费者仓仍是 schema 2 / 固定 3.0.7，全部 `state: ready`（§13.13.1） | 是否发布（**按既有纪律，消费者仓的治理更新不自动 commit/push**） | 未触碰任何消费者仓 |
-| 12 | `.agent-scratch/` 外部试验区的去留 | `.agent-scratch/external-test/repos`（39 checkout，约 2.9 G）+ `external-verify`（普查原始证据，含 SHA256SUMS）已有生命周期标注（§13.13.8） | 是否点名删除（我保留原始证据以便复核） | 未删 |
+| 12 | `.agent-scratch/` 外部试验区的去留 | `.agent-scratch/external-test/repos`（39 checkout，约 2.9 G）+ `external-verify`（普查原始证据，含 SHA256SUMS）已有生命周期标注（§13.13.8） | 是否点名删除（我保留原始证据以便复核） | **已裁定：保留，不点名删除**；含义与边界见 §13.19.7（未删任何东西） |
 | 13 | 新 harness 的**长期证据**怎么保住 | `scripts/test-interop-writers.sh` 的输入是 gitignored 的 39 个 checkout，缺失时**干净 SKIP** ⇒ scratch 一删它就静默不跑了（§13.16.5） | 是否固定**最小子集**的获取方式：提交"从哪来/什么版本/sha256"清单，**不提交组件字节**（NOASSERTION 红线） | **清单已算好，只差一个签字**：11 个写入方全部来自 `github.com/Dicklesworthstone/`，9 个发布件的 repo+tag+asset id+归档/二进制双 sha256、2 个脚本件的 HEAD commit 全部在案，紧凑形式 **1,921 B**，替代 554 MiB 暂存件 + 2.9 GB checkout（§13.18.12）。落库即新增一个被跟踪文件，故仍待批准 |
 | 14 | `frankenterm` 这一行是否值得换成"可观测" | 发布的 v0.15.1 根本没编进 agent 检测功能（二进制内 `ft-agent-config-`/`frankenterm:start` 出现 0 次，`robot agents configure` 返回 `feature_not_available`）；要测只能换构建（§13.17.3） | 是否批准装 Rust 工具链 + 大幅构建去测这一行；不批就让它**永久保持"未观测"标注** | 未构建；ADR 里已标成"未观测行，不得当作已测负例" → **已裁定：构建**；源构建 `0.15.6-rc.40` 已实测完成，ADR 该行升级为「源构建 RC 证据」（§13.18.4 / §13.18.8） |
 | 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） → **已裁定：保留**，交给系统清理（§13.18.3）。另：清单本身已算好（§13.18.12），所以本行与 #13 可以**一次签字**解决 |
@@ -2028,12 +2028,12 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 | 4 | **签字落地** —— 命名空间 `agent-project-guides:external:<command-name>` | **已写** `decisions/0008-external-component-identifiers-and-observation.md`；因落地面（决策 2 的声明式 manifest）仍未开，它与 #2 一致地**不进分发面**。见 §13.19.1 |
 | 5 | **暂不升级为机器可判** —— 但对外措辞不得声称 formal IV&V | 见 §13.19.1 的措辞纪律 |
 | 6 | **同 #2** —— 跨 harness 契约维持门禁 + ADR 0005 形态 | 无需改代码 |
-| 7 | **批准，限定最小形态** —— 观测账本只记 APG *看到*了什么，不编辑、不升级、不删除 | 见 §13.19.4 |
+| 7 | **批准，限定最小形态** —— 观测账本只记 APG *看到*了什么，不编辑、不升级、不删除 | **已落地**：`lib/observation-ledger.mjs`＋`lib/root-marker-grammar.mjs`＋`apg project observe`＋门禁；分发面 81 → 83，摘要 → `sha256:148974e8…`。见 §13.19.4 |
 | 8 | **选 A** —— 只搬文字、保留 v2 marker 与 schema | 见 §13.19.5（实测省 946 B／45.9%，低于估算的 66%，因 R7 与建议信句被保留） |
 | 9 | **选 A 拆锚**（原附带的"给 `project validate` 同名字段改名"**经复核撤销**：前提不成立，两者本就同值） | 见 §13.19.6 |
 | 10 | **补打标签** `v3.0.4`–`v3.0.10` | 见 §13.19.3（§13.19.2 只覆盖 #13） |
 | 11 | **暂不发布**消费者仓（12 仓维持 schema 2 / 3.0.7） | 未触碰任何消费者仓 |
-| 12 | **保留** `.agent-scratch/`，不点名删除 | 未删任何东西 |
+| 12 | **保留** `.agent-scratch/`，不点名删除 | 未删任何东西。裁定的具体含义（保留什么、删除的真实代价、它不意味着什么）见 §13.19.7 |
 | 13 | **落库**最小子集溯源清单（连带 #15 一并解决） | 见 §13.19.2 |
 
 ### 13.19.1 纯维度裁定（#1/#2/#3/#4/#5/#6）与它们共同的一条纪律
@@ -2106,6 +2106,51 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 
 **未做**：没有改任何历史标签，没有改 tagger 身份（新标签用当前仓库身份，与近期提交一致；既有四个标签带的是更早的账号 id，保留原样）。
 
+### 13.19.4 #7 落地（选"最小形态"）：P6 观测账本，以及门禁在写完之前就抓出的两个真实缺陷
+
+**做的是什么。** 两个新库文件 + 一处 CLI 入口 + 一道门禁：
+
+| 文件 | 角色 | 在分发面？ |
+|---|---|---|
+| `lib/root-marker-grammar.mjs` | 从 `scripts/manage-root-blocks.mjs` 里**抽出来的**外来标记词表——P3 护栏与 P6 账本共用**同一个**定义 | 是 |
+| `lib/observation-ledger.mjs` | 账本本体：`scanRootMarkers` / `readLedger` / `compareObservations` / `observeRootBlocks` | 是 |
+| `scripts/apg.mjs` | 新命令 `apg project observe --target <root>`（并加进 `project` 的帮助行） | 是（改动） |
+| `scripts/test-observation-ledger.mjs` | 门禁，已接进 `scripts/test-release.sh`（排在 `test-external-provenance.mjs` 之后） | 否——`scripts/test-*.mjs` 从来不在分发面 |
+
+**为什么词表必须只留一份，而不是各写一份。** 两个消费者对"哪些块存在"必须给出同一个答案；否则账本会记录护栏拒绝承认的块，或反过来。这不是洁癖：P3 的语法**已经改过三遍**，每一遍都发现真实写入方此前不可见（第三遍才补上 `cass` 的句子标记与两个裸容器标签）。两份定义迟早会在**正是普查要抓的那类情形**上分叉，所以护栏原来那份本地正则被删掉，两边都改成 import。
+
+**账本记什么、不记什么。** 每次观测向**克隆本地状态目录**追加一行 JSON（`projectStateDir(...)/observation-ledger.jsonl`，mode 0600，追加时持 `projectMutationLock`）：根文件是否存在、整体 sha256、字节数，以及**每个 marker 行**的原文、种类（`comment`/`tag`）、尽力而为的属主名、marker 自己写的版本令牌、行号、字节区间、近似 token 数。`am` 不写任何版本令牌，所以 `null` 是**合法值**，含义是"这个 marker 没写版本"，而不是"版本未知"——这两件事被刻意分开。
+
+**仓库里没有任何文件、也没有任何已安装根目录的磁盘格式被改**：账本写在 clone-local 状态目录，所以 §13.19.6 里那条回滚说明（P1–P7 不改已安装根的磁盘格式）仍然成立。
+
+**归因就是这个账本唯一的存在理由。** 三个整文件写入方跑完之后盘上**什么都不剩**——`ntm setup --force` 把 2,140 B 的根换成自己的 2,689 B 模板且不留备份，这是实测的。账本给出的只是**它看见过什么**，仅此而已：它从不编辑、升级、删除或修复任何块，块缺失永远不是错误。
+
+| 断言 | 证据（`scripts/test-observation-ledger.mjs`） |
+|---|---|
+| 记录的词表是实测那一份，不是子集 | 普查 fixture 的 **12** 个 marker 行全部经 `scanRootMarkers` 过一遍，并断言**确切条数**：APG `v2:start`、其 integrity 行、`v2:end`、`br-agent-instructions-v1`、`ee:agentsmd:begin`、`am:blurb`、`ubs` 的 `>>>` 句子、`cass` 的句子标记、`<project_rules>` 开/闭、`<INSTRUCTIONS>` 开/闭。项目散文（`<!-- plain prose … -->`）与普通 HTML（`<div>`）**不得**出现 |
+| 账本与护栏不会对"哪些块存在"给出不同答案 | 双方都 import `lib/root-marker-grammar.mjs`；门禁断言账本记下的每个**开始**标记都是 P3 语法认得的形态，并断言 tag 分支**只把闭合标签当"上面已见开启标签的后半截"**接受——负控制：`scanRootMarkers('</project_rules>\n')` 为空，而配对时两半都在 |
+| 观测对根文件只读、对账本只追加 | 根文件观测前后**逐字节**比较；第二次观测后**第一行账本逐字节**比较（"追加"恰恰是"重写"会悄悄破坏的那条声明）；`readdirSync` 断言根文件所在目录仍只有根文件——没有 `.bak`、没有 sidecar |
+| clobber 会被归因 | 删掉一个外来块、新增另一个之后，diff 里被删的那个进 `disappeared`、新增的进 `appeared` |
+| 版本升级不算 clobber | `br-agent-instructions-v1` → `-v2` 必须产生 `version_changed`，且**不得**产生 `disappeared`。`beads_viewer` 一家就同时发三个 marker 版本，把升级报成"消失"会让账本在每次上游发版时喊狼来了 |
+| 块缺失、根文件缺失都不是错误 | 记录里 `present: false`、无 marker、0 字节，命令退出码 0 |
+| 历史不会静默丢失 | 不是合法 JSON 的一行会让 `readLedger` 以 `ledger_corrupt` 失败，而不是被截断；只是换了行号的块报 `moved`，不报 clobber |
+| 命令是**被调用过的**，不是只声明过 | 门禁拿一个一次性状态 home 真跑 `scripts/apg.mjs project observe --target <本仓库>`，断言本仓库自己的根块与 integrity 行被观测到。未接进 runner 的命令是本仓库已经记过一次的失败形态：ADR 0005 的 genericity 门禁 3.0.7 写好、到 3.0.10 才接进 runner |
+
+**门禁在它自己算完之前就抓出两个真实缺陷。** 这是"它不空洞"的最硬证据，比任何论证都硬：
+
+| # | 症状 | 根因 | 处置 |
+|---|---|---|---|
+| 1 | "恰好 12 个 marker 行"返回 **11** | `TAG_LINE` 的字符类是 `[A-Za-z0-9._:-]`，**漏了下划线**，于是 `<project_rules>` 根本解析不出来——`cass` 用这个标签划自己的区域，它此前**完全不在账本里** | 字符类改用 `\w`，并在 `lib/observation-ledger.mjs` 里注明原因 |
+| 2 | 负控制"孤立的 `</project_rules>` 不得入账"返回 **1 !== 0** | 配对检查被一个"开启**形态**可识别"的分支**绕过**了：注释写的是"只有配上本文件里已见的开启标签才记录"，代码却在 `looksForeignMarker('<project_rules>')` 为真时直接放行 | 闭合标签只走配对检查；代码现在与它自己的注释一致 |
+
+第 2 条属于"注释描述了一条规则、代码没实现它"这一类。没有这道门禁，它会**以注释的形式看起来已经被实现**地发出去；而它恰好落在 P6 最要紧的那个词表上（第 1 条落在 `cass` 身上，正是普查把 P6 的价值抬起来的三家之一）。
+
+**故意保持最小，以及因此留下什么。** 账本只在有人跑 `apg project observe` 时记录，**没有**从 `install`/`merge`/`reattest` 自动调用——那会给两个目前对 clone-local 状态只读的命令加上写行为，超出本次裁定的授权。两个限制写在这里而不是藏起来：`changes` 只与**紧邻的上一条**记录比较（记录本身都留着，可以离线做更宽的比较），`token_estimate` 是 `bytes / 4`，是给每轮预算用的近似值，不是分词器实测。
+
+**分发面因此再动一次**：`apg catalog build` → 253 项；`apg release manifest` → **83** 个分发文件（原 81），摘要 `sha256:148974e8…`。`apg catalog check`、`apg release verify-source`、`scripts/test-boundary.mjs`（自报 `83 distributed files`）三项均通过。ADR 0006 的状态行、P6 条目、新增的 "P6: implemented and measured" 小节，以及"未关闭项"里 P6 那一条的移除，都已同步。
+
+
+
 ### 13.19.5 #8 落地（选 A：v2 块改用 v3 CLI 形态），含一处执行时被推翻的前提
 
 **改了什么**：`bootstrap/AGENTS.v2-block.md` 的 7 条编号规则 → v3 CLI 段（`lib/bootstrap-v3.mjs:70` 那段 383 B 的文字，**逐字搬**），保留 v2 marker、标题、描述符行与 `{{...}}` 占位符 schema。
@@ -2177,3 +2222,48 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 **没有做的事**（这是裁定的一部分，不是遗漏）：**一条记录都没刷新**。18 条 `promoted` 记录仍带着各自的历史锚——选 B（就地刷新摘要）被定性为洗白历史，所以修复只让它们**重新可被 supersede**，不改写它们声称的评审历史。本轮也没有真的去 supersede 任何记录。
 
 **版本记账（留给下一步的明确后果）**：`lib/memory.mjs` 与 `docs/V2_CONTRACT.md` 都是分发文件，所以 `main` 的分发面**已经不等于**标签 `v3.0.10` 所钉的那份，而 `PACKAGE_VERSION` 仍是 `3.0.10`。本轮**故意不升版本号**：升号会让 `main` 对消费者宣告一个尚未存在、也无标签的版本，那是带用户可见副作用的发布动作，超出本批裁定的范围。因此：**下一次发布必须先升 `PACKAGE_VERSION`**（连同 `provider.release` 与随之变化的记忆锚）；在此之前，`3.0.10` 的权威是**标签**，不是 `main`。
+
+### 13.19.7 #12 落地（选"保留"）与 §13.15 清单的收口
+
+**#12：保留 `.agent-scratch/`，我不点名删除。** 这条裁定的具体含义写在这里，以免被读成"永久的存储承诺"，或被读成"清理被否决"。
+
+| 维度 | 含义 |
+|---|---|
+| 保留的是什么 | `.agent-scratch/external-test/repos`（39 个 checkout，约 2.9 G）、`external-test/bin`（9 个发布件归档＋解包件，287.5 MiB，含 `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制与运行窗口）。前两者是 `test-interop-writers.sh` section A/D 的输入 |
+| 为什么按推荐保留 | 删掉之后 section A/D 各自从"断言"退化为 1 条 GAP（干净 SKIP，不是失败），普查原始证据（含 `SHA256SUMS`）一并消失——而**那是本轮全部结论的底稿** |
+| 它与 #13 的关系 | #13 的最小溯源清单**已经落库**（§13.19.2）：11 个写入方的 repo＋tag＋asset id＋归档/二进制双 sha256，2 个脚本件的 HEAD commit，紧凑 **1,921 B**。所以现在删除的代价是**重新下载**，不是**丢失知识**——这正是把 #13 排在 #12 之前落地的原因：先让证据可复原，再谈清理 |
+| 它**不**意味着什么 | 不是"永远不许删"，也不是"清理被否"。它只表示**我不动作**：不 `rm -rf`、不移动、不改 §13.13.8 的生命周期标注。真要清理时由主人单独点名，且先确认 `test-interop-writers.sh` 缺输入时报 **GAP 而不是 PASS**（§13.18.2 已把这条记数规则更正） |
+| 边界 | scratch 没有任何进入 git 的路径；本轮 `git status` 里它一个字节都没出现，且 `test-external-provenance.mjs` 会断言溯源清单本身不在分发面 |
+
+**§13.15 清单收口：17 行全部有终态**，1–13 由主人一次裁定（§13.19），14–17 此前已闭合。下表是"终态 → 落地点"的索引，用来回答"这一条到底做没做"：
+
+| 行 | 终态 | 落地点 |
+|---|---|---|
+| 1 | 不动（P3 文法不再泛化） | 无需改代码；32 行词表双向钉住 |
+| 2 | 不进分发面（能力状态词表） | `decisions/0007:55` 早已记载，无需新写 |
+| 3 | 不进正式词表（`declaration-observed`） | ADR 0008 决策 3 |
+| 4 | 签字落地（外部命名空间） | `decisions/0008`（`aada0f4`） |
+| 5 | 不升级为机器可判 ＋ 措辞纪律 | §13.19.1；审计未发现过度声称 |
+| 6 | 同 #2（跨 harness 契约） | 无需改代码 |
+| 7 | 批准最小形态（P6 观测账本） | §13.19.4：`lib/observation-ledger.mjs`＋`lib/root-marker-grammar.mjs`＋`apg project observe`＋门禁 |
+| 8 | 选 A（v2 块改用 v3 CLI 形态） | `bca360b`；实测省 946 B／45.9%，见 §13.19.5 |
+| 9 | 选 A 拆锚（附带改名项撤销） | `c9d4f00`；见 §13.19.6 |
+| 10 | 补打标签 `v3.0.4`–`v3.0.10` | 7 个附注标签已推送并逐个复核，见 §13.19.3 |
+| 11 | 不发布消费者仓 | 12 个真实消费者仓一个都未触碰 |
+| 12 | 保留 scratch | 本节；未删任何东西 |
+| 13 | 落库最小溯源清单（连带 #15） | `ff41099`；见 §13.19.2 |
+| 14 | 构建 `frankenterm`（源构建 RC 证据） | `270b0ad`＋`f8ca228`；见 §13.18.4／§13.18.8 |
+| 15 | 保留沙箱证据 | §13.18.3；与 #13 一次签字解决 |
+| 16 | 默认即驱动真实二进制 | §13.18.2 |
+| 17 | 修掉读取抖动（clean filter） | `687bc6a`；见 §13.18.1 |
+
+**分发摘要的完整链条（更正 §13.19.6 里那一处时报）**：§13.19.6 写的是 `9c768b73…` → `0b5f6149…`，那是**当时**的值。它此后又随每次分发面改动继续前移：`0b5f6149…`（拆锚）→ `6027df75…`（#8 的 v2 块，81 个文件）→ **`148974e8…`**（#7 的两个新库文件，83 个文件）。所以"当前摘要"要看 `PACKAGE_MANIFEST.json`，不要引用本节之前任何一处历史值。
+
+**这一批之后唯一仍然外部可见的后果**：`main` 的分发面与标签 `v3.0.10` 所钉的那份**不相等**，而 `PACKAGE_VERSION` 仍是 `3.0.10`。下一次发布**必须先**升 `PACKAGE_VERSION`（连同 `provider.release` 与随之变化的记忆锚）；在此之前 `3.0.10` 的权威是**标签**。这条在 §13.19.4、§13.19.6、CHANGELOG 三处都写了同一个结论，不是重复，而是让单独读到任何一处的人都不会误以为 `main` 就是 3.0.10。
+
+**顺带的政策动作：两封建议信（`.agent-project-guides/local/suggestions/`）。** 本批工作全程按 `AGENTS.md` 的要求先跑 `apg context`，任务串"落地主人裁定的13项并收口owner queue"返回 `clarification_required`（`no lexical routing rule matched the request`，4 个平级选项 + 省略 3 个），于是按政策继续走最接近的允许路线 `development/maintainer/code`（`ready`）并在事后写信：
+
+- **`0001-routing-gap-chinese-task-nouns.md`**：中文**名词**描述的任务一条规则都不命中。词表不是纯英文（`routing/context-classifier.json` 有 354 个中文字符），但中文条目清一色是"接在什么动词后面"的交付/否定动词（`只修复`/`并实现`/`落地修复方案`/`不要修复`），`收口`/`清单`/`裁定` 一个都没有——`落地` 也只作为固定串的一部分存在。提议**只加词、不动状态机**。
+- **`0002-other-suggestion-box-not-ignored.md`**：写信这个动作本身暴露的第二个问题，所以单独一封（一封信一个关注点）。`templates/SUGGESTION_BOX.md:3` 声明建议箱是 clone-local 状态，但 `git check-ignore` 对 `.agent-project-guides/local/...` **退出码 1（不忽略）**，`.gitignore` 里只有 `.agent-scratch/`。于是**按政策办事就会制造脏树**：本仓写信前 `git status` 干净，写完多出未跟踪目录，`git add -A` 会把它带进发布提交。提议 `.gitignore` 增一行 `.agent-project-guides/local/`（非分发文件，两个生成物都不受影响），或反过来改文档措辞——两者必须有一个改。
+
+两封都是 **report-only**：不改变路由、不授予权限、也不构成任何已批准的改动。本轮的提交不含 `.agent-project-guides/`（显式点名添加文件，不用 `git add -A`）。
