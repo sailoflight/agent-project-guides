@@ -16,7 +16,7 @@ import {
   verifyFileManifest,
   writeJsonAtomic,
 } from '../lib/core.mjs';
-import { buildCatalog, catalogJsonl, loadCatalogEntry, readCatalog, resolveRoute, searchCatalog, writeCatalog } from '../lib/catalog.mjs';
+import { buildCatalog, catalogJsonl, loadCatalogEntry, normalizeCatalogId, readCatalog, resolveRoute, searchCatalog, writeCatalog } from '../lib/catalog.mjs';
 import { validateContextRoutes } from '../lib/context-routes.mjs';
 import { defaultDescriptor, readDescriptor, validateDescriptor, writeDescriptor } from '../lib/descriptor.mjs';
 import { inspectBootstrap, installBootstrap, restoreOwnedFile } from '../lib/bootstrap.mjs';
@@ -108,7 +108,7 @@ function helpText(scope) {
     '  migrate                      Plan, apply, or roll back migration',
     '  risk                         Classify effects',
     '  memory                       Manage reviewed project memory',
-    '  dsh                          Report DSH integration state',
+    '  dsh                          [compat] DSH observation adapter (future: plugins/dsh-apg)',
     '',
     'Options:',
     '  -h, --help                    Show help',
@@ -391,7 +391,8 @@ function validateProject(options) {
     : readCatalog(provider.root);
   if (provider.mode !== 'source-worktree') validateContextRoutes(provider.root, catalog);
   for (const id of descriptor.policy.mandatory) {
-    if (!catalog.some((entry) => entry.id === id)) throw new UserError(`mandatory catalog entry is missing: ${id}`, 'mandatory_missing');
+    const mandatoryId = normalizeCatalogId(id);
+    if (!catalog.some((entry) => entry.id === mandatoryId)) throw new UserError(`mandatory catalog entry is missing: ${id}`, 'mandatory_missing');
   }
   const contextRoutes = validateContextMatrix(provider.root, descriptor);
   return {
@@ -588,7 +589,7 @@ function providerCommand(action, options) {
     if (ids.length > 1 && options.hash) fail('provider load --hash is valid only with one ID');
     if (new Set(ids).size !== ids.length) fail('provider load --ids must not contain duplicates');
     const loaded = ids.map((id) => {
-      const entry = context.catalog.find((item) => item.id === id);
+      const entry = context.catalog.find((item) => item.id === normalizeCatalogId(id));
       if (!entry) throw new UserError(`catalog entry not found: ${id}`, 'catalog_miss');
       return loadCatalogEntry(context.provider.root, entry, ids.length === 1 ? options.hash : undefined);
     });
@@ -665,6 +666,12 @@ function dshReport(options) {
   });
   return { adapter: 'dsh', observation: 'bounded', resolution, sources };
 }
+
+// Harness observation adapters. APG core is harness-neutral: each entry is a
+// compatibility adapter; harness-specific integrations belong in plugins/<harness>-apg/.
+const OBSERVATION_ADAPTERS = {
+  dsh: { report: dshReport },
+};
 
 function validateSourceCatalog(root) {
   const file = path.join(root, 'catalog', 'catalog.jsonl');
@@ -871,7 +878,8 @@ export async function main(argv = process.argv.slice(2)) {
     }
     if (action === 'purge') return purgeMemoryProposal(projectRoot, descriptor, options.id);
   }
-  if (group === 'dsh' && action === 'report') return dshReport(options);
+  const observationAdapter = OBSERVATION_ADAPTERS[group];
+  if (observationAdapter && action === 'report') return observationAdapter.report(options);
   fail(`unknown command: ${[group, action].filter(Boolean).join(' ')}`);
 }
 

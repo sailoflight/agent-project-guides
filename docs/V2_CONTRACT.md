@@ -2,9 +2,9 @@
 
 ## Release boundary
 
-Agent Project Guides 2.0 is a DSH-first governance core. It provides a project descriptor, exact content-addressed package selection, deterministic catalog/search/section loading, project-native layout bindings, monotonic risk classification, reviewed memory promotion, byte-owned migration, and explicit degraded behavior.
+Agent Project Guides 2.0 is a harness-neutral agent governance core. It provides a project descriptor, exact content-addressed package selection, deterministic catalog/search/section loading, project-native layout bindings, monotonic risk classification, reviewed memory promotion, byte-owned migration, and explicit degraded behavior.
 
-It does not claim an authoritative remote workspace, non-DSH parity, semantic retrieval, general evidence reuse, signed update infrastructure, or hostile multi-tenant security. Those remain capability-declared later 2.x work.
+It does not claim an authoritative remote workspace, universal cross-harness parity, semantic retrieval, general evidence reuse, signed update infrastructure, or hostile multi-tenant security. Those remain capability-declared later 2.x work.
 
 ## Mutual-trust responsibility
 
@@ -34,7 +34,7 @@ Machine paths, caches, receipts, journals, ACL/audit metadata, generic package b
 
 ### `thin-bootstrap`
 
-The default consumer mode. Generic bytes live in the XDG/Windows package store. The project contains only its descriptor and compact DSH bootstrap.
+The default consumer mode. Generic bytes live in the XDG/Windows package store. The project contains only its descriptor and compact bootstrap.
 
 ### `embedded-local`
 
@@ -61,7 +61,7 @@ provider export
 provider import
 ```
 
-Roles, facets, overlays, procedures, and subtypes route through semantic catalog IDs. File paths are current locations, not authority IDs. `routing/context-routes.jsonl` owns the runtime entrypoints: daily role modes and Development facets resolve to owner-bound sections under declared per-subject token budgets; `initialize/readapt` may select a whole profile; both use the adaptation procedure as their mode entry without duplicating the generic role introduction; Production roles do not inherit Development facet/overlay guidance. `resolve` revalidates every exact entry hash before reporting the ordered IDs and total `utf8-bytes/4-ceiling` estimate. `load --ids <csv>` revalidates the entries and returns ordered compact `[id, content]` pairs; single `--id` retains the detailed compatible result. Search suggestions cannot satisfy mandatory policy.
+Roles, facets, overlays, procedures, and subtypes route through semantic catalog IDs. File paths are current locations, not authority IDs. `routing/context-routes.jsonl` owns the runtime entrypoints: daily role modes and Development facets resolve to owner-bound sections under declared per-subject token budgets; `initialize/readapt` may select a whole profile; both use the adaptation procedure as their mode entry without duplicating the generic role introduction; Production roles do not inherit Development facet/overlay guidance. `resolve` revalidates every exact entry hash before reporting the ordered IDs and total `utf8-bytes/4-ceiling` estimate. `load --ids <csv>` revalidates the entries and returns ordered compact `[id, content]` pairs; single `--id` retains the detailed compatible result. Search suggestions cannot satisfy mandatory policy. Catalog ID `bootstrap:agents-v2` (the generic AGENTS.md v2 bootstrap block) replaces `bootstrap:dsh-v2`; the legacy ID remains accepted as a read alias.
 
 `provider import` is a lifecycle-receipt-backed, revision-guarded update for portable project facts. Apply acquires the shared project mutation lock, rereads the revision, and records a recoverable descriptor/receipt write-ahead transaction. It may update facets, overlays, protected effects, mandatory IDs, and layout. It reports/refuses changes to `project_id`, provider mode/release/digest, or `policy.root`; it never installs a provider as an import side effect. Raw writers that ignore the cooperative lock are outside the 2.0 mutual-trust concurrency contract.
 
@@ -75,18 +75,18 @@ Lexical classification treats explicit no-implementation phrases as report-only 
 
 The managed bootstrap requires `apg context` before repository discovery or operation. Work continues only for `status=ready`; `clarification_required` requires one structured question and a wait, while every other context/compiler error stops work. Only `package_missing` permits the descriptor's explicit ordinary degraded path. This is prompt-level governance, not a claim that the host blocks tools before routing.
 
-## DSH observation
+## Harness observation
 
-`dsh report` distinguishes:
+Observation adapters report what one specific harness integration actually observed. The current DSH adapter (`apg dsh report`, a compatibility interface pending the `plugins/dsh-apg` plugin) distinguishes:
 
 - `intended`: selected by APG;
-- `host_observed`: correlated with supplied DSH host evidence and not contradicted by an APG SHA-256;
+- `host_observed`: correlated with supplied host evidence and not contradicted by an APG SHA-256;
 - `host_content_match`: `true`, `false`, or `unknown` depending on supplied content-hash evidence;
 - `model_effective: unknown`: effective model context is not provable.
 
 A matching path/ID with a mismatched APG SHA-256 is reported as a conflict and is not host-observed. A host-native digest with no APG content hash may prove that the host saw an item, but content identity remains `unknown`.
 
-The adapter never converts intended input into an effective-context claim.
+The adapter never converts intended input into an effective-context claim. Observation adapters are add-ons: they never extend routing semantics, authority, or the portable descriptor.
 
 ## Risk composition
 
