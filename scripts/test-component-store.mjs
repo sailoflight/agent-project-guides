@@ -295,4 +295,49 @@ await foreign.close();
 await anonymous.close();
 await aliased.close();
 
-console.log('PASS: the component store is a sibling of the release store under the existing variable, holds one verified copy per machine, rejects an inexact file set, matches its shipped schema, never fetches, never names a location, resolves all four discovery states from real loopback probes without a state-changing request, refuses liveness that names no component, lets a service declare which fields carry its identity and refuses to trust an asserted one, downgrades an entry whose declared prerequisite is missing, refuses to resolve an id the store holds twice and names the stale directory instead of deleting it, names packages and services apart so the two outputs cannot be read for each other, and refuses to disagree with the acquisition record');
+// 12. A new machine, in the order the recipe prints. The recipe lives in the acquisition
+// tool's own `--help`, and it is only honest if that sequence works from an empty root, so
+// this runs it: an absent store is not an error, the dry run writes nothing, and the real
+// run is what makes the store present.
+const newMachine = path.join(temporary, 'new-machine');
+const empty = spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'apg.mjs'), 'components', 'verify', '--store', newMachine], { encoding: 'utf8' });
+assert.equal(empty.status, 0, 'an absent store must not be an error on a machine that has never staged a component');
+assert.equal(JSON.parse(empty.stdout).present, false);
+const singleRecord = path.join(temporary, 'single-record.json');
+fs.writeFileSync(singleRecord, canonicalJson({ schema_version: 1, released_artifacts: [record.released_artifacts[0]] }));
+const buildOn = (extra) => spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'build-component-store.mjs'), '--record', singleRecord, '--source', staged, '--store', newMachine, ...extra], { encoding: 'utf8' });
+const plannedNew = JSON.parse(buildOn(['--dry-run']).stdout);
+assert.deepEqual(plannedNew.record_mismatch, [], 'the recipe step that makes the rest safe: a dry run against the record');
+assert.equal(fs.existsSync(newMachine), false, 'a dry run must not create the store root either');
+const builtNew = JSON.parse(buildOn([]).stdout);
+assert.equal(builtNew.materialised, 1, 'the real run is what materialises the entry');
+assert.equal(builtNew.stale.length, 0);
+const newVerdict = JSON.parse(spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'apg.mjs'), 'components', 'verify', '--store', newMachine], { encoding: 'utf8' }).stdout);
+assert.equal(newVerdict.present, true, 'the recipe must leave the machine in the state verify expects');
+assert.deepEqual(newVerdict.missing_packages, []);
+assert.deepEqual(newVerdict.degraded_packages, ['good'], 'the entry keeps its own requirement verdict on the new machine');
+
+// 13. Documented means declared, and declared means documented. `requires` is what APG
+// checks; the plan's per-component checklist is what a human reads before staging a machine.
+// If either gains a prerequisite or a component and the other does not, this says so.
+const checklist = fs.readFileSync(path.join(packageRoot, 'plans', 'MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md'), 'utf8');
+const acquisitionRecord = JSON.parse(fs.readFileSync(path.join(packageRoot, 'scripts', 'external-components.json'), 'utf8'));
+const help = spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'build-component-store.mjs'), '--help'], { encoding: 'utf8' });
+assert.equal(help.status, 0, '--help must be a working entry point: the recipe lives in the acquisition tool');
+assert.match(help.stdout, /apg components verify/, 'the printed recipe must name the verification step, not only the write step');
+assert.equal(acquisitionRecord.released_artifacts.length, 9, 'the acquisition record grew: add the component to the configuration checklist and this pin together');
+for (const artifact of acquisitionRecord.released_artifacts) {
+  assert.ok(checklist.includes(`\`${artifact.id}\``), `the configuration checklist must cover ${artifact.id}`);
+}
+// Both directions, because either side going stale is the same defect: a requirement APG
+// checks but nobody documented, and a prerequisite documented but never checked. The
+// checklist section is read on its own so the surrounding prose cannot satisfy the match.
+const section = checklist.split('### 13.22.1')[1]?.split('### 13.22.2')[0];
+assert.ok(section, 'the configuration checklist section must exist under its heading');
+const declared = [...section.matchAll(/\{(component|bin|env):([^}]+)\}/g)].map((match) => `${match[1]}:${match[2]}`).sort();
+const recorded = acquisitionRecord.released_artifacts
+  .flatMap((artifact) => (artifact.requires ?? []).map((requirement) => Object.entries(requirement).map(([kind, name]) => `${kind}:${name}`)[0]))
+  .sort();
+assert.deepEqual(declared, recorded, 'the checklist and the acquisition record must name the same prerequisites, in both directions');
+
+console.log('PASS: the component store is a sibling of the release store under the existing variable, holds one verified copy per machine, rejects an inexact file set, matches its shipped schema, never fetches, never names a location, resolves all four discovery states from real loopback probes without a state-changing request, refuses liveness that names no component, lets a service declare which fields carry its identity and refuses to trust an asserted one, downgrades an entry whose declared prerequisite is missing, refuses to resolve an id the store holds twice and names the stale directory instead of deleting it, names packages and services apart so the two outputs cannot be read for each other, refuses to disagree with the acquisition record, and stages a new machine in the order its own printed recipe gives');

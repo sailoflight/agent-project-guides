@@ -2455,7 +2455,7 @@ digest，`conflicted_packages: []`。硬链接仍在：`cass` 条目 `links=2`�
   `DIST_DIRS`），所以 85 文件不变、digest 不受影响。该信按 Triage 约定移入 `processed/`，附一行结论。
 - `0001-routing-gap-chinese-task-nouns.md`：同一批处理掉了，见下面的 F。
 
-**E. 门禁与证据纪律。** `scripts/test-component-store.mjs` 的断言从 **64 条增到 103 条**（静态计数，与 ADR 0010
+**E. 门禁与证据纪律。** `scripts/test-component-store.mjs` 的断言从 **64 条增到 103 条**（静态计数；§13.22 再增到 118 条，与 ADR 0010
 验证行一致），新增覆盖：身份映射三段（映射到达 `available`、`asserted_identity` 永不 `available`、`stop` 只收
 确定性信号）、要求三段（三种单键校验、缺可执行文件降级、要求随 manifest 进 digest）、冲突两段（同一 id 两个
 digest 判 `conflict` 且 builder 只报不删、显式删掉陈旧目录后冲突消失且原判决保留）。反证按老规矩跑：把 `applyRequirements` 的降级分支临时短路
@@ -2498,4 +2498,85 @@ reviewer ← `复核`/`清单`；developer ← `新增`/`新命令`；delivery �
 `收口`/`收尾`/`补齐`/`整理`/`清理` 从 maintainer patterns 撤掉，`test-v2` 立刻红在
 `actual: 'clarification_required'` vs `expected: 'ready'`，恢复后绿。词表改动在**分发面**，因此 catalog（253 条，
 内容不变——它编目路由条目而不是路由文件哈希）与 manifest 一并重算，digest 由 `sha256:3c935f4b…` 走到
-`sha256:f4d86ec0…`。该信移入 `processed/` 并附一行结论。
+`sha256:f4d86ec0…`。该信移入 `processed/` 并附一行结论。随后 §13.22 的消费者侧契约段进了 `docs/V2_CONTRACT.md`，
+digest 再走到 `sha256:e7f428d1…`（仍 85 文件）。
+
+## 13.22 外部能力要配什么／新机器怎么铺 store（2026-09-20）
+
+主人问「我需要配置什么」，并明确「比较敏感的（配置）我自己来」。所以本节只做两件事：**把每个外部能力实测到的配置项列成一张
+可核对的表**（敏感项标出来，明确哪些今天能由 APG 检查、哪些故意不猜），以及**把「新机器铺 store」写成可复制规程**。
+两者都在非分发面（`plans/` 与 `scripts/build-component-store.mjs`），因此不改变消费者拿到的能力面。
+
+### 13.22.1 外部能力配置清单（实测，2026-09-20）
+
+| 组件 | 实测要配什么 | 敏感度 | APG 今天能不能检查 | 表达为 |
+|---|---|---|---|---|
+| `am` | 无需凭证即可起 `serve-http`（绑回环） | 低 | 身份**不能核对**（`/health` 只有 `{status, version}`） | 服务条目 `asserted_identity: true` + `revision` 由 `version` 断言 |
+| `br` | 项目内 `.beads` 目录（`br init` 或等价初始化） | 低 | **不能表达**（既不是 component，也不是 bin/env） | —（不猜） |
+| `bv` | 同 `br`：`.beads` 目录 | 低 | **不能表达** | —（不猜） |
+| `cass` | 配套 `cass` CLI 在 `PATH`；**API key**（变量名未取证） | **高**（凭据） | CLI 能检查；key 的变量名**无证据不猜** | `{bin:cass}` |
+| `ee` | `EE_SERVE_TOKEN` ≥256bit（serve 模式）；stdlibio MCP 在本构建被禁 | **高**（token） | 这是**服务条目**的要求，且与 D8「免凭据可探」冲突 ⇒ 不做可探服务 | —（留作服务条目字段，不放在包上） |
+| `ft` | WezTerm mux（其自身 status 明说 `WezTerm bridge CLI not found in PATH`）；**忽略 SIGTERM** | 中（首次启动往 `~/.local/share/fonts` 装 4 个 Nerd Font） | 能检查 | `{bin:wezterm}`，服务侧 `stop: sigkill` |
+| `ntm` | `tmux` | 低 | 能检查 | `{bin:tmux}` |
+| `sbh` | 回收需要 **daemon + root** | **高**（root） | **不能表达**，且只读契约不允许 APG 代持 root 动作 | —（不猜） |
+| `slb` | 项目初始化（`slb init` 等） | 低 | **不能表达** | —（不猜） |
+
+三条全局实测坑（都不是配置项，但会让配置看起来失效）：
+
+1. **回环探测必须 `curl --noproxy '*'`**：本环境 `http_proxy=127.0.0.1:10808`，而 `no_proxy` 里的 `127.*` 不被 curl 当匹配，
+   不加会走代理、把死服务读成 503「活的」。（APG 自己走 `node:http`，不受影响。）
+2. **本机「没人监听」表现为 timeout 而不是 refused**（今日复测：连 `127.0.0.1:9` 也是 `curl (28)` 超时而非 `ECONNREFUSED`）。
+   于是四态里 `not-installed` 在本机**观测不到**，探针报的是 `degraded`（`the health probe timed out`）。
+   方向是**保守**的：只会把「缺失」说得比实际更含糊，绝不会把缺失说成 `available`。
+3. **`ft` 首次启动会改宿主**（装字体 + `fc-cache`），且 `ft watch` 收 SIGTERM 不退出、`.ft/watch.lock` 挡住第二实例。
+
+### 13.22.2 新机器铺 store 的可复制规程
+
+**前提**：只有「采集」是非分发能力（ADR 0010 D4）。分发面只有 `apg components verify|probe`，**从不下载**。规程本身写在
+`scripts/build-component-store.mjs` 的头注释里，并用 `--help` 打印同一份，所以工具和规程不会各说各话。
+
+```text
+1. 按 scripts/external-components.json 钉的 tag 取每个发布件，逐件核对 sha256 与记录一致
+   （这一步本仓不代做：没有下载、没有签名校验、没有网络）
+2. 把已核对的字节放进同一个 staging 目录，文件名保持记录里的 asset.name
+3. node scripts/build-component-store.mjs --dry-run   # record_mismatch 必须为空
+4. node scripts/build-component-store.mjs            # 真正写入 digest 命名目录
+5. apg components verify                             # missing_packages 必须为空；
+                                                     # degraded_packages 是「本机缺它声明的前置条件」
+6. apg components probe                              # 服务条目；未运行/断言身份的都只能是 degraded
+```
+
+**本机实测（作为规程的对照）**：默认根 `~/.local/share/agent-project-guides/components`，9 件全部硬链接（同 inode、
+`links=2`，未复制第二份）；重算后 `packages_total: 9`、reusable 7、degraded 2（`cass`→`{bin:cass}`、`ft`→`{bin:wezterm}`）、
+`missing: []`、`conflicted: []`；第二次 builder `materialised 0 / present 9`。builder 对残留旧 digest 报 `stale` 并给出确切目录，
+**自己从不删除**。
+
+### 13.22.3 第一条真实 service 条目已写入（D6/D8 的修订）
+
+`~/.local/share/agent-project-guides/components/services/am.json`：
+
+```json
+{"asserted_identity":true,"delivery":"staged","endpoint":"127.0.0.1:18765","health":"/health",
+ "id":"am","kind":"service","revision":"0.3.36","singleton":true,"stop":"signal","transport":"http"}
+```
+
+为什么是它、以及为什么只能是 `degraded`：`identity` 与 `asserted_identity` **互斥**（要么核对、要么断言），而 `am` 的
+identity 只出现在 MCP 握手里；记录里的 `revision` 与健康端点的 `version` 一致，但那是**断言**，不是核对。所以
+`probe` 现在报 `probed: 1`、该条目 `degraded`，**永不可能 `available`**，直到有一个组件愿意在只读 GET 里自报身份。
+`verify` 同时列出该服务条目（`requires: []`、`revision: 0.3.36`），证明两个命令都看得见它、且都不改动它。
+（本机 `am` 当前未运行，探测结果是 timeout→`degraded`，与 §13.22.1 第 2 条一致。）
+
+### 13.22.4 这次上的两条门禁（含反证）
+
+门禁 `scripts/test-component-store.mjs` 从 **103 条增到 118 条**，新增两节：
+
+- **第 12 节「新机器按规程走一遍」**：空根 `present: false` 不是错误 → `--dry-run` 的 `record_mismatch` 必须为空**且不得创建根目录** →
+  真正跑一次 `materialised: 1` → `verify` 必须 `present: true`、`missing_packages: []`、`degraded_packages: ['good']`
+  （新机器上该条目仍保留自己的要求判决）。这样「工具 `--help` 里印的规程」和「实际能跑通的顺序」不会各说各话。
+- **第 13 节「文档 = 声明，双向」**：从 plan §13.22.1 **只截取该小节**（不让周边散文满足匹配），抽出全部 `{kind:name}` 与
+  `scripts/external-components.json` 的 `requires` 做**集合相等**断言；同时断言 9 个组件 id 都在清单里、`--help` 退出 0
+  且必须点到 `apg components verify` 这一步。
+
+**反证已跑**：往正确小节里塞一条记录里不存在的 `{env:PRETEND_KEY}`，门禁立刻红在
+`actual: ['bin:cass','bin:tmux','bin:wezterm','env:PRETEND_KEY']` / `expected: ['bin:cass','bin:tmux','bin:wezterm']`；恢复后绿。
+§13.21.5 的两条反证（降级分支、路由名词）同样保持有效。

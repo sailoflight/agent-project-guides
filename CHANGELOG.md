@@ -53,7 +53,7 @@ distributed surface is advertised without a tag behind it.
   acquisition record, verifies every staged byte against it, hard-links when the store
   shares a filesystem with the source and reports which it used, and treats a
   disagreement between record and disk as a hard failure instead of a repair.
-- The gate `scripts/test-component-store.mjs` (103 assertions, wired into
+- The gate `scripts/test-component-store.mjs` (118 assertions, wired into
   `scripts/test-release.sh`) now imports the shipped library rather than carrying its
   own private validator, and additionally pins the schema against the fields the code
   actually writes. A negative control was run and recorded: with the file-set
@@ -64,14 +64,11 @@ distributed surface is advertised without a tag behind it.
   the recorded requirements below in place, `apg components verify` reports
   `packages_total: 9`, seven reusable (`am`, `br`, `bv`, `ee`, `ntm`, `sbh`, `slb`) and
   two degraded for measured reasons (`cass`, whose own diagnostic reports its companion
-  CLI unavailable, and `ft`, which needs the WezTerm mux). No service entry was written,
-  because no component running on this machine documents an identity and a read-only
-  health endpoint that a record could pin - inventing one is exactly what the four-state
-  vocabulary exists to prevent.
+  CLI unavailable, and `ft`, which needs the WezTerm mux).
 - The catalog (253 entries) and the manifest were regenerated twice in this release - for
   the store contract and then for the routing vocabulary below - and the surface stays at
   85 files throughout; the digest moves from `sha256:9791c583…` through
-  `sha256:3c935f4b…` to `sha256:f4d86ec0…`. A negative control was run on the new requirement check: with the
+  `sha256:3c935f4b…` and `sha256:f4d86ec0…` to `sha256:e7f428d1…`. A negative control was run on the new requirement check: with the
   downgrade in `applyRequirements` short-circuited the store gate fails on
   `expected: 'degraded'`, and it passes again once the library is restored - so the
   requirement reaches the command's verdict, not just a helper's branch.
@@ -91,6 +88,23 @@ distributed surface is advertised without a tag behind it.
   capability test hit this on a real server whose health endpoint returns only
   `{status, version}` - liveness masquerading as identity, which is exactly the reuse
   the four-state vocabulary exists to prevent.
+- The first service entry exists, and it can only ever be `degraded`. The store holds
+  `services/am.json` - `am` on `127.0.0.1:18765`, `/health`, revision `0.3.36`,
+  `singleton`, `delivery: staged`, `stop: signal` and `asserted_identity: true`. `identity`
+  and `asserted_identity` are mutually exclusive, and `am`'s identity lives only in the MCP
+  handshake, so the record asserts a revision instead of checking one: `probe` reports
+  `probed: 1` and this entry `degraded`, and it can never be `available`, because nobody can
+  check who answers. That is the state doing its job rather than a caveat - "packages only"
+  is gone without weakening a single verdict (ADR 0010 D12). Two limits are recorded with
+  it: in this environment a loopback port with no listener times out instead of refusing
+  (`curl --noproxy '*'` against `127.0.0.1:9` returns exit 28, not `ECONNREFUSED`), so
+  `not-installed` is not observable here and an absent declared service surfaces as
+  `degraded`; and the acquisition path is written down where it lives - the
+  `scripts/build-component-store.mjs` header and its `--help` carry the six-step recipe for
+  a new machine, and plan §13.22.1 carries the per-component configuration checklist,
+  naming the prerequisites that are deliberately not expressible (`.beads` for `br`/`bv`,
+  project init for `slb`, daemon plus root for `sbh`, and the variable name of `cass`'s API
+  key, which no measurement established).
 - A service record can now say which fields carry its identity. `probeService` read
   `id` and `revision` and nothing else, so a server whose health JSON answers
   `{service, rev}` - the shape the capability test actually observed on a real
@@ -138,6 +152,12 @@ distributed surface is advertised without a tag behind it.
   resolves `ready`/`maintainer`/`code`, seven previously-working routing fixtures are
   unchanged, three assertions were added to `scripts/test-v2.mjs`, and a negative control
   (removing the nouns) turns that gate red. Both letters in the box are now processed.
+- `docs/V2_CONTRACT.md` now states the store's boundaries for consumers: it is
+  machine-local and shared, the shipped CLI verifies and probes it read-only (one `GET` on
+  the declared health path, no name resolution, no download, nothing started), an absent
+  store is `present: false` rather than an error, and populating it is an acquisition step
+  outside the distribution surface. A file on the distribution surface changed, so the
+  manifest digest moves again.
 - The suggestion box is excluded in the source-worktree repository itself:
   `.gitignore` gains `.agent-project-guides/local/`, adopting letter
   `0002-other-suggestion-box-not-ignored.md`. The exclusion existed only in the

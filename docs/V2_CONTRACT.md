@@ -49,6 +49,23 @@ The package source repository's self-host mode. It requires `source: "."`, obser
 
 Thin and embedded modes resolve only `sha256:<64 lowercase hex>` directories. Before importing the package CLI, the standalone launcher validates the canonical runtime manifest, every listed file hash/size, path/case uniqueness, and absence of unexpected files. The runtime digest intentionally excludes source-only tests, pilot fixtures, roadmap, and decision records.
 
+## Component store
+
+Beside the release store, under the same root resolution and with no additional
+configuration, APG verifies a machine-local component store at `<data>/components`. It is
+shared by every project on the machine, because the same component staged twice is the
+same bytes twice.
+
+`apg components verify` and `apg components probe` are read-only and are the only part of
+the store the distribution surface carries. They hash what a human already staged, issue
+exactly one `GET` on a service entry's declared health path, resolve no name, download
+nothing, and start nothing. An absent store is not an error: it reports `present: false`,
+and a missing component is `not-installed`. A component whose declared prerequisite is
+absent, a service that is not running, and a service recorded with `asserted_identity` are
+all `degraded` - present and unverified, never `available`. Populating the store is an
+acquisition step outside the distribution surface; the source repository's
+`scripts/build-component-store.mjs` performs it and refuses to repair or fetch.
+
 ## Portable provider API
 
 The CLI exposes:
