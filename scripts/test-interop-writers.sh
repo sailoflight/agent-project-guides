@@ -233,6 +233,239 @@ else
 fi
 
 # ---------------------------------------------------------------------------
+echo "== D. the writers' OWN RELEASED BINARIES, driven for real =="
+# Sections A-C read the checkouts. A checkout is not an artifact: source at HEAD
+# can be ahead of, or behind, the binary a user actually installs. This section
+# runs the official prebuilt release binaries and asserts what they DO.
+#
+# Measured drift this section exists to catch: beads_viewer's source declares
+# `bv-agent-instructions-v7` while the released v0.25.0 binary emits v6.
+#
+# SKIPs entirely unless APG_EXTERNAL_BIN points at a directory of extracted
+# release payloads (fetch them with the verified pipeline documented in
+# .agent-scratch/external-test/SECURITY-REPORT.md). One sub-block per component,
+# each independent, so a missing binary costs one GAP and not the whole section.
+EXT="${APG_EXTERNAL_BIN:-$ROOT/.agent-scratch/external-test/bin}"
+if [ ! -d "$EXT" ]; then
+  note_gap "D/*: no APG_EXTERNAL_BIN at $EXT, so no released binary could be driven"
+else
+  # Every case runs in its own throwaway project with a fake HOME. `unshare -rn`
+  # is used when the kernel allows it, so the component cannot reach the network;
+  # the fake HOME is what the zero-write claims are measured against either way.
+  NET=""
+  if unshare -rn true 2>/dev/null; then NET="unshare -rmn"; fi
+  ext_run() { # <name> <cmd...>   (cwd = $WORK/d/<name>/cwd, HOME = .../home)
+    local name="$1"; shift
+    local dir="$WORK/d/$name"
+    mkdir -p "$dir/cwd" "$dir/home"
+    ( cd "$dir/cwd" && \
+      HOME="$dir/home" TMPDIR="$dir/cwd/.tmp" \
+      PATH="$(dirname "$1"):$PATH" \
+      $NET timeout 180 "$@" >"$dir/stdout" 2>"$dir/stderr" )
+    printf '%s' "$?" > "$dir/rc"
+  }
+  seed_root() { # <dir>  a root file carrying APG's own v2 region
+    cp "$ROOT/AGENTS.md" "$1/AGENTS.md"
+    printf '\n## Hand-written project notes\n' >> "$1/AGENTS.md"
+  }
+  seed_depths() { # <dir>  the same file at depth 1..4 for recursion probing
+    local d="$1"
+    seed_root "$d"
+    mkdir -p "$d/a" "$d/a/b" "$d/a/b/c" "$d/a/b/c/d"
+    for x in a a/b a/b/c a/b/c/d; do cp "$d/AGENTS.md" "$d/$x/AGENTS.md"; done
+  }
+  rc_of() { cat "$WORK/d/$1/rc" 2>/dev/null || echo 127; }
+  has() { grep -qF -- "$2" "$1" 2>/dev/null; }
+
+  # --- br: the writer APG already collided with ----------------------------
+  BR="$EXT/br-0.6.0/br"
+  if [ -x "$BR" ]; then
+    mkdir -p "$WORK/d/br/cwd"; seed_root "$WORK/d/br/cwd"
+    ext_run br "$BR" agents --add -f --no-db --no-color
+    check "D/br agents --add exits 0" "$(rc_of br)" "0"
+    if [ -f "$WORK/d/br/cwd/AGENTS.md.bak" ]; then
+      ok "D/br leaves a real recovery point (AGENTS.md.bak)"
+    else
+      no "D/br wrote AGENTS.md with no AGENTS.md.bak"
+    fi
+    if has "$WORK/d/br/cwd/AGENTS.md" '<!-- br-agent-instructions-v1 -->'; then
+      ok "D/br emits its recorded v1 marker"
+    else
+      no "D/br marker changed; update decisions/0006"
+    fi
+  else
+    note_gap "D/br: released binary absent"
+  fi
+
+  # --- bv: source says v7, the shipped binary says v6 ----------------------
+  BV="$EXT/bv-0.25.0/bv"
+  if [ -x "$BV" ]; then
+    mkdir -p "$WORK/d/bv/cwd"; seed_root "$WORK/d/bv/cwd"
+    ext_run bv "$BV" --agents-add --agents-force
+    check "D/bv --agents-add exits 0" "$(rc_of bv)" "0"
+    if has "$WORK/d/bv/cwd/AGENTS.md" '<!-- bv-agent-instructions-v6 -->'; then
+      ok "D/bv emits the SHIPPED v6 marker (source at HEAD declares v7)"
+    else
+      no "D/bv no longer emits v6; re-measure the source/shipped drift"
+    fi
+    if ls "$WORK/d/bv/cwd"/AGENTS.md.* >/dev/null 2>&1; then
+      no "D/bv created a backup file, contradicting the census"
+    else
+      ok "D/bv creates no backup (atomic rename), as recorded"
+    fi
+  else
+    note_gap "D/bv: released binary absent"
+  fi
+
+  # --- slb: writes .cursorrules, NOT AGENTS.md -----------------------------
+  SLB="$EXT/slb-0.4.1/slb"
+  if [ -x "$SLB" ]; then
+    mkdir -p "$WORK/d/slb/cwd"; seed_root "$WORK/d/slb/cwd"
+    cp "$WORK/d/slb/cwd/AGENTS.md" "$WORK/d/slb/agents.before"
+    ext_run slb "$SLB" integrations cursor-rules --install -C .
+    check "D/slb cursor-rules --install exits 0" "$(rc_of slb)" "0"
+    if [ -f "$WORK/d/slb/cwd/.cursorrules" ]; then
+      ok "D/slb writes .cursorrules"
+    else
+      no "D/slb did not write .cursorrules"
+    fi
+    if cmp -s "$WORK/d/slb/cwd/AGENTS.md" "$WORK/d/slb/agents.before"; then
+      ok "D/slb leaves AGENTS.md byte-identical (it is not an AGENTS.md writer)"
+    else
+      no "D/slb modified AGENTS.md, contradicting the corrected census row"
+    fi
+  else
+    note_gap "D/slb: released binary absent"
+  fi
+
+  # --- ntm: whole-file replace; --force clobbers an existing root ----------
+  NTM="$EXT/ntm-1.35.1/ntm"
+  if [ -x "$NTM" ]; then
+    mkdir -p "$WORK/d/ntm/cwd"; seed_root "$WORK/d/ntm/cwd"
+    ext_run ntm "$NTM" setup --force --no-color
+    check "D/ntm setup --force exits 0" "$(rc_of ntm)" "0"
+    if has "$WORK/d/ntm/cwd/AGENTS.md" '<INSTRUCTIONS>'; then
+      ok "D/ntm setup --force replaces the whole root with its <INSTRUCTIONS> template"
+    else
+      no "D/ntm setup --force did not write its template"
+    fi
+    if has "$WORK/d/ntm/cwd/AGENTS.md" 'agent-project-guides:v2:start'; then
+      no "D/ntm preserved APG's region; the census records a whole-file clobber"
+    else
+      ok "D/ntm clobbered APG's region entirely (no marker guard can see this)"
+    fi
+    if ls "$WORK/d/ntm/cwd"/AGENTS.md.* >/dev/null 2>&1; then
+      no "D/ntm created a backup, contradicting the census"
+    else
+      ok "D/ntm creates no backup before the clobber, as recorded"
+    fi
+  else
+    note_gap "D/ntm: released binary absent"
+  fi
+
+  # --- am: marker pair, no backup, depth-3 default recursion ---------------
+  AM="$EXT/am-0.3.36/am"
+  if [ -x "$AM" ]; then
+    mkdir -p "$WORK/d/am/cwd"; seed_depths "$WORK/d/am/cwd"
+    ext_run am "$AM" docs insert-blurbs --scan-dir . --yes
+    check "D/am insert-blurbs exits 0" "$(rc_of am)" "0"
+    check "D/am writes exactly one blurb start marker" \
+      "$(grep -cF '<!-- am:blurb -->' "$WORK/d/am/cwd/AGENTS.md" 2>/dev/null || echo 0)" "1"
+    check "D/am writes exactly one blurb end marker" \
+      "$(grep -cF '<!-- am:blurb:end -->' "$WORK/d/am/cwd/AGENTS.md" 2>/dev/null || echo 0)" "1"
+    if has "$WORK/d/am/cwd/a/b/c/AGENTS.md" '<!-- am:blurb -->'; then
+      ok "D/am reaches depth 3, as the census records (max_depth = 3)"
+    else
+      no "D/am no longer reaches depth 3"
+    fi
+    if has "$WORK/d/am/cwd/a/b/c/d/AGENTS.md" '<!-- am:blurb -->'; then
+      no "D/am reached depth 4 by default; the recorded max_depth is wrong"
+    else
+      ok "D/am stops before depth 4 by default"
+    fi
+  else
+    note_gap "D/am: released binary absent"
+  fi
+
+  # --- cass: refuses to overwrite ------------------------------------------
+  CASS="$EXT/cass-0.2.14/cass-memory-linux-x64"
+  if [ -x "$CASS" ]; then
+    mkdir -p "$WORK/d/cass/cwd"; seed_root "$WORK/d/cass/cwd"
+    ext_run cass "$CASS" project --format agents.md --output AGENTS.md
+    check "D/cass refuses to overwrite without --force" "$(rc_of cass)" "2"
+    if has "$WORK/d/cass/cwd/AGENTS.md" 'agent-project-guides:v2:start'; then
+      ok "D/cass left the refused file untouched"
+    else
+      no "D/cass rewrote the file it claimed to refuse"
+    fi
+  else
+    note_gap "D/cass: released binary absent"
+  fi
+
+  # --- ee: managed block + a byte-identical .ee-backup ---------------------
+  EE="$EXT/ee-0.15.2/ee"
+  if [ -x "$EE" ]; then
+    mkdir -p "$WORK/d/ee/cwd"; seed_root "$WORK/d/ee/cwd"
+    cp "$WORK/d/ee/cwd/AGENTS.md" "$WORK/d/ee/agents.before"
+    # Absolute paths inside the shell: PATH is derived from the command name,
+    # and this case's command is `sh`, not `ee`.
+    ext_run ee sh -c "\"$EE\" init --workspace . --force >/dev/null 2>&1; \"$EE\" export agentsmd --workspace . --file AGENTS.md --create --no-color"
+    check "D/ee export agentsmd exits 0 after init" "$(rc_of ee)" "0"
+    if has "$WORK/d/ee/cwd/AGENTS.md" '<!-- ee:agentsmd:begin generation='; then
+      ok "D/ee emits its generation/hash marker"
+    else
+      no "D/ee marker changed; update decisions/0006"
+    fi
+    if cmp -s "$WORK/d/ee/cwd/AGENTS.md.ee-backup" "$WORK/d/ee/agents.before"; then
+      ok "D/ee's .ee-backup is byte-identical to the pre-write file"
+    else
+      no "D/ee's .ee-backup is missing or differs from the pre-write file"
+    fi
+  else
+    note_gap "D/ee: released binary absent"
+  fi
+
+  # --- sbh: rewrites only an existing marked region ------------------------
+  SBH="$EXT/sbh-0.6.2/sbh"
+  if [ -x "$SBH" ]; then
+    mkdir -p "$WORK/d/sbh/cwd"; seed_root "$WORK/d/sbh/cwd"
+    printf '\n<!-- sbh-docs:begin commands -->\nstale\n<!-- sbh-docs:end -->\n' >> "$WORK/d/sbh/cwd/AGENTS.md"
+    cp "$WORK/d/sbh/cwd/AGENTS.md" "$WORK/d/sbh/agents.before"
+    ext_run sbh "$SBH" docs --render AGENTS.md --no-color
+    check "D/sbh docs --render exits 0" "$(rc_of sbh)" "0"
+    if has "$WORK/d/sbh/cwd/AGENTS.md" '<!-- sbh-docs:begin commands -->'; then
+      ok "D/sbh keeps the marked region in place"
+    else
+      no "D/sbh lost its own region marker"
+    fi
+    if cmp -s "$WORK/d/sbh/cwd/AGENTS.md" "$WORK/d/sbh/agents.before"; then
+      no "D/sbh --render changed nothing; the region rewrite is no longer exercised"
+    else
+      ok "D/sbh actually rewrote the region (stale content replaced)"
+    fi
+  else
+    note_gap "D/sbh: released binary absent"
+  fi
+
+  # --- ft: the released build cannot write agent config at all -------------
+  FT="$EXT/ft-0.15.1/ft"
+  if [ -x "$FT" ]; then
+    mkdir -p "$WORK/d/ft/cwd"; seed_root "$WORK/d/ft/cwd"
+    cp "$WORK/d/ft/cwd/AGENTS.md" "$WORK/d/ft/agents.before"
+    ext_run ft "$FT" robot agents configure --workspace .
+    if has "$WORK/d/ft/stdout" 'robot.feature_not_available'; then
+      note_gap "D/ft: released v0.15.1 reports feature_not_available, so its AGENTS.md writer is unreachable in the shipped artifact"
+    elif cmp -s "$WORK/d/ft/cwd/AGENTS.md" "$WORK/d/ft/agents.before"; then
+      note_gap "D/ft: released binary neither wrote nor reported a feature gap"
+    else
+      ok "D/ft released binary did write agent config"
+    fi
+  else
+    note_gap "D/ft: released binary absent"
+  fi
+fi
+
+# ---------------------------------------------------------------------------
 printf '\n== writers result: %s passed, %s failed, %s gaps ==\n' "$pass" "$fail" "$gap"
 printf '   work directory: %s (delete by name when the evidence is no longer needed)\n' "$WORK"
 [ "$fail" -eq 0 ] || exit 1

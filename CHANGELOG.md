@@ -49,6 +49,20 @@ over-refusing.**
   --output`/`deploy`), and the UBS block extracted verbatim from its own heredoc
   driven through the shipped `guard-prefix`. Both SKIP when their third-party
   inputs are absent; both have measured negative proofs.
+- Repository-side (not distributed): the census's eight source-only rows were
+  driven with the writers' **own released binaries**. Every component publishes a
+  prebuilt linux/x86_64 release artifact, so no Go/Rust/bun toolchain was needed;
+  each was fetched by GitHub asset id and admitted only after four agreeing
+  SHA-256 sources, an offline minisign check where a public key exists, an
+  archive hygiene scan, and execution restricted to an unprivileged
+  user+mount+network namespace with a shadowed home. Two rows changed as a
+  result: `bv`'s **shipped** binary emits `bv-agent-instructions-v6` while its
+  source at HEAD declares `v7`, and `slb` writes `.cursorrules`, not `AGENTS.md`.
+  `frankenterm`'s released v0.15.1 was built without the agent-config feature at
+  all, so that row is now marked unmeasured. `scripts/test-interop-writers.sh`
+  gained section D asserting the observed facts against those binaries; it reports
+  one GAP when `APG_EXTERNAL_BIN` is unset. Record and security posture:
+  `.agent-scratch/external-test/SECURITY-REPORT.md`.
 
 ## 3.0.9
 
