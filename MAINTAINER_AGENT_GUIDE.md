@@ -2,7 +2,20 @@
 
 > 适用角色：负责整理已有项目的开发入口、文档架构、模块契约和验证流程的维护 agent。
 >
+> 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以自动入口记录的治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
+>
 > 本文件是执行规范。不能只提交分析或改进建议；必须在项目中形成可用的阶段性产物。不要预读 `DEVELOPER_AGENT_GUIDE.md`。
+
+## 0. 自动入口和已有规则接管
+
+兼容 harness 会在首轮前加载项目根到当前工作目录路径上的精确指令文件，例如 `AGENTS.md` 或 `CLAUDE.md`，并在后续 model step 重新探测 baseline；根 README 和任意嵌套治理目录都不是自动入口。仅把本包复制进已有项目不会完成加载。
+
+接入方式二选一：
+
+- 人工将 `bootstrap/AGENTS.merge-block.md` 合并进项目根 `AGENTS.md`，保留已有约束；
+- 从包内运行 `scripts/install.sh handoff`，把已有根入口原样保存为 `AGENTS_origin.md`，同时将原内容镜像进首轮自动加载的临时根入口，避免项目约束在合并期间退出上下文。
+
+若由 handoff 启动，先读取 `AGENTS_origin.md` 和本指南，再治理项目。最终根 `AGENTS.md` 必须合并仍适用的原规则和验证后的项目路由；自动合并不得编辑或删除唯一的 `AGENTS_origin.md` 备份，应报告其位置供人工复核。删除整个临时 handoff/origin-mirror 标记并重新读取最终入口之前，不得开始产品代码修改。发现其他根候选指令或临时入口超过 16,384 bytes 时，handoff 必须拒绝并回退到人工合并。
 
 ## 1. 任务目标
 
@@ -94,10 +107,10 @@
 
 ## 6. Phase 2：建立最小项目内骨架
 
-项目至少需要以下能力，但小项目可以合并文件：
+如果根入口当前由 handoff 临时接管，直接把它重写为最终项目入口，不得并行创建第二个 `AGENTS.md`。项目至少需要以下能力，但小项目可以合并文件：
 
 ```text
-AGENTS.md                         开发 agent 的薄入口和红线
+AGENTS.md                         harness 自动加载的开发 agent 薄入口和红线
 docs/INDEX.md                    按角色和任务类型路由
 docs/architecture/OVERVIEW.md    当前架构和模块边界
 docs/verification/MATRIX.md      修改类型到验证命令的映射
@@ -111,7 +124,9 @@ docs/verification/MATRIX.md      修改类型到验证命令的映射
 - 规定最小检索顺序；
 - 指向文档索引和验证矩阵；
 - 避免完整工具目录、生产教程、历史计划和模块细节；
-- 建议控制在约 2K tokens 内。
+- 建议控制在约 2K tokens 内，为目录级指令和其他 authority instructions 留出预算；
+- 包含实际可执行的约束，不能只要求 agent 先读 README；
+- 治理完成后不再包含 `manual-merge`/`handoff`/`origin-mirror` 标记；handoff 的 `AGENTS_origin.md` 保持未修改并已报告供人工复核。
 
 `docs/INDEX.md` 只负责导航，不复制各文档正文。
 
@@ -139,7 +154,9 @@ Verification
 Change documentation triggers
 ```
 
-不要为每个文件写用途。只解释模块边界、非显然文件、生成物和高风险入口。目录级 `AGENTS.md` 仅用于局部覆盖，不得重复根规则。
+不要为每个文件写用途。只解释模块边界、非显然文件、生成物和高风险入口。
+
+完整模块契约默认放在 `docs/modules/<module>.md`。只有局部约束必须在 agent 进入目录时立即生效，才增加 `<module>/AGENTS.md`；兼容 harness 会在 agent 读、写或编辑该目录下文件时按路径注入它。局部入口只摘要硬红线、禁止依赖、所有权和验证入口，并链接权威模块契约，不得重复根规则或复制动态清单。
 
 ## 8. Phase 4：拆分混合文档
 
@@ -176,7 +193,8 @@ Change documentation triggers
 至少校验：
 
 - 内部链接和旧入口跳转；
-- 根入口体积；
+- 根入口体积及 harness 截断风险；
+- 根入口不存在 `manual-merge`/`handoff`/`origin-mirror` 临时标记，且 handoff 的 `AGENTS_origin.md` 未被自动修改或删除；
 - 示例命令和验证命令是否存在、是否可执行；
 - 生成物与权威来源是否一致；
 - 高风险和公共模块是否有契约；
@@ -198,7 +216,7 @@ Change documentation triggers
 
 ## 11. Phase 7：冷启动验收
 
-让没有历史上下文的 agent 在不读取本治理包全文的情况下：
+让没有历史上下文的 agent 在不读取本治理包全文、也不接收额外“先读文档”提示词的情况下：
 
 1. 说明项目定位、入口和项目类型。
 2. 定位一个真实功能所属模块。
@@ -224,7 +242,7 @@ Change documentation triggers
 
 - 证据分级的现状和冲突清单；
 - 角色路由表；
-- 最小项目内文档骨架；
+- 最小项目内文档骨架，且根入口已经退出临时 bootstrap/handoff 状态；
 - 至少一个最高风险模块契约；
 - 一项最高成本的混合文档拆分；
 - 动态事实与权威来源映射；

@@ -2,7 +2,22 @@
 
 > 适用角色：初始化新项目的开发 agent，以及项目完成治理后的日常开发 agent。
 >
-> 新项目初始化时执行第 1-8 节；日常开发主要执行第 9-13 节。不要预读已有项目的维护迁移指南。
+> 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以自动入口记录的治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
+>
+> 新项目初始化时执行第 0-8 节；日常开发主要执行第 9-13 节。不要预读已有项目的维护迁移指南。
+
+## 0. 自动入口和首轮接管
+
+兼容 harness 会在首轮前加载项目根到当前工作目录路径上的精确指令文件，例如 `AGENTS.md` 或 `CLAUDE.md`，并在后续 model step 重新探测 baseline。根 README 和任意嵌套治理目录不会因为存在或被链接而自动加载；新出现的后代目录规则仍需文件工具触碰对应路径后注入。
+
+本包放入项目子目录后，必须通过以下一种方式接入项目根 `AGENTS.md`：
+
+- 人工将 `bootstrap/AGENTS.merge-block.md` 合并进已有根入口，并替换包路径占位符；
+- 从包内运行 `scripts/install.sh handoff`，将已有根入口原样保存为 `AGENTS_origin.md`，把原内容镜像进临时入口保持约束生效，再安装 `bootstrap/AGENTS.handoff.md` 的接管指令。
+
+若本次 session 由临时 handoff 启动，必须先执行其中的合并门：读取 `AGENTS_origin.md`（若存在）、本指南第 0-8 节、匹配 profile 和必要模板小节；生成最终项目入口；确认原约束已保留后删除 handoff/origin-mirror 标记，但保留未修改的精确备份供人工复核；重新读取最终 `AGENTS.md` 后才开始产品修改。不得把临时接管文件当作最终项目规范。
+
+标准 DSH code preset 当前为自动指令设置 65,536 bytes 总预算，但包内 handoff 安装器把临时根入口限制为 16,384 bytes，并在发现其他根候选指令时拒绝接管。根入口仍建议控制在约 2K tokens 内；预算余量应留给目录级局部规则和其他 authority instructions，不能用上限证明塞入长文合理。
 
 ## 1. 初始化目标
 
@@ -46,18 +61,18 @@
 
 ## 4. 创建最小项目内入口
 
-根据项目规模创建或合并以下能力：
+如果项目根当前是 handoff 临时入口，以它为迁移载体，不要另建第二个根入口。根据项目规模创建或合并以下能力：
 
 ```text
-AGENTS.md                         开发 agent 薄入口
+AGENTS.md                         harness 自动加载的开发 agent 薄入口
 docs/INDEX.md                    角色/任务路由
 docs/architecture/OVERVIEW.md    当前架构和模块边界
 docs/verification/MATRIX.md      修改类型到验证方式
 ```
 
-实际写入时，按需读取 `templates/CORE_DOCUMENT_TEMPLATES.md` 的精确小节。
+实际写入时，按需读取 `templates/CORE_DOCUMENT_TEMPLATES.md` 的精确小节。根 `AGENTS.md` 必须包含实际生效的硬约束和最小路由，不能只写“请先读 README”。
 
-很小的纯函数库可以把 INDEX、架构和验证矩阵合并进一份开发文档，但必须明确回答这些契约问题。不要为不适用的角色创建空目录。
+很小的纯函数库可以把 INDEX、架构和验证矩阵合并进一份开发文档，但必须明确回答这些契约问题。不要为不适用的角色创建空目录。最终入口生成后删除 `manual-merge`、`handoff` 和 `origin-mirror` 临时标记；handoff 的 `AGENTS_origin.md` 必须保持未修改并报告供人工复核。
 
 ## 5. 根 `AGENTS.md` 规则
 
@@ -78,7 +93,7 @@ docs/verification/MATRIX.md      修改类型到验证方式
 - 已完成历史和未来 roadmap；
 - 可以从代码或 schema 生成的动态事实。
 
-建议控制在约 2K tokens 内。目录级 `AGENTS.md` 只添加局部覆盖，不复制根规则。
+建议控制在约 2K tokens 内。目录级 `AGENTS.md` 只添加局部覆盖，不复制根规则。兼容 harness 会在 agent 读、写或编辑该目录下文件时注入路径上的局部入口，因此真正必须在进入模块前生效的局部红线应放在最近的目录级 `AGENTS.md`，而不是只藏在 README 或远端索引中。
 
 ## 6. 建立模块契约
 
@@ -105,6 +120,13 @@ Documentation triggers
 
 新增目录或文件不自动要求新增文档。只有形成新的职责边界、公共契约或特殊风险时才新增模块说明。
 
+模块契约可以拆成两个投递面：
+
+- `docs/modules/<module>.md` 保存完整职责、证据、接口边界和验证映射；
+- `<module>/AGENTS.md` 仅在进入该目录前必须机械生效时创建，保存短小的局部红线、禁止依赖、数据所有权和验证入口，并链接权威模块契约。
+
+两处不得复制同一长事实。目录级入口只保留必须立即执行的摘要，动态清单和详细解释仍以代码、schema 或模块契约为权威来源。
+
 ## 7. 按投递渠道分离角色
 
 - 开发 agent：项目 `AGENTS.md`、development、architecture、modules、verification。
@@ -126,7 +148,8 @@ Documentation triggers
 - 配置、状态、生成物和秘密归属明确；
 - 消费者或运维角色只在实际存在时建立对应入口；
 - 没有手工复制可生成的工具、接口或参数清单；
-- 一个无历史上下文的 agent 能定位首个功能及其测试。
+- 根 `AGENTS.md` 不再包含 `manual-merge`、`handoff` 或 `origin-mirror` 标记；handoff 的 `AGENTS_origin.md` 保持未修改并已报告供人工复核；
+- 一个无历史上下文的 agent 能在没有额外“先读文档”提示词的情况下定位首个功能及其测试。
 
 初始化产物应与首批代码一起演进，不应先写一套脱离实现的完整未来架构。
 
