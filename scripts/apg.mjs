@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { writeFileAtomic } from '../lib/files.mjs';
-import { compareCanonical } from '../lib/core.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +31,7 @@ export { contextErrorRecord };
 import { composeRisk, parseEffectList } from '../lib/risk.mjs';
 import { projectDigest, promoteMemory, proposeMemory, purgeMemoryProposal, readMemoryInput, reviewMemory, supersedeMemory } from '../lib/memory.mjs';
 import { observeRootBlocks } from '../lib/observation-ledger.mjs';
-import { applyRequirements, checkRequirements, findDuplicateDigests, probeService, readStoreEntryRecords, resolvePackage, resolveService, storeRoot } from '../lib/components.mjs';
+import { verifyComponents, probeComponents } from '../lib/component-resolution.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION = fs.readFileSync(path.join(packageRoot, 'PACKAGE_VERSION'), 'utf8').trim();
@@ -364,71 +363,6 @@ function observeProject(options) {
 // starts or stops anything, which is why it belongs on the authority side of the
 // partition ADR 0007 draws - and why the boundary gate's FORBIDDEN list, which rejects
 // naming a mechanism such as `store`, still admits it.
-function verifyComponents(options) {
-  const root = storeRoot({ store: options.store });
-  if (!fs.statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
-    return { root, present: false, packages_total: 0, packages: [], reusable_packages: [], missing_packages: [], degraded_packages: [], conflicted_packages: [], services: [] };
-  }
-  const records = readStoreEntryRecords(root);
-  const duplicates = findDuplicateDigests(records.packages);
-  const duplicated = new Set(duplicates.map((entry) => entry.id));
-  // A duplicated id is resolved to nothing at all: two digests under one id mean the store
-  // cannot say which copy is current, so a requirement naming it must not be reported
-  // satisfied by a copy nobody chose.
-  const singles = records.packages.filter((entry) => !duplicated.has(entry.id));
-  const resolved = singles.map((entry) => resolvePackage(entry, root));
-  // A requirement naming another component is resolved against all of them at once, so the
-  // verdict cannot depend on the order they happen to be walked in.
-  const describe = (id) => {
-    if (duplicated.has(id)) return null;
-    const found = resolved.find((entry) => entry.id === id);
-    if (found) return found.state === 'available' ? 'available' : null;
-    return records.services.some((entry) => entry.id === id) ? 'declared' : null;
-  };
-  const packages = [
-    ...singles.map((record, index) => applyRequirements(resolved[index], checkRequirements(record.requires ?? [], { describe }))),
-    ...duplicates.map((entry) => ({ id: entry.id, state: 'conflict', reusable: false, digests: entry.digests, reason: `the store holds ${entry.digests.length} digests for ${entry.id}; remove the copy it does not name` })),
-  ].sort((left, right) => compareCanonical(left.id, right.id));
-  // The package command names packages and the service command names services. An earlier
-  // shape published a bare `reusable` here and a bare `reusable` there, over two different
-  // domains, and the internal capability test read `reusable: []` from `probe` as "nothing
-  // is reusable" while nine packages verified as available.
-  return {
-    root,
-    present: true,
-    packages_total: packages.length,
-    packages,
-    services: records.services.map((entry) => ({ id: entry.id, endpoint: entry.endpoint, revision: entry.revision ?? null, delivery: entry.delivery, requires: entry.requires ?? [] })),
-    reusable_packages: packages.filter((entry) => entry.reusable).map((entry) => entry.id),
-    missing_packages: packages.filter((entry) => entry.state === 'not-installed').map((entry) => entry.id),
-    degraded_packages: packages.filter((entry) => entry.state === 'degraded').map((entry) => entry.id),
-    conflicted_packages: packages.filter((entry) => entry.state === 'conflict').map((entry) => entry.id),
-  };
-}
-
-async function probeComponents(options) {
-  const root = storeRoot({ store: options.store });
-  if (!fs.statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
-    return { root, present: false, probed: 0, services: [], reusable_services: [] };
-  }
-  const records = readStoreEntryRecords(root);
-  // Here a required component is resolved to whether its entry exists, not to whether its
-  // bytes verify: probe answers questions about services and must not hash every package.
-  const describe = (id) => (records.packages.some((entry) => entry.id === id) || records.services.some((entry) => entry.id === id) ? 'present' : null);
-  const services = [];
-  for (const entry of records.services) {
-    const checked = checkRequirements(entry.requires ?? [], { describe });
-    services.push(applyRequirements(resolveService(entry, [await probeService(entry)]), checked));
-  }
-  return {
-    root,
-    present: true,
-    probed: services.length,
-    services,
-    reusable_services: services.filter((entry) => entry.reusable).map((entry) => entry.id),
-  };
-}
-
 function reattestProject(options) {
   const projectRoot = targetRoot(options);
   const { descriptor } = readDescriptor(projectRoot);

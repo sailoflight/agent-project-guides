@@ -68,6 +68,23 @@ all `degraded` - present and unverified, never `available`. Populating the store
 acquisition step outside the distribution surface; the source repository's
 `scripts/build-component-store.mjs` performs it and refuses to repair or fetch.
 
+Service discovery is loopback-only (127/8 or ::1); `localhost` maps to 127.0.0.1 without
+DNS. HTTP and HTTPS use their corresponding transports; TLS verification is never
+bypassed. A probe follows no redirects, requires a 2xx response containing an identity
+object, and bounds the whole request to 400 ms and its response to 64 KiB. A malformed
+identity is a conflict; failed health is not reusable. The CLI groups service records
+by ID, rejects inconsistent declarations, deduplicates equivalent endpoints, and
+reports multiple available instances of a singleton as a conflict.
+
+Component prerequisites use final dependency verdicts, including transitive failures;
+cycles are not usable. `verify` hashes packages but performs no network requests, so a
+package depending on unprobed service health is degraded. `probe` verifies only packages
+reachable from service prerequisites, not unrelated installed packages. Conflicts are
+never downgraded to merely missing prerequisites. A corrupt package is reported as a
+per-ID conflict so unrelated packages can still be assessed. `probed` counts actual
+endpoint probes; each service ID appears once in `services` and `reusable_services`.
+
+
 ## Portable provider API
 
 The CLI exposes:
