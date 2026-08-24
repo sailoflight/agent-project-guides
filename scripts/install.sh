@@ -115,21 +115,27 @@ esac
 ROUTING_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.routing-block.md"
 TRIGGER_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.adapter-trigger.md"
 VERSION_FILE="$PACKAGE_DIR/PACKAGE_VERSION"
+ROUTING_VALIDATOR="$PACKAGE_DIR/scripts/validate-routing.mjs"
 AGENTS_FILE="$TARGET/AGENTS.md"
 
 [ -f "$ROUTING_TEMPLATE" ] || fail "missing template: $ROUTING_TEMPLATE"
 [ -f "$TRIGGER_TEMPLATE" ] || fail "missing template: $TRIGGER_TEMPLATE"
 [ -f "$VERSION_FILE" ] || fail "missing package version: $VERSION_FILE"
+[ -f "$ROUTING_VALIDATOR" ] || fail "missing routing validator: $ROUTING_VALIDATOR"
+command -v node >/dev/null 2>&1 || fail 'node is required to validate routing JSONL'
+node "$ROUTING_VALIDATOR" >/dev/null || fail 'routing JSONL validation failed'
 for required_path in \
-  routing/PRODUCTION_ROLES.md \
-  routing/DEVELOPMENT_ROLES.md \
-  DEVELOPER_AGENT_GUIDE.md \
-  MAINTAINER_AGENT_GUIDE.md \
-  REVIEWER_AGENT_GUIDE.md \
-  FIELD_EVALUATOR_AGENT_GUIDE.md \
-  USER_AGENT_GUIDE.md \
-  OPERATOR_AGENT_GUIDE.md \
-  PACKAGE_ADAPTATION_PROCEDURE.md
+  templates/ROOT_AGENTS.md \
+  templates/DOC_INDEX.md \
+  templates/DEVELOPMENT_START.md \
+  templates/ARCHITECTURE_OVERVIEW.md \
+  templates/MODULE_CONTRACT.md \
+  templates/VERIFICATION_MATRIX.md \
+  templates/USER_USAGE.md \
+  templates/OPERATOR_RUNBOOK.md \
+  templates/FIELD_EVALUATION.md \
+  templates/ADR.md \
+  templates/SUBAGENT_ASSIGNMENT.md
 do
   [ -f "$PACKAGE_DIR/$required_path" ] || fail "missing package entry: $PACKAGE_DIR/$required_path"
 done
@@ -221,8 +227,8 @@ validate_routing() {
 
   managed=$(sed -n "/$ROUTING_START/,/$ROUTING_END/p" "$AGENTS_FILE")
   ! printf '%s\n' "$managed" | grep -Fq '{{' || fail 'routing block contains unresolved placeholders'
-  printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/PRODUCTION_ROLES.md" || fail 'routing block points to a different production role index'
-  printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/DEVELOPMENT_ROLES.md" || fail 'routing block points to a different development role index'
+  printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/planes.jsonl" || fail 'routing block points to a different plane registry'
+  printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/*.roles.jsonl" || fail 'routing block points to a different role registry pattern'
 
   [ "$(printf '%s\n' "$managed" | grep -Fc "$STATE_PREFIX")" -eq 1 ] || fail 'adaptation state line must appear exactly once inside routing block'
   status=$(state_field status)
@@ -255,8 +261,8 @@ validate_trigger() {
   if [ "$start_count" -eq 1 ]; then
     trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$AGENTS_FILE")
     ! printf '%s\n' "$trigger" | grep -Fq '{{' || fail 'adapter trigger contains unresolved placeholders'
-    printf '%s\n' "$trigger" | grep -Fq "$GUIDES_PATH/PACKAGE_ADAPTATION_PROCEDURE.md" || fail 'adapter trigger points to a different package path'
-    printf '%s\n' "$trigger" | grep -Fq "Package trigger revision: $PACKAGE_REVISION" || fail 'adapter trigger targets a different package revision'
+    printf '%s\n' "$trigger" | grep -Fq "$GUIDES_PATH/routing/development.roles.jsonl" || fail 'adapter trigger points to a different development registry'
+    printf '%s\n' "$trigger" | grep -Fq "Trigger revision: $PACKAGE_REVISION" || fail 'adapter trigger targets a different package revision'
   fi
 }
 
@@ -376,7 +382,7 @@ append_trigger() {
   [ "$trigger_count" -le 1 ] || fail 'multiple adapter triggers already exist'
   if [ "$trigger_count" -eq 1 ]; then
     existing_trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$AGENTS_FILE")
-    if ! printf '%s\n' "$existing_trigger" | grep -Fq "Package trigger revision: $PACKAGE_REVISION"; then
+    if ! printf '%s\n' "$existing_trigger" | grep -Fq "Trigger revision: $PACKAGE_REVISION"; then
       block=$(mktemp "$TARGET/.AGENTS.trigger.refresh.XXXXXX")
       trap 'rm -f "$block"' EXIT HUP INT TERM
       render_common "$TRIGGER_TEMPLATE" pending never repo trigger_requested > "$block"

@@ -2,7 +2,7 @@
 
 > 适用角色：Development plane 的 Maintainer。普通 Code Maintainer 处理 Bug、回归、测试、行为保持型整理、失效文档和改进建议；Package Re-adapter 按需重新规整已有项目。
 >
-> 两个子模式先选一个。只有 Package Re-adapter 读取 `PACKAGE_ADAPTATION_PROCEDURE.md` 并修改适配状态；Code Maintainer 不预读该流程。角色或子模式不明确时先询问用户。
+> 两个子模式先选一个。只有 Package Re-adapter 读取 `procedures/PACKAGE_ADAPTATION.md` 并修改适配状态；Code Maintainer 不预读该流程。角色或子模式不明确时先询问用户。
 
 ## 1. 角色边界
 

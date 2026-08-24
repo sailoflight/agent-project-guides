@@ -1,31 +1,15 @@
 <!-- agent-project-guides:routing:start -->
-## Agent plane and role routing
+## Agent routing
 
 Package adaptation: status={{ADAPTATION_STATUS}}; package_revision={{PACKAGE_REVISION}}; verified_at={{VERIFIED_AT}}; scope={{ADAPTATION_SCOPE}}; reason={{ADAPTATION_REASON}}
 
-Do not preload every role description. Route in two stages before reading role-specific guides or project documents.
+1. An `adapter-trigger` wins over ordinary routing.
+2. If user/parent assigns compatible role(s), exact-search each `id` in `{{GUIDES_PATH}}/routing/*.roles.jsonl`; do not re-ask. If only plane is assigned, skip plane lookup and search that plane registry.
+3. Otherwise read only the two lines in `{{GUIDES_PATH}}/routing/planes.jsonl`. If Production vs Development is unclear, ask the user and stop before role data/guides.
+4. Search only that plane's JSONL registry. If one role/mode is not clear, ask and stop before its guide.
+5. Read only the selected record's `guide` and mode-specific `procedure_by_mode`. Do not list, glob, or preload `roles/`.
+6. Without a trigger, report non-`adapted` state and ask whether to adapt now or continue without it. The installer owns `pending/stale`; initializer/re-adapter records `partial/adapted/blocked` via `set-state`.
+7. Role labels never grant production credentials, real data, cost, or destructive actions.
 
-### Stage 1: select one work plane
-
-- **Production plane**: use the deployed product for a real task, or manage a production system's deployment, configuration, health, recovery, or rollback.
-- **Development plane**: initialize, change, maintain, review, or evaluate code and project documentation in development, test, sandbox, or staging environments.
-
-If the plane is unclear, ask the user whether this is production use/operations or development work. Stop before reading either plane's role index.
-
-### Stage 2: select roles inside that plane
-
-- Production plane: read only `{{GUIDES_PATH}}/routing/PRODUCTION_ROLES.md`, then choose User or Operator.
-- Development plane: read only `{{GUIDES_PATH}}/routing/DEVELOPMENT_ROLES.md`, then choose Developer, Maintainer, Reviewer, or Field Evaluator.
-
-Role rules:
-
-1. A package `adapter-trigger` is the strongest signal and explicitly selects Development/package-adaptation work; follow the trigger before ordinary routing.
-2. Explicit user-assigned compatible roles or submodes win. If the user grants multiple roles, do not ask again within that granted scope; keep a primary deliverable and observe each role's information and permission boundary.
-3. Without explicit assignment, select one primary role from the requested outcome. Supporting activities such as writing tests or reading a diff do not by themselves change the role.
-4. If no single role fits, multiple roles remain plausible, or the role conflicts with the requested outcome, ask the user to choose or clarify. Stop before reading role guides or expanding repository context.
-5. If adaptation status is not `adapted` and no adapter trigger exists, report the state and ask whether to run package adaptation now or continue the requested role without it. Do not silently switch into adaptation.
-6. Developer/Project Initializer and Maintainer/Package Re-adapter may record only outcome states `partial`, `adapted`, or `blocked` through `set-state`. The installer owns `pending` and `stale` during initial merge, package revision changes, and explicit re-adaptation.
-7. Production access, real credentials, destructive actions, external cost, and unredacted production data always require explicit permission; a role label or multi-role grant alone does not supply it.
-
-Subagents do not inherit all parent roles or permissions. The parent must assign each subagent an exact plane, role/submode, scope, writable paths, environment/data permissions, and deliverable. A subagent with missing or conflicting assignment asks its parent/captain before reading another role guide; it does not broaden its own role or production permissions.
+Subagents receive explicit plane, role/mode, scope, writable paths, environment/data permissions, and deliverable; missing/conflicting authority is escalated to parent/captain, never self-expanded.
 <!-- agent-project-guides:routing:end -->
