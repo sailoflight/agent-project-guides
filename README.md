@@ -14,9 +14,10 @@ DeepSeek Harness 按 `.git` 根到 cwd 的路径链自动加载精确命名的 `
 
 1. `adapter-trigger` 优先。
 2. 用户/父 agent 已给 plane/role/mode 时，在 `routing/*.roles.jsonl` 精确 grep `id`，直接读命中记录。
-3. 未指定时只读 `routing/planes.jsonl` 的两行；Production/Development 不明确则询问并停止。
-4. 确定 plane 后只搜索对应 registry；role/mode 不明确则在角色指南前询问。
-5. 只读记录中的 `guide` 和当前 mode 的 `procedure_by_mode`。
+3. 未指定时只读 `routing/planes.jsonl` 的两行；Production/Development 不明确时调用可用的结构化问答工具（DSH 为 `ask_user_question`），在收到回答前停止。
+4. 确定 plane 后只搜索对应 registry；role/mode 不明确时使用同一问答工具，并在角色指南前停止。
+5. 阻塞性问题不能只在正文列出：使用稳定 question ID、2–4 个互斥选项和每项一行影响；选项会误导时才使用自由文本。没有问答工具时才直接提问。角色指南和适配流程中的“询问用户”都继承此协议。
+6. 只读命中记录的 `guide` 和当前 mode 的 `procedure_by_mode`。
 
 注册表：
 
@@ -57,7 +58,7 @@ routing/development.roles.jsonl
 永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.1.0; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.1.1; verified_at=never; scope=repo; reason=not_adapted
 ```
 
 - `pending/stale`：安装器管理。
