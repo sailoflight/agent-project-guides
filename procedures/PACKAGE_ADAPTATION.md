@@ -4,7 +4,7 @@
 
 ## 0. 激活和状态
 
-只在用户明确适配、`adapter-trigger`、用户确认处理非 `adapted` 状态，或治理漂移时运行。开始时必须先按 trigger 协议验证本地包完整性并运行只读 `check-update`；只有远端 `current`，或用户明确接受所报告的本地版本时继续。
+只在用户明确适配、`adapter-trigger`、用户确认处理非 `adapted` 状态，或治理漂移时运行。用户授权执行后，第一步自动验证本地包并运行只读 `check-update`，不得先询问是否跳过；仅对 `remote_differs/unavailable` 使用结构化问答。若用户当前只要求文档确认或禁止动作，则确认后停止，把 `check-update` 报告为获准开工后的第一步，不提前提问。
 
 - 方案一：客户运行 `scripts/install.sh merge`，再显式指定 `initialize` 或 `readapt`；脚本不调用 LLM。执行者仍需运行 `check-update`。
 - 方案二：`trigger` 追加一次性触发；触发检查远端新鲜度、判断新/已有项目并选择子模式，完成后只删除 trigger。
@@ -25,12 +25,14 @@
 
 事实分级：`verified`（直接证据）、`inferred`（证据支持但未验证）、`unknown`（不能可靠判断）。不得用 README、roadmap 或命名猜测覆盖实现；影响行为、安全、公开契约或治理范围的冲突询问用户。
 
+文档确认和完成报告必须与工具轨迹一致：列出实际读取/搜索及失败路径；不得声称未读已经读取的 plane/profile/registry，也不得把失败后 glob 定位包装成首次精确命中。
+
 ## 2. 最小读取顺序
 
 1. 保留所有已加载根候选规则；不要重读已注入且未变化的根文件。安装器只向按 `AGENTS.md` > `CLAUDE.md` 选中的入口追加 managed block。
 2. 做一次有界根清单，再定点读取构建/包配置、主要入口、测试配置、CI 和现有文档索引；禁止重复目录枚举或整仓扫描。
 3. 从 `routing/project-types.jsonl` 精确 grep 一个主类型，只读命中 profile；不得预读多个 profile 比较。没有精确类型或证据实质匹配多个 ID 时，按根结构化问答协议说明包缺少明确架构，并让用户确认最近类型、更新包定义或判定不适用。
-4. 已明确 role/mode 或自然语言角色标签时，从对应 registry 精确 grep quoted `id` 或 literal alias 的一条完整记录；不得读取 plane 或完整 role registry。未明确时按根路由处理。
+4. 已明确 role/mode 或自然语言角色标签时，在任何仓库发现前从对应 registry 精确 grep quoted `id` 或 literal alias 的一条记录；不得读取 plane/full registry；未明确才按根路由。记录的 `guide/procedure_by_mode` 始终相对治理包根目录解析，不能相对 registry/cwd；读取失败按包完整性处理，禁止用 glob 猜路径。
 5. 只在即将创建一个产物时读取它的一个精确模板；先完成该产物再考虑下一个，禁止批量预读模板。
 
 项目类型注册表：`routing/project-types.jsonl`。其命中记录提供唯一 profile 路径；不要先读 profile 文件再反推类型。
