@@ -12,8 +12,8 @@ DeepSeek Harness 按 `.git` 根到 cwd 的路径链自动加载精确命名的 `
 
 不要列出、glob 或预读 `roles/`。顺序：
 
-1. `adapter-trigger` 优先。
-2. 用户/父 agent 已给 plane/role/mode 时，在 `routing/*.roles.jsonl` 精确 grep `id`，直接读命中记录。
+1. `adapter-trigger` 只有在当前已注入根上下文含成对 managed trigger block 时才激活；不存在时立即普通路由。禁止通过 glob/search/read `bootstrap/` 模板寻找或激活 trigger。
+2. 用户/父 agent 已给 plane/role/mode 时，在 `routing/*.roles.jsonl` 精确 grep quoted `id` 或 literal alias，直接读唯一命中记录；不再判断 plane/role。
 3. 未指定时只读 `routing/planes.jsonl` 的两行；Production/Development 不明确时调用可用的结构化问答工具（DSH 为 `ask_user_question`），在收到回答前停止。
 4. 确定 plane 后只搜索对应 registry；role/mode 不明确时使用同一问答工具，并在角色指南前停止。
 5. 适配 trigger 另外从 `routing/project-types.jsonl` 精确 grep 一个主项目类型；不允许通过预读多个 profile 反推类型。未定义或证据实质匹配多个类型时，必须使用结构化问答说明包内没有明确匹配架构，让用户确认最近类型、更新包定义或判定不适用。
@@ -29,7 +29,7 @@ routing/development.roles.jsonl
 routing/project-types.jsonl
 ```
 
-每行都是完整 JSON object，适合 `grep -F '"id":"maintainer"'`；明确 role 时禁止 Read/cat 整个 registry，也不读取 plane registry。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID、plane、role、project type、mode、profile 和包内路径。
+每行都是完整 JSON object，角色记录包含全局唯一 `aliases`。例如 `grep -F '"仓库维护者"' routing/development.roles.jsonl` 直接返回 Maintainer；明确标签时禁止 Read/cat 整个 registry，也不读取 plane registry。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID/alias、plane、role、project type、mode、profile 和包内路径。
 
 ## Plane、角色和子模式
 
@@ -60,7 +60,7 @@ routing/project-types.jsonl
 永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.3.0; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.3.1; verified_at=never; scope=repo; reason=not_adapted
 ```
 
 - `pending/stale`：安装器管理。

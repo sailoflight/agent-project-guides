@@ -30,7 +30,7 @@
 1. 保留所有已加载根候选规则；不要重读已注入且未变化的根文件。安装器只向按 `AGENTS.md` > `CLAUDE.md` 选中的入口追加 managed block。
 2. 做一次有界根清单，再定点读取构建/包配置、主要入口、测试配置、CI 和现有文档索引；禁止重复目录枚举或整仓扫描。
 3. 从 `routing/project-types.jsonl` 精确 grep 一个主类型，只读命中 profile；不得预读多个 profile 比较。没有精确类型或证据实质匹配多个 ID 时，按根结构化问答协议说明包缺少明确架构，并让用户确认最近类型、更新包定义或判定不适用。
-4. 已明确 role/mode 时，从对应 registry 精确 grep 一条完整记录；不得读取 plane 或完整 role registry。未明确时按根路由处理。
+4. 已明确 role/mode 或自然语言角色标签时，从对应 registry 精确 grep quoted `id` 或 literal alias 的一条完整记录；不得读取 plane 或完整 role registry。未明确时按根路由处理。
 5. 只在即将创建一个产物时读取它的一个精确模板；先完成该产物再考虑下一个，禁止批量预读模板。
 
 项目类型注册表：`routing/project-types.jsonl`。其命中记录提供唯一 profile 路径；不要先读 profile 文件再反推类型。

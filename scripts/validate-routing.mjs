@@ -57,12 +57,19 @@ for (const record of planes) {
 
 const expectedRoles = new Set(['user', 'operator', 'developer', 'maintainer', 'reviewer', 'field-evaluator']);
 const seen = new Set();
+const roleLabels = new Map();
 for (const [plane, records] of [['production', production], ['development', development]]) {
   for (const record of records) {
     if (!expectedRoles.has(record.id) || seen.has(record.id)) fail(`invalid or duplicate role id: ${record.id}`);
     seen.add(record.id);
-    if (record.plane !== plane || typeof record.when !== 'string' || !Array.isArray(record.modes) || record.modes.length === 0) {
+    if (record.plane !== plane || typeof record.when !== 'string' || !Array.isArray(record.aliases) || record.aliases.length === 0 || !Array.isArray(record.modes) || record.modes.length === 0) {
       fail(`invalid role record: ${JSON.stringify(record)}`);
+    }
+    for (const label of [record.id, ...record.aliases]) {
+      if (typeof label !== 'string' || !label.trim()) fail(`role ${record.id} has an invalid alias`);
+      const key = label.trim().toLocaleLowerCase('und');
+      if (roleLabels.has(key)) fail(`duplicate or ambiguous role label: ${label}`);
+      roleLabels.set(key, record.id);
     }
     if (new Set(record.modes).size !== record.modes.length) fail(`duplicate modes for role: ${record.id}`);
     if (typeof record.guide !== 'string' || !record.guide.startsWith(`roles/${plane}/`)) fail(`role ${record.id} guide is outside its plane directory`);
