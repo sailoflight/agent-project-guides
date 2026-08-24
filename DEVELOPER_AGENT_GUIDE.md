@@ -4,7 +4,7 @@
 >
 > 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以当前治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
 >
-> Project Initializer 执行第 0-8 节并读取 `PACKAGE_ADAPTATION_PROCEDURE.md`；Feature Developer 主要执行第 9-13 节，不预读适配流程。已有项目重新规整属于 Maintainer / Package Re-adapter。
+> Project Initializer 执行第 0-8 节并读取 `PACKAGE_ADAPTATION_PROCEDURE.md`；Feature Developer 主要执行第 9-14 节，不预读适配流程。已有项目重新规整属于 Maintainer / Package Re-adapter。
 
 ## 0. 子模式和加载边界
 

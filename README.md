@@ -157,7 +157,7 @@ Project Initializer 和 Package Re-adapter 通过 `set-state` 写入 `partial`�
 |---|---|---|---|
 | Production / User | `USER_AGENT_GUIDE.md` | 项目 `docs/usage/`、公共协议或 MCP 投递面 | 源码开发指南、内部架构、operations |
 | Production / Operator | `OPERATOR_AGENT_GUIDE.md` | 项目 operations/runbook 和有限运行时架构 | 开发指南、User 提示、包适配流程 |
-| Development / Feature Developer | `DEVELOPER_AGENT_GUIDE.md` 第 9-13 节 | 一个模块契约、验证矩阵、匹配 profile | 包适配流程和生产投递面 |
+| Development / Feature Developer | `DEVELOPER_AGENT_GUIDE.md` 第 9-14 节 | 一个模块契约、验证矩阵、匹配 profile | 包适配流程和生产投递面 |
 | Development / Project Initializer | `DEVELOPER_AGENT_GUIDE.md` 第 0-8 节 | `PACKAGE_ADAPTATION_PROCEDURE.md`、匹配 profile 和精确模板小节 | Maintainer、生产投递面 |
 | Development / Code Maintainer | `MAINTAINER_AGENT_GUIDE.md` | 一个模块契约、验证矩阵 | 包适配流程、生产投递面 |
 | Development / Package Re-adapter | `MAINTAINER_AGENT_GUIDE.md` | `PACKAGE_ADAPTATION_PROCEDURE.md`、匹配 profile 和精确模板小节 | Developer、生产投递面 |
