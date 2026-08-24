@@ -8,7 +8,7 @@
 
 目标位置：`<project>/AGENTS.md`
 
-这是兼容 harness 在首轮前自动加载的机械入口，不是 README 的重复摘要。若当前根文件是本包安装的 handoff，使用此模板重写同一个文件；先合并 `AGENTS_origin.md` 中仍适用的项目约束，再删除 `handoff`/`origin-mirror` 标记。自动合并不得删除唯一的精确备份；应报告其位置供人工复核。不要保留“再去读取完整治理包”的永久跳转。
+这是兼容 harness 在首轮前自动加载的机械入口，不是 README 的重复摘要。包脚本把永久两层角色路由原样追加到现有根文件；适配子模式只在该 managed block 之外合并以下项目专属章节，不得整文件覆盖、移动或重复路由 block。方案二完成后通过脚本只删除 `adapter-trigger`。不要把完整治理包、生产使用提示或运维 runbook 复制进根入口。
 
 ```markdown
 # Repository agent instructions
@@ -17,9 +17,9 @@
 
 <一句话说明项目提供什么能力及主要运行形态。>
 
-## Mandatory routing
+## Project evidence routing
 
-1. 将任务分类为：<本项目实际存在的任务类型>。
+1. 永久 managed block 已选定 plane、role 和 submode 后，将任务映射到：<本项目实际存在的任务类型>。
 2. 服从 harness 已按路径注入的最近目录级 `AGENTS.md` 局部覆盖。
 3. 再读 `docs/INDEX.md` 中对应入口、一个相关模块契约和命中的实现/测试。
 4. 只有局部证据不足时才扩大到完整架构、ADR、经验或原始资料。
@@ -56,7 +56,7 @@
 - 小项目可以缩短分类和优先级，但不能删除风险、验证和证据顺序。
 - MCP 消费说明、完整 API 表、部署教程和 roadmap 不得放入此文件。
 - 目录级 `AGENTS.md` 只增加必须在进入目录时生效的局部覆盖，并链接详细模块契约；不得重复根规则。
-- 最终根入口不得保留本包的 `handoff`/`origin-mirror` 标记或治理包永久跳转；自动 handoff 留下的 `AGENTS_origin.md` 必须保持未修改并报告供人工复核。
+- 最终根入口必须保留恰好一个永久 routing block 和准确适配状态；不得保留方案二的 `adapter-trigger` 或把 User/Operator 生产提示复制进根入口。
 
 ## 2. `docs/INDEX.md` 模板
 
@@ -69,11 +69,12 @@
 
 | Role | Start here | Do not preload |
 |---|---|---|
-| Developer/coding agent | `development/START.md` | usage、operations、evidence，除非任务需要 |
-| API/library/CLI consumer | `usage/<entry>.md` | development、内部 architecture |
-| MCP consumer agent | <MCP instructions/resource/tool schema 入口> | 仓库开发文档 |
-| Operator | `operations/<runbook>.md` | 内部开发计划 |
-| End user | 根 `README.md` 或 `product/` | 开发和证据文档 |
+| Developer | `development/START.md` | usage、operations、evidence，除非任务需要 |
+| Maintainer | `development/START.md` 或命中模块契约 | production usage、operations |
+| Reviewer | `verification/MATRIX.md` 和目标 diff/契约 | production、包适配流程 |
+| Field Evaluator | `evaluation/<scenario>.md` 或非生产 usage | production operations、整仓源码 |
+| User | `usage/<entry>.md` 或 MCP 公共投递面 | development、内部 architecture、operations |
+| Operator | `operations/<runbook>.md` | development、User 长提示、roadmap |
 
 删除项目中不存在的角色行。
 
@@ -85,6 +86,7 @@
 | 理解系统边界 | `architecture/OVERVIEW.md` | 对应模块或 ADR |
 | 找测试 | `verification/MATRIX.md` | 匹配测试配置/测试文件 |
 | 使用公共能力 | `usage/` 或生成参考 | 精确接口/命令/tool |
+| 非生产实战评估 | `evaluation/` | 匹配 usage、环境和数据权限 |
 | 部署/恢复 | `operations/` | 精确 runbook 小节 |
 | 查已知行为 | `knowledge/` | 链接的 evidence |
 
@@ -95,8 +97,9 @@
 | `architecture/` | 当前边界和不变量 | roadmap、实验日志 |
 | `modules/` | 模块职责和变更契约 | 逐文件复述 |
 | `verification/` | 修改类型到验证方式 | 历史测试输出 |
-| `usage/` | 消费者契约 | 内部构建细节 |
-| `operations/` | 部署、监控、恢复 | 产品 roadmap |
+| `usage/` | User 可依赖的公共产品契约 | 内部构建细节 |
+| `evaluation/` | 非生产动态场景证据和需求发现 | production runbook、未脱敏数据 |
+| `operations/` | Operator 的部署、监控、恢复 | 产品 roadmap、User 长提示 |
 | `decisions/` | 历史决策原因 | 当前操作步骤 |
 | `knowledge/` | 已验证可复用结论 | 未验证猜测 |
 | `evidence/` | 原始证据和报告 | 规范性指导 |
@@ -365,7 +368,41 @@ Audience: operator
 
 初始化或维护 agent 只负责在项目需要时创建并验证该文档；日常开发 agent 和产品消费者不应预读它。
 
-## 9. ADR 模板
+## 9. Field evaluation 记录模板
+
+目标位置：`<project>/docs/evaluation/<scenario>.md`。只有项目实际执行非生产真实场景评估时创建；不得记录秘密或未脱敏生产数据。
+
+```markdown
+# <Scenario> field evaluation
+
+Mode: scenario-validation | exploratory-evaluation
+Environment: development | test | staging
+Data: synthetic | fixture | sanitized-copy | approved-real-data-copy
+Evaluated at: <ISO-8601 UTC>
+Version/range: <build, commit, schema or data version>
+
+## Permission boundary
+
+<账号、网络、费用、允许写入和禁止动作。>
+
+## Scenario and expected outcome
+
+<真实工作流、验收条件或探索目标。>
+
+## Observations and evidence
+
+<输入、输出、日志/截图引用和副作用；区分 verified 与 inferred。>
+
+## Findings
+
+<product defect | environment issue | data issue | test gap | feature proposal>
+
+## Cleanup and residual risk
+
+<测试数据清理、未执行场景和剩余风险。>
+```
+
+## 10. ADR 模板
 
 目标位置：`<project>/docs/decisions/NNNN-<decision>.md`
 
@@ -393,3 +430,26 @@ Date: <date>
 ```
 
 ADR 解释历史选择，不承担当前操作步骤；当前边界仍由 architecture/modules 描述。
+
+## 11. 子 agent 显式授权模板
+
+目标位置：父 agent 发给子 agent 的任务提示，不写入项目根入口。父 agent 必须替换全部字段；角色已经明确时，子 agent 跳过自分类，只读指定角色入口。
+
+```text
+Plane: Production | Development
+Role: User | Operator | Developer | Maintainer | Reviewer | Field Evaluator
+Submode: <精确子模式>
+Objective: <一个可验证目标>
+Deliverable: <报告、代码、测试证据、运行结果或项目文档>
+Read scope: <允许读取的路径/接口>
+Write scope: report-only | <允许写入的路径>
+Environment: <production/dev/test/sandbox/staging>
+Data: <synthetic/fixture/sanitized/approved real data/none>
+Network and cost: <允许范围和预算>
+Destructive actions: forbidden | <明确批准动作>
+Verification: <命令或验收证据>
+Role transitions: none | <用户已预先授予的其他角色和顺序>
+Escalation: ask parent/captain; do not ask the end user directly
+```
+
+子 agent 不继承父 agent 未写入任务卡的角色、凭据、生产权限、数据权限或破坏性授权。分配与实际任务冲突时停止并向 parent/captain 澄清；不得通过读取其他角色指南自行扩权。父 agent 只有在用户已经明确授予时才能传递跨角色或生产权限。

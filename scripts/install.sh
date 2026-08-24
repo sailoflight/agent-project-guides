@@ -1,13 +1,13 @@
 #!/bin/sh
 set -eu
 
-START_MARKER='<!-- agent-project-guides:handoff:start -->'
-END_MARKER='<!-- agent-project-guides:handoff:end -->'
-LEGACY_MANUAL_START_MARKER='<!-- agent-project-guides:manual-merge:start -->'
-ORIGIN_MIRROR_START='<!-- agent-project-guides:origin-mirror:start -->'
-ORIGIN_MIRROR_END='<!-- agent-project-guides:origin-mirror:end -->'
-ORIGIN_NAME='AGENTS_origin.md'
-MAX_HANDOFF_BYTES=16384
+ROUTING_START='<!-- agent-project-guides:routing:start -->'
+ROUTING_END='<!-- agent-project-guides:routing:end -->'
+TRIGGER_START='<!-- agent-project-guides:adapter-trigger:start -->'
+TRIGGER_END='<!-- agent-project-guides:adapter-trigger:end -->'
+LEGACY_HANDOFF='<!-- agent-project-guides:handoff:start -->'
+STATE_PREFIX='Package adaptation:'
+MAX_ROOT_BYTES=16384
 
 fail() {
   printf 'error: %s\n' "$*" >&2
@@ -19,9 +19,12 @@ usage() {
 Usage: scripts/install.sh <command> [--target DIR]
 
 Commands:
-  handoff       Save root AGENTS.md as AGENTS_origin.md and install the temporary handoff entry.
-  restore       Restore AGENTS_origin.md while the temporary handoff entry is still present.
-  check         Verify that the temporary handoff entry is installed correctly.
+  merge           Scheme 1: append the permanent routing/state block only; never invokes an LLM.
+  trigger         Scheme 2: ensure routing exists, then append one temporary package-adaptation trigger.
+  check           Validate routing, adaptation state, optional trigger, UTF-8, and root size.
+  set-state       Adapter submodes update status with --status, --verified-at, --scope, and --reason.
+  remove-trigger  Remove the temporary trigger after adaptation reaches status=adapted.
+  unmerge         Remove managed routing after any trigger has already been removed.
 
 When --target is omitted, the script walks upward from the package parent to the nearest .git marker.
 EOF
@@ -43,11 +46,35 @@ esac
 shift
 
 TARGET=''
+STATE_ARG=''
+VERIFIED_AT_ARG=''
+SCOPE_ARG=''
+REASON_ARG=''
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --target)
       [ "$#" -ge 2 ] || fail '--target requires a directory'
       TARGET=$2
+      shift 2
+      ;;
+    --status)
+      [ "$#" -ge 2 ] || fail '--status requires a value'
+      STATE_ARG=$2
+      shift 2
+      ;;
+    --verified-at)
+      [ "$#" -ge 2 ] || fail '--verified-at requires a value'
+      VERIFIED_AT_ARG=$2
+      shift 2
+      ;;
+    --scope)
+      [ "$#" -ge 2 ] || fail '--scope requires a value'
+      SCOPE_ARG=$2
+      shift 2
+      ;;
+    --reason)
+      [ "$#" -ge 2 ] || fail '--reason requires a value'
+      REASON_ARG=$2
       shift 2
       ;;
     -h|--help)
@@ -85,128 +112,397 @@ case "$PACKAGE_DIR" in
   *) fail 'the package must be located inside the target project' ;;
 esac
 
-HANDOFF_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.handoff.md"
+ROUTING_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.routing-block.md"
+TRIGGER_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.adapter-trigger.md"
+VERSION_FILE="$PACKAGE_DIR/PACKAGE_VERSION"
 AGENTS_FILE="$TARGET/AGENTS.md"
-ORIGIN_FILE="$TARGET/$ORIGIN_NAME"
 
-[ -f "$HANDOFF_TEMPLATE" ] || fail "missing template: $HANDOFF_TEMPLATE"
+[ -f "$ROUTING_TEMPLATE" ] || fail "missing template: $ROUTING_TEMPLATE"
+[ -f "$TRIGGER_TEMPLATE" ] || fail "missing template: $TRIGGER_TEMPLATE"
+[ -f "$VERSION_FILE" ] || fail "missing package version: $VERSION_FILE"
+for required_path in \
+  routing/PRODUCTION_ROLES.md \
+  routing/DEVELOPMENT_ROLES.md \
+  DEVELOPER_AGENT_GUIDE.md \
+  MAINTAINER_AGENT_GUIDE.md \
+  REVIEWER_AGENT_GUIDE.md \
+  FIELD_EVALUATOR_AGENT_GUIDE.md \
+  USER_AGENT_GUIDE.md \
+  OPERATOR_AGENT_GUIDE.md \
+  PACKAGE_ADAPTATION_PROCEDURE.md
+do
+  [ -f "$PACKAGE_DIR/$required_path" ] || fail "missing package entry: $PACKAGE_DIR/$required_path"
+done
 
-render_template() {
+PACKAGE_REVISION=$(tr -d '\r\n' < "$VERSION_FILE")
+case "$PACKAGE_REVISION" in
+  ''|*[!A-Za-z0-9._-]*) fail 'PACKAGE_VERSION must contain one simple revision token' ;;
+esac
+
+escape_sed_replacement() {
+  printf '%s' "$1" | sed 's/[\\&|]/\\&/g'
+}
+
+render_common() {
   template=$1
-  escaped=$(printf '%s' "$GUIDES_PATH" | sed 's/[\\&|]/\\&/g')
-  sed "s|{{GUIDES_PATH}}|$escaped|g" "$template"
+  status=$2
+  verified_at=$3
+  scope=$4
+  reason=$5
+  guides=$(escape_sed_replacement "$GUIDES_PATH")
+  revision=$(escape_sed_replacement "$PACKAGE_REVISION")
+  status_value=$(escape_sed_replacement "$status")
+  verified=$(escape_sed_replacement "$verified_at")
+  scope_value=$(escape_sed_replacement "$scope")
+  reason_value=$(escape_sed_replacement "$reason")
+  sed \
+    -e "s|{{GUIDES_PATH}}|$guides|g" \
+    -e "s|{{PACKAGE_REVISION}}|$revision|g" \
+    -e "s|{{ADAPTATION_STATUS}}|$status_value|g" \
+    -e "s|{{VERIFIED_AT}}|$verified|g" \
+    -e "s|{{ADAPTATION_SCOPE}}|$scope_value|g" \
+    -e "s|{{ADAPTATION_REASON}}|$reason_value|g" \
+    "$template"
 }
 
-install_handoff() {
-  if [ -e "$ORIGIN_FILE" ] || [ -L "$ORIGIN_FILE" ]; then
-    fail "$ORIGIN_NAME already exists; finish or restore the previous handoff"
+count_marker() {
+  marker=$1
+  file=$2
+  if [ ! -f "$file" ]; then
+    printf '0\n'
+    return
   fi
-  if [ -f "$AGENTS_FILE" ] && grep -Fq "$START_MARKER" "$AGENTS_FILE"; then
-    fail 'temporary handoff is already installed'
-  fi
-  if [ -f "$AGENTS_FILE" ] && grep -Fq "$LEGACY_MANUAL_START_MARKER" "$AGENTS_FILE"; then
-    fail 'a legacy manual-merge bootstrap is still present; complete or remove it before handoff'
-  fi
+  count=$(grep -Fc "$marker" "$file" 2>/dev/null || true)
+  printf '%s\n' "${count:-0}"
+}
+
+root_has() {
+  marker=$1
+  [ -f "$AGENTS_FILE" ] && grep -Fq "$marker" "$AGENTS_FILE"
+}
+
+reject_ambiguous_root_candidates() {
   for sibling_name in CLAUDE.md AGENTS.local.md CLAUDE.local.md; do
     sibling="$TARGET/$sibling_name"
     if [ -e "$sibling" ] || [ -L "$sibling" ]; then
-      fail "$sibling_name is another auto-loaded root candidate; use the final-entry manual merge documented in README.md"
+      fail "$sibling_name is another auto-loaded root candidate; reconcile root candidates before installing package routing"
     fi
   done
+}
 
-  has_original=0
-  if [ -e "$AGENTS_FILE" ] || [ -L "$AGENTS_FILE" ]; then
-    [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md exists but is not a regular file or regular-file symlink'
-    has_original=1
-  fi
-
-  tmp=$(mktemp "$TARGET/.AGENTS.md.handoff.XXXXXX")
-  moved_original=0
-  cleanup_install() {
-    status=$?
-    trap - EXIT HUP INT TERM
-    rm -f "$tmp"
-    if [ "$moved_original" -eq 1 ] && [ ! -e "$AGENTS_FILE" ] && [ ! -L "$AGENTS_FILE" ] && { [ -e "$ORIGIN_FILE" ] || [ -L "$ORIGIN_FILE" ]; }; then
-      mv -- "$ORIGIN_FILE" "$AGENTS_FILE"
-    fi
-    exit "$status"
-  }
-  trap cleanup_install EXIT HUP INT TERM
-
-  render_template "$HANDOFF_TEMPLATE" > "$tmp"
-  if [ "$has_original" -eq 1 ]; then
-    printf '\n%s\n## Preserved original instructions (temporary mirror)\n\n' "$ORIGIN_MIRROR_START" >> "$tmp"
-    cat -- "$AGENTS_FILE" >> "$tmp"
-    printf '\n%s\n' "$ORIGIN_MIRROR_END" >> "$tmp"
-  fi
-
+validate_text_file() {
+  file=$1
   command -v iconv >/dev/null 2>&1 || fail 'iconv is required to validate UTF-8 instruction files'
-  iconv -f UTF-8 -t UTF-8 "$tmp" >/dev/null 2>&1 || fail 'temporary root AGENTS.md is not valid UTF-8'
-  handoff_bytes=$(wc -c < "$tmp" | tr -d '[:space:]')
-  [ "$handoff_bytes" -le "$MAX_HANDOFF_BYTES" ] || fail "temporary root AGENTS.md would exceed $MAX_HANDOFF_BYTES bytes; use the final-entry manual merge documented in README.md"
-  chmod 0644 "$tmp"
-
-  if [ "$has_original" -eq 1 ]; then
-    mv -- "$AGENTS_FILE" "$ORIGIN_FILE"
-    moved_original=1
-  fi
-
-  if ! mv -- "$tmp" "$AGENTS_FILE"; then
-    if [ "$moved_original" -eq 1 ]; then
-      mv -- "$ORIGIN_FILE" "$AGENTS_FILE"
-    fi
-    fail 'failed to install temporary root AGENTS.md'
-  fi
-  trap - EXIT HUP INT TERM
-
-  printf 'Installed temporary handoff: %s\n' "$AGENTS_FILE"
-  if [ "$moved_original" -eq 1 ]; then
-    printf 'Preserved original instructions: %s\n' "$ORIGIN_FILE"
-    printf 'Mirrored original instructions in the temporary root entry.\n'
-  fi
-  printf 'Package path recorded as: %s/\n' "$GUIDES_PATH"
+  iconv -f UTF-8 -t UTF-8 "$file" >/dev/null 2>&1 || fail "$file is not valid UTF-8"
+  bytes=$(wc -c < "$file" | tr -d '[:space:]')
+  [ "$bytes" -le "$MAX_ROOT_BYTES" ] || fail "$file exceeds the $MAX_ROOT_BYTES-byte root instruction cap"
 }
 
-restore_handoff() {
-  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
-  grep -Fq "$START_MARKER" "$AGENTS_FILE" || fail 'root AGENTS.md is no longer the temporary handoff; refusing to overwrite merged instructions'
-  grep -Fq "$END_MARKER" "$AGENTS_FILE" || fail 'temporary handoff end marker is missing; refusing destructive restore'
+is_utc_timestamp() {
+  printf '%s\n' "$1" | grep -Eq '^[0-9]{4}-(0[1-9]|1[0-2])-([0-2][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]Z$'
+}
 
-  if [ -e "$ORIGIN_FILE" ] || [ -L "$ORIGIN_FILE" ]; then
-    mv -f -- "$ORIGIN_FILE" "$AGENTS_FILE"
-    printf 'Restored original instructions: %s\n' "$AGENTS_FILE"
+state_line() {
+  sed -n "/$ROUTING_START/,/$ROUTING_END/{
+    /^$STATE_PREFIX/p
+  }" "$AGENTS_FILE"
+}
+
+state_field() {
+  field=$1
+  line=$(state_line)
+  printf '%s\n' "$line" | sed -n "s/.*$field=\([^;]*\).*/\1/p"
+}
+
+validate_routing() {
+  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
+  [ "$(count_marker "$ROUTING_START" "$AGENTS_FILE")" -eq 1 ] || fail 'routing start marker must appear exactly once'
+  [ "$(count_marker "$ROUTING_END" "$AGENTS_FILE")" -eq 1 ] || fail 'routing end marker must appear exactly once'
+
+  managed=$(sed -n "/$ROUTING_START/,/$ROUTING_END/p" "$AGENTS_FILE")
+  ! printf '%s\n' "$managed" | grep -Fq '{{' || fail 'routing block contains unresolved placeholders'
+  printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/PRODUCTION_ROLES.md" || fail 'routing block points to a different production role index'
+  printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/DEVELOPMENT_ROLES.md" || fail 'routing block points to a different development role index'
+
+  [ "$(printf '%s\n' "$managed" | grep -Fc "$STATE_PREFIX")" -eq 1 ] || fail 'adaptation state line must appear exactly once inside routing block'
+  status=$(state_field status)
+  revision=$(state_field package_revision)
+  verified_at=$(state_field verified_at)
+  scope=$(state_field scope)
+  reason=$(state_field reason)
+
+  case "$status" in pending|partial|adapted|stale|blocked) ;; *) fail "invalid adaptation status: $status" ;; esac
+  [ "$revision" = "$PACKAGE_REVISION" ] || fail "routing revision $revision differs from package revision $PACKAGE_REVISION"
+  if [ "$verified_at" = never ]; then
+    case "$status" in adapted|partial) fail "$status status requires a real verified_at timestamp" ;; esac
+  elif ! is_utc_timestamp "$verified_at"; then
+    fail "verified_at must be never or ISO-8601 UTC: $verified_at"
+  fi
+  [ -n "$scope" ] || fail 'adaptation scope cannot be empty'
+  [ -n "$reason" ] || fail 'adaptation reason cannot be empty'
+  case "$scope" in *';'*) fail 'adaptation scope cannot contain semicolons' ;; esac
+  case "$reason" in *';'*) fail 'adaptation reason cannot contain semicolons' ;; esac
+  [ "$status" != adapted ] || [ "$reason" = none ] || fail 'adapted status requires reason=none'
+  [ "$status" != partial ] || [ "$reason" != none ] || fail 'partial status requires a concrete reason code'
+  [ "$status" != blocked ] || [ "$reason" != none ] || fail 'blocked status requires a concrete reason code'
+}
+
+validate_trigger() {
+  start_count=$(count_marker "$TRIGGER_START" "$AGENTS_FILE")
+  end_count=$(count_marker "$TRIGGER_END" "$AGENTS_FILE")
+  [ "$start_count" -eq "$end_count" ] || fail 'adapter trigger markers are unbalanced'
+  [ "$start_count" -le 1 ] || fail 'adapter trigger must appear at most once'
+  if [ "$start_count" -eq 1 ]; then
+    trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$AGENTS_FILE")
+    ! printf '%s\n' "$trigger" | grep -Fq '{{' || fail 'adapter trigger contains unresolved placeholders'
+    printf '%s\n' "$trigger" | grep -Fq "$GUIDES_PATH/PACKAGE_ADAPTATION_PROCEDURE.md" || fail 'adapter trigger points to a different package path'
+    printf '%s\n' "$trigger" | grep -Fq "Package trigger revision: $PACKAGE_REVISION" || fail 'adapter trigger targets a different package revision'
+  fi
+}
+
+write_appended_block() {
+  block_file=$1
+  tmp=$(mktemp "$TARGET/.AGENTS.md.merge.XXXXXX")
+  trap 'rm -f "$tmp"' EXIT HUP INT TERM
+
+  if [ -e "$AGENTS_FILE" ] || [ -L "$AGENTS_FILE" ]; then
+    [ ! -L "$AGENTS_FILE" ] || fail 'root AGENTS.md is a symlink; reconcile it explicitly before append-only merge'
+    [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md exists but is not a regular file'
+    cat -- "$AGENTS_FILE" > "$tmp"
+    if [ -s "$AGENTS_FILE" ]; then
+      last_byte=$(tail -c 1 "$AGENTS_FILE" | od -An -tuC | tr -d '[:space:]')
+      [ "$last_byte" = 10 ] || printf '\n' >> "$tmp"
+    fi
+    chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
   else
-    rm -- "$AGENTS_FILE"
-    printf 'Removed temporary handoff; no original AGENTS.md existed.\n'
+    : > "$tmp"
+    chmod 0644 "$tmp"
   fi
+  cat -- "$block_file" >> "$tmp"
+  validate_text_file "$tmp"
+  mv -f -- "$tmp" "$AGENTS_FILE"
+  trap - EXIT HUP INT TERM
 }
 
-check_handoff() {
-  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
-  [ "$(grep -Fc "$START_MARKER" "$AGENTS_FILE")" -eq 1 ] || fail 'handoff start marker must appear exactly once'
-  [ "$(grep -Fc "$END_MARKER" "$AGENTS_FILE")" -eq 1 ] || fail 'handoff end marker must appear exactly once'
-  grep -Fq "Governance package: \`$GUIDES_PATH/\`" "$AGENTS_FILE" || fail 'root AGENTS.md points to a different package path'
-  iconv -f UTF-8 -t UTF-8 "$AGENTS_FILE" >/dev/null 2>&1 || fail 'root AGENTS.md is not valid UTF-8'
-  handoff_bytes=$(wc -c < "$AGENTS_FILE" | tr -d '[:space:]')
-  [ "$handoff_bytes" -le "$MAX_HANDOFF_BYTES" ] || fail "root AGENTS.md exceeds the $MAX_HANDOFF_BYTES-byte handoff cap"
-  for sibling_name in CLAUDE.md AGENTS.local.md CLAUDE.local.md; do
-    sibling="$TARGET/$sibling_name"
-    if [ -e "$sibling" ] || [ -L "$sibling" ]; then
-      fail "$sibling_name appeared after handoff and may override or duplicate root instructions"
-    fi
-  done
-  if [ -e "$ORIGIN_FILE" ] || [ -L "$ORIGIN_FILE" ]; then
-    grep -Fq "$ORIGIN_MIRROR_START" "$AGENTS_FILE" || fail 'original instructions exist only in the non-loaded backup; mirror start marker is missing'
-    grep -Fq "$ORIGIN_MIRROR_END" "$AGENTS_FILE" || fail 'original instruction mirror end marker is missing'
-  elif grep -Fq "$ORIGIN_MIRROR_START" "$AGENTS_FILE"; then
-    fail 'temporary root contains an original mirror but AGENTS_origin.md is missing'
+replace_marked_block() {
+  start=$1
+  end=$2
+  replacement_file=$3
+  tmp=$(mktemp "$TARGET/.AGENTS.md.replace.XXXXXX")
+  trap 'rm -f "$tmp"' EXIT HUP INT TERM
+  awk -v start="$start" -v end="$end" -v replacement_file="$replacement_file" '
+    $0 == start {
+      while ((getline replacement_line < replacement_file) > 0) print replacement_line
+      close(replacement_file)
+      inside = 1
+      next
+    }
+    $0 == end { inside = 0; next }
+    !inside { print }
+  ' "$AGENTS_FILE" > "$tmp"
+  chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+  validate_text_file "$tmp"
+  mv -f -- "$tmp" "$AGENTS_FILE"
+  trap - EXIT HUP INT TERM
+}
+
+rewrite_state() {
+  next_status=$1
+  next_verified=$2
+  next_scope=$3
+  next_reason=$4
+  new_line="$STATE_PREFIX status=$next_status; package_revision=$PACKAGE_REVISION; verified_at=$next_verified; scope=$next_scope; reason=$next_reason"
+  tmp=$(mktemp "$TARGET/.AGENTS.md.state.XXXXXX")
+  trap 'rm -f "$tmp"' EXIT HUP INT TERM
+  awk -v start="$ROUTING_START" -v end="$ROUTING_END" -v prefix="$STATE_PREFIX" -v replacement="$new_line" '
+    $0 == start { inside = 1 }
+    inside && index($0, prefix) == 1 { print replacement; next }
+    { print }
+    $0 == end { inside = 0 }
+  ' "$AGENTS_FILE" > "$tmp"
+  chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+  validate_text_file "$tmp"
+  mv -f -- "$tmp" "$AGENTS_FILE"
+  trap - EXIT HUP INT TERM
+}
+
+refresh_routing_for_revision() {
+  old_verified=$(state_field verified_at)
+  old_scope=$(state_field scope)
+  block=$(mktemp "$TARGET/.AGENTS.routing.refresh.XXXXXX")
+  trap 'rm -f "$block"' EXIT HUP INT TERM
+  render_common "$ROUTING_TEMPLATE" stale "$old_verified" "$old_scope" package_revision_changed > "$block"
+  replace_marked_block "$ROUTING_START" "$ROUTING_END" "$block"
+  rm -f "$block"
+  trap - EXIT HUP INT TERM
+}
+
+merge_routing() {
+  reject_ambiguous_root_candidates
+  [ ! -L "$AGENTS_FILE" ] || fail 'root AGENTS.md is a symlink; reconcile it explicitly before append-only merge'
+  if root_has "$LEGACY_HANDOFF"; then
+    fail 'legacy root-replacement handoff is present; restore it before using the append-only installer'
   fi
-  printf 'Handoff entry is valid: %s\n' "$AGENTS_FILE"
+
+  routing_count=$(count_marker "$ROUTING_START" "$AGENTS_FILE")
+  [ "$routing_count" -le 1 ] || fail 'multiple routing blocks already exist'
+  if [ "$routing_count" -eq 1 ]; then
+    [ "$(count_marker "$ROUTING_END" "$AGENTS_FILE")" -eq 1 ] || fail 'routing markers are unbalanced'
+    installed_revision=$(state_field package_revision)
+    if [ "$installed_revision" != "$PACKAGE_REVISION" ]; then
+      refresh_routing_for_revision
+      printf 'Marked existing adaptation stale for package revision %s.\n' "$PACKAGE_REVISION"
+    else
+      printf 'Permanent routing block already installed.\n'
+    fi
+    validate_text_file "$AGENTS_FILE"
+    validate_routing
+    return
+  fi
+
+  block=$(mktemp "$TARGET/.AGENTS.routing.XXXXXX")
+  trap 'rm -f "$block"' EXIT HUP INT TERM
+  render_common "$ROUTING_TEMPLATE" pending never repo not_adapted > "$block"
+  write_appended_block "$block"
+  rm -f "$block"
+  trap - EXIT HUP INT TERM
+  validate_routing
+  printf 'Merged permanent routing with adaptation status pending.\n'
+}
+
+append_trigger() {
+  merge_routing
+  trigger_count=$(count_marker "$TRIGGER_START" "$AGENTS_FILE")
+  [ "$trigger_count" -le 1 ] || fail 'multiple adapter triggers already exist'
+  if [ "$trigger_count" -eq 1 ]; then
+    existing_trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$AGENTS_FILE")
+    if ! printf '%s\n' "$existing_trigger" | grep -Fq "Package trigger revision: $PACKAGE_REVISION"; then
+      block=$(mktemp "$TARGET/.AGENTS.trigger.refresh.XXXXXX")
+      trap 'rm -f "$block"' EXIT HUP INT TERM
+      render_common "$TRIGGER_TEMPLATE" pending never repo trigger_requested > "$block"
+      replace_marked_block "$TRIGGER_START" "$TRIGGER_END" "$block"
+      rm -f "$block"
+      trap - EXIT HUP INT TERM
+      printf 'Refreshed existing trigger for package revision %s.\n' "$PACKAGE_REVISION"
+    fi
+    validate_trigger
+    existing_status=$(state_field status)
+    if [ "$existing_status" = adapted ]; then
+      printf 'Adaptation is complete; existing trigger only needs remove-trigger cleanup.\n'
+    elif [ "$existing_status" = blocked ]; then
+      rewrite_state pending never "$(state_field scope)" retry_requested
+      validate_routing
+      printf 'Reset blocked adaptation to pending for an explicit retry.\n'
+    else
+      printf 'Package adaptation trigger already installed.\n'
+    fi
+    return
+  fi
+
+  current_status=$(state_field status)
+  current_scope=$(state_field scope)
+  case "$current_status" in
+    adapted)
+      rewrite_state stale "$(state_field verified_at)" "$current_scope" explicit_readaptation
+      ;;
+    blocked)
+      rewrite_state pending never "$current_scope" retry_requested
+      ;;
+  esac
+
+  block=$(mktemp "$TARGET/.AGENTS.trigger.XXXXXX")
+  trap 'rm -f "$block"' EXIT HUP INT TERM
+  render_common "$TRIGGER_TEMPLATE" pending never repo trigger_requested > "$block"
+  write_appended_block "$block"
+  rm -f "$block"
+  trap - EXIT HUP INT TERM
+  validate_trigger
+  printf 'Appended one-time package-adaptation trigger.\n'
+}
+
+remove_marked_block() {
+  start=$1
+  end=$2
+  tmp=$(mktemp "$TARGET/.AGENTS.md.remove.XXXXXX")
+  trap 'rm -f "$tmp"' EXIT HUP INT TERM
+  awk -v start="$start" -v end="$end" '
+    $0 == start { inside = 1; next }
+    $0 == end { inside = 0; next }
+    !inside { print }
+  ' "$AGENTS_FILE" > "$tmp"
+  chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+  validate_text_file "$tmp"
+  mv -f -- "$tmp" "$AGENTS_FILE"
+  trap - EXIT HUP INT TERM
+}
+
+set_adaptation_state() {
+  validate_routing
+  [ -n "$STATE_ARG" ] || fail 'set-state requires --status'
+  [ -n "$VERIFIED_AT_ARG" ] || fail 'set-state requires --verified-at'
+  [ -n "$SCOPE_ARG" ] || fail 'set-state requires --scope'
+  [ -n "$REASON_ARG" ] || fail 'set-state requires --reason'
+  case "$SCOPE_ARG" in *[!A-Za-z0-9._/,:=-]*) fail 'scope must be a compact path/token list without spaces or semicolons' ;; esac
+  case "$REASON_ARG" in *[!A-Za-z0-9._:-]*) fail 'reason must be a compact non-secret code' ;; esac
+
+  case "$STATE_ARG" in
+    adapted)
+      is_utc_timestamp "$VERIFIED_AT_ARG" || fail 'adapted requires an ISO-8601 UTC verified-at timestamp'
+      [ "$REASON_ARG" = none ] || fail 'adapted requires --reason none'
+      ;;
+    partial)
+      is_utc_timestamp "$VERIFIED_AT_ARG" || fail 'partial requires an ISO-8601 UTC verified-at timestamp'
+      [ "$REASON_ARG" != none ] || fail 'partial requires a concrete reason code'
+      ;;
+    blocked)
+      if [ "$VERIFIED_AT_ARG" != never ] && ! is_utc_timestamp "$VERIFIED_AT_ARG"; then
+        fail 'blocked verified-at must be never or ISO-8601 UTC'
+      fi
+      [ "$REASON_ARG" != none ] || fail 'blocked requires a concrete reason code'
+      ;;
+    *) fail 'set-state accepts only adapted, partial, or blocked' ;;
+  esac
+
+  rewrite_state "$STATE_ARG" "$VERIFIED_AT_ARG" "$SCOPE_ARG" "$REASON_ARG"
+  validate_routing
+  printf 'Updated package adaptation state to %s.\n' "$STATE_ARG"
+}
+
+remove_trigger() {
+  validate_routing
+  [ "$(count_marker "$TRIGGER_START" "$AGENTS_FILE")" -eq 1 ] || fail 'exactly one adapter trigger is required for removal'
+  [ "$(count_marker "$TRIGGER_END" "$AGENTS_FILE")" -eq 1 ] || fail 'adapter trigger markers are unbalanced'
+  [ "$(state_field status)" = adapted ] || fail 'adapter trigger can be removed only after status=adapted'
+  remove_marked_block "$TRIGGER_START" "$TRIGGER_END"
+  [ "$(count_marker "$TRIGGER_START" "$AGENTS_FILE")" -eq 0 ] || fail 'adapter trigger removal failed'
+  validate_routing
+  printf 'Removed one-time package-adaptation trigger; permanent routing remains.\n'
+}
+
+unmerge_routing() {
+  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
+  [ "$(count_marker "$TRIGGER_START" "$AGENTS_FILE")" -eq 0 ] || fail 'remove the adapter trigger before unmerging routing'
+  [ "$(count_marker "$ROUTING_START" "$AGENTS_FILE")" -eq 1 ] || fail 'exactly one routing block is required for unmerge'
+  [ "$(count_marker "$ROUTING_END" "$AGENTS_FILE")" -eq 1 ] || fail 'routing markers are unbalanced'
+  remove_marked_block "$ROUTING_START" "$ROUTING_END"
+  printf 'Removed managed routing; original AGENTS.md content remains.\n'
+}
+
+check_installation() {
+  reject_ambiguous_root_candidates
+  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
+  validate_text_file "$AGENTS_FILE"
+  validate_routing
+  validate_trigger
+  printf 'Routing and adaptation state are valid.\n'
 }
 
 case "$COMMAND" in
-  handoff) install_handoff ;;
-  restore) restore_handoff ;;
-  check) check_handoff ;;
+  merge) merge_routing ;;
+  trigger) append_trigger ;;
+  check) check_installation ;;
+  set-state) set_adaptation_state ;;
+  remove-trigger) remove_trigger ;;
+  unmerge) unmerge_routing ;;
   *) usage >&2; fail "unknown command: $COMMAND" ;;
 esac

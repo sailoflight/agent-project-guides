@@ -1,23 +1,25 @@
-# 新项目与持续开发 Agent 指南
+# 项目开发 Agent 指南
 
-> 适用角色：初始化新项目的开发 agent，以及项目完成治理后的日常开发 agent。
+> 适用角色：Development plane 的 Developer。Feature Developer 实现有意新增的产品行为；Project Initializer 为新或实际上为空的项目建立首套包规范。
 >
 > 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以当前治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
 >
-> 新项目初始化时执行第 0-8 节；日常开发主要执行第 9-13 节。不要预读已有项目的维护迁移指南。
+> Project Initializer 执行第 0-8 节并读取 `PACKAGE_ADAPTATION_PROCEDURE.md`；Feature Developer 主要执行第 9-13 节，不预读适配流程。已有项目重新规整属于 Maintainer / Package Re-adapter。
 
-## 0. 加载机制和接入方式
+## 0. 子模式和加载边界
 
 兼容 harness 会在首轮前加载项目根到当前工作目录路径上的精确指令文件，例如 `AGENTS.md` 或 `CLAUDE.md`，并在后续 model step 重新探测 baseline。根 README 和任意嵌套治理目录不会因为存在或被链接而自动加载；新出现的后代目录规则仍需文件工具触碰对应路径后注入。
 
-接入方式二选一：
+选择子模式：
 
-- 人工方式不注入任何治理提示词。负责人或明确承担初始化任务的 agent 主动读取本指南，按模板直接创建或合并最终项目根 `AGENTS.md` 和必要文档；完成后日常 agent 只看到项目专属规则。
-- 自动 handoff 从包内运行 `scripts/install.sh handoff`，将已有根入口原样保存为 `AGENTS_origin.md`，把原内容镜像进临时入口保持约束生效，再安装 `bootstrap/AGENTS.handoff.md` 的一次性接管指令。
+- 新或实际上为空的项目，目标是建立首个可开发结构和包规范 -> Project Initializer；
+- 目标是新增功能、API、命令、服务、UI 行为或有意改变契约 -> Feature Developer；
+- 已有项目的 Bug、测试、行为保持型整理或重新适配 -> Maintainer；
+- 无法判断项目是否为空或是否要改变产品行为 -> 先询问用户，不读取其他角色指南。
 
-若本次 session 由临时 handoff 启动，必须先执行其中的合并门：读取 `AGENTS_origin.md`（若存在）、本指南第 0-8 节、匹配 profile 和必要模板小节；生成最终项目入口；确认原约束已保留后删除 handoff/origin-mirror 标记，但保留未修改的精确备份供人工复核；重新读取最终 `AGENTS.md` 后才开始产品修改。不得把临时接管文件当作最终项目规范。
+Project Initializer 服从包适配状态和触发流程：方案一由客户运行 `scripts/install.sh merge` 后显式授予该子模式；方案二的 `adapter-trigger` 在确认项目新/空后选择该子模式。它通过 `set-state` 写入验收结果，且方案二只删除临时 trigger，不替换或改名原 `AGENTS.md`。
 
-标准 DSH code preset 当前为自动指令设置 65,536 bytes 总预算，但包内 handoff 安装器把临时根入口限制为 16,384 bytes，并在发现其他根候选指令时拒绝接管。根入口仍建议控制在约 2K tokens 内；预算余量应留给目录级局部规则和其他 authority instructions，不能用上限证明塞入长文合理。
+标准 DSH code preset 当前为自动指令设置 65,536 bytes 总预算；包内脚本把合并后的根入口限制为 16,384 bytes。根入口仍建议控制在约 2K tokens 内，为目录级局部规则和其他 authority instructions 留出预算。
 
 ## 1. 初始化目标
 
@@ -48,7 +50,7 @@
 ```text
 项目目标：要向谁提供什么能力
 项目类型：library / CLI / MCP / service / GUI / monorepo / data / other
-实际角色：developer / consumer / operator / end user
+目标角色：Developer / Maintainer / Reviewer / Field Evaluator / User / Operator
 入口：主要运行、导出、注册或构建入口
 模块：首批职责边界
 风险：网络、生产写入、秘密、配额、迁移、破坏性操作
@@ -61,7 +63,7 @@
 
 ## 4. 创建最小项目内入口
 
-如果项目根当前是 handoff 临时入口，以它为迁移载体，不要另建第二个根入口。根据项目规模创建或合并以下能力：
+项目根始终保留原有内容和永久两层路由。Project Initializer 在同一 `AGENTS.md` 中补全项目专属约束和适配状态，不创建竞争入口。根据项目规模创建或合并以下能力：
 
 ```text
 AGENTS.md                         harness 自动加载的开发 agent 薄入口
@@ -72,7 +74,7 @@ docs/verification/MATRIX.md      修改类型到验证方式
 
 实际写入时，按需读取 `templates/CORE_DOCUMENT_TEMPLATES.md` 的精确小节。根 `AGENTS.md` 必须包含实际生效的硬约束和最小路由，不能只写“请先读 README”。
 
-很小的纯函数库可以把 INDEX、架构和验证矩阵合并进一份开发文档，但必须明确回答这些契约问题。不要为不适用的角色创建空目录。handoff 的最终入口生成后删除 `handoff` 和 `origin-mirror` 临时标记；`AGENTS_origin.md` 必须保持未修改并报告供人工复核。人工方式直接交付不含任何治理 bootstrap 的最终入口。
+很小的纯函数库可以把 INDEX、架构和验证矩阵合并进一份开发文档，但必须明确回答这些契约问题。不要为不适用的角色创建空目录。Project Initializer 完成后更新适配状态；方案二再运行 `remove-trigger`，只删除临时触发块并保留原项目内容和永久路由。
 
 ## 5. 根 `AGENTS.md` 规则
 
@@ -148,7 +150,7 @@ Documentation triggers
 - 配置、状态、生成物和秘密归属明确；
 - 消费者或运维角色只在实际存在时建立对应入口；
 - 没有手工复制可生成的工具、接口或参数清单；
-- handoff 的根 `AGENTS.md` 不再包含 `handoff` 或 `origin-mirror` 标记，且 `AGENTS_origin.md` 保持未修改并已报告供人工复核；人工入口不存在治理包跳转或临时提示词；
+- 根 `Package adaptation:` 状态与实际范围一致；方案二不再包含 `adapter-trigger`，永久路由和原项目内容仍保留；
 - 一个无历史上下文的 agent 能在没有额外“先读文档”提示词的情况下定位首个功能及其测试。
 
 初始化产物应与首批代码一起演进，不应先写一套脱离实现的完整未来架构。
