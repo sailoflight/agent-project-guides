@@ -3,8 +3,7 @@ set -eu
 
 START_MARKER='<!-- agent-project-guides:handoff:start -->'
 END_MARKER='<!-- agent-project-guides:handoff:end -->'
-MANUAL_START_MARKER='<!-- agent-project-guides:manual-merge:start -->'
-MANUAL_END_MARKER='<!-- agent-project-guides:manual-merge:end -->'
+LEGACY_MANUAL_START_MARKER='<!-- agent-project-guides:manual-merge:start -->'
 ORIGIN_MIRROR_START='<!-- agent-project-guides:origin-mirror:start -->'
 ORIGIN_MIRROR_END='<!-- agent-project-guides:origin-mirror:end -->'
 ORIGIN_NAME='AGENTS_origin.md'
@@ -23,8 +22,6 @@ Commands:
   handoff       Save root AGENTS.md as AGENTS_origin.md and install the temporary handoff entry.
   restore       Restore AGENTS_origin.md while the temporary handoff entry is still present.
   check         Verify that the temporary handoff entry is installed correctly.
-  check-manual  Verify a rendered manual-merge block in root AGENTS.md.
-  render-manual Render the manual-merge block with the package-relative path substituted.
 
 When --target is omitted, the script walks upward from the package parent to the nearest .git marker.
 EOF
@@ -37,6 +34,12 @@ COMMAND=${1:-}
   usage
   exit 2
 }
+case "$COMMAND" in
+  -h|--help|help)
+    usage
+    exit 0
+    ;;
+esac
 shift
 
 TARGET=''
@@ -83,12 +86,10 @@ case "$PACKAGE_DIR" in
 esac
 
 HANDOFF_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.handoff.md"
-MANUAL_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.merge-block.md"
 AGENTS_FILE="$TARGET/AGENTS.md"
 ORIGIN_FILE="$TARGET/$ORIGIN_NAME"
 
 [ -f "$HANDOFF_TEMPLATE" ] || fail "missing template: $HANDOFF_TEMPLATE"
-[ -f "$MANUAL_TEMPLATE" ] || fail "missing template: $MANUAL_TEMPLATE"
 
 render_template() {
   template=$1
@@ -103,13 +104,13 @@ install_handoff() {
   if [ -f "$AGENTS_FILE" ] && grep -Fq "$START_MARKER" "$AGENTS_FILE"; then
     fail 'temporary handoff is already installed'
   fi
-  if [ -f "$AGENTS_FILE" ] && grep -Fq "$MANUAL_START_MARKER" "$AGENTS_FILE"; then
-    fail 'manual-merge bootstrap is already installed; finish or remove it before handoff'
+  if [ -f "$AGENTS_FILE" ] && grep -Fq "$LEGACY_MANUAL_START_MARKER" "$AGENTS_FILE"; then
+    fail 'a legacy manual-merge bootstrap is still present; complete or remove it before handoff'
   fi
   for sibling_name in CLAUDE.md AGENTS.local.md CLAUDE.local.md; do
     sibling="$TARGET/$sibling_name"
     if [ -e "$sibling" ] || [ -L "$sibling" ]; then
-      fail "$sibling_name is another auto-loaded root candidate; use render-manual and reconcile candidates explicitly"
+      fail "$sibling_name is another auto-loaded root candidate; use the final-entry manual merge documented in README.md"
     fi
   done
 
@@ -142,7 +143,7 @@ install_handoff() {
   command -v iconv >/dev/null 2>&1 || fail 'iconv is required to validate UTF-8 instruction files'
   iconv -f UTF-8 -t UTF-8 "$tmp" >/dev/null 2>&1 || fail 'temporary root AGENTS.md is not valid UTF-8'
   handoff_bytes=$(wc -c < "$tmp" | tr -d '[:space:]')
-  [ "$handoff_bytes" -le "$MAX_HANDOFF_BYTES" ] || fail "temporary root AGENTS.md would exceed $MAX_HANDOFF_BYTES bytes; use render-manual instead"
+  [ "$handoff_bytes" -le "$MAX_HANDOFF_BYTES" ] || fail "temporary root AGENTS.md would exceed $MAX_HANDOFF_BYTES bytes; use the final-entry manual merge documented in README.md"
   chmod 0644 "$tmp"
 
   if [ "$has_original" -eq 1 ]; then
@@ -203,21 +204,9 @@ check_handoff() {
   printf 'Handoff entry is valid: %s\n' "$AGENTS_FILE"
 }
 
-check_manual() {
-  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
-  [ "$(grep -Fc "$MANUAL_START_MARKER" "$AGENTS_FILE")" -eq 1 ] || fail 'manual-merge start marker must appear exactly once'
-  [ "$(grep -Fc "$MANUAL_END_MARKER" "$AGENTS_FILE")" -eq 1 ] || fail 'manual-merge end marker must appear exactly once'
-  grep -Fq "$GUIDES_PATH/DEVELOPER_AGENT_GUIDE.md" "$AGENTS_FILE" || fail 'manual-merge block points to a different package path'
-  grep -Fq "$GUIDES_PATH/MAINTAINER_AGENT_GUIDE.md" "$AGENTS_FILE" || fail 'manual-merge block is incomplete'
-  printf 'Manual-merge block is valid: %s\n' "$AGENTS_FILE"
-}
-
 case "$COMMAND" in
   handoff) install_handoff ;;
   restore) restore_handoff ;;
   check) check_handoff ;;
-  check-manual) check_manual ;;
-  render-manual) render_template "$MANUAL_TEMPLATE" ;;
-  -h|--help|help) usage ;;
   *) usage >&2; fail "unknown command: $COMMAND" ;;
 esac

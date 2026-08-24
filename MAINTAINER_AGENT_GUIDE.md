@@ -2,20 +2,20 @@
 
 > 适用角色：负责整理已有项目的开发入口、文档架构、模块契约和验证流程的维护 agent。
 >
-> 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以自动入口记录的治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
+> 路径约定：本文中的 `profiles/...`、`templates/...` 等包内路径，以当前治理包目录为基准；`AGENTS.md`、`docs/...` 等交付路径，以目标项目根目录为基准。
 >
 > 本文件是执行规范。不能只提交分析或改进建议；必须在项目中形成可用的阶段性产物。不要预读 `DEVELOPER_AGENT_GUIDE.md`。
 
-## 0. 自动入口和已有规则接管
+## 0. 加载机制和已有规则接管
 
 兼容 harness 会在首轮前加载项目根到当前工作目录路径上的精确指令文件，例如 `AGENTS.md` 或 `CLAUDE.md`，并在后续 model step 重新探测 baseline；根 README 和任意嵌套治理目录都不是自动入口。仅把本包复制进已有项目不会完成加载。
 
 接入方式二选一：
 
-- 人工将 `bootstrap/AGENTS.merge-block.md` 合并进项目根 `AGENTS.md`，保留已有约束；
-- 从包内运行 `scripts/install.sh handoff`，把已有根入口原样保存为 `AGENTS_origin.md`，同时将原内容镜像进首轮自动加载的临时根入口，避免项目约束在合并期间退出上下文。
+- 人工方式不注入任何治理提示词。负责人或明确承担治理任务的 agent 主动读取本指南和现有根候选指令，按模板直接合并最终项目 `AGENTS.md`，完成后日常 agent 只看到项目专属规则。
+- 自动 handoff 从包内运行 `scripts/install.sh handoff`，把已有根入口原样保存为 `AGENTS_origin.md`，同时将原内容镜像进首轮自动加载的临时根入口，避免项目约束在合并期间退出上下文。
 
-若由 handoff 启动，先读取 `AGENTS_origin.md` 和本指南，再治理项目。最终根 `AGENTS.md` 必须合并仍适用的原规则和验证后的项目路由；自动合并不得编辑或删除唯一的 `AGENTS_origin.md` 备份，应报告其位置供人工复核。删除整个临时 handoff/origin-mirror 标记并重新读取最终入口之前，不得开始产品代码修改。发现其他根候选指令或临时入口超过 16,384 bytes 时，handoff 必须拒绝并回退到人工合并。
+若由 handoff 启动，先读取 `AGENTS_origin.md` 和本指南，再治理项目。最终根 `AGENTS.md` 必须合并仍适用的原规则和验证后的项目路由；自动合并不得编辑或删除唯一的 `AGENTS_origin.md` 备份，应报告其位置供人工复核。删除整个临时 handoff/origin-mirror 标记并重新读取最终入口之前，不得开始产品代码修改。发现其他根候选指令或临时入口超过 16,384 bytes 时，handoff 必须拒绝并回退到人工生成最终入口。
 
 ## 1. 任务目标
 
@@ -126,7 +126,7 @@ docs/verification/MATRIX.md      修改类型到验证命令的映射
 - 避免完整工具目录、生产教程、历史计划和模块细节；
 - 建议控制在约 2K tokens 内，为目录级指令和其他 authority instructions 留出预算；
 - 包含实际可执行的约束，不能只要求 agent 先读 README；
-- 治理完成后不再包含 `manual-merge`/`handoff`/`origin-mirror` 标记；handoff 的 `AGENTS_origin.md` 保持未修改并已报告供人工复核。
+- handoff 治理完成后不再包含 `handoff`/`origin-mirror` 标记；`AGENTS_origin.md` 保持未修改并已报告供人工复核。人工方式直接交付不含治理 bootstrap 的最终入口。
 
 `docs/INDEX.md` 只负责导航，不复制各文档正文。
 
@@ -194,7 +194,7 @@ Change documentation triggers
 
 - 内部链接和旧入口跳转；
 - 根入口体积及 harness 截断风险；
-- 根入口不存在 `manual-merge`/`handoff`/`origin-mirror` 临时标记，且 handoff 的 `AGENTS_origin.md` 未被自动修改或删除；
+- handoff 的根入口不存在 `handoff`/`origin-mirror` 临时标记，且 `AGENTS_origin.md` 未被自动修改或删除；人工入口不存在治理包跳转或临时提示词；
 - 示例命令和验证命令是否存在、是否可执行；
 - 生成物与权威来源是否一致；
 - 高风险和公共模块是否有契约；
@@ -242,7 +242,7 @@ Change documentation triggers
 
 - 证据分级的现状和冲突清单；
 - 角色路由表；
-- 最小项目内文档骨架，且根入口已经退出临时 bootstrap/handoff 状态；
+- 最小项目内文档骨架，且根入口已经退出临时 handoff 状态或由人工直接交付最终状态；
 - 至少一个最高风险模块契约；
 - 一项最高成本的混合文档拆分；
 - 动态事实与权威来源映射；
