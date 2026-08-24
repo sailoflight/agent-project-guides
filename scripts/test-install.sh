@@ -74,7 +74,7 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 "$PACKAGE_ONE/scripts/install.sh" merge
 assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.1.1; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.2.0; verified_at=never; scope=repo; reason=not_adapted'
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
 "$PACKAGE_ONE/scripts/install.sh" check
@@ -121,12 +121,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.1.1; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.2.0; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.1.1; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.2.0; verified_at=never; scope=repo; reason=missing_owner_decision'
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.1.1; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.2.0; verified_at=never; scope=repo; reason=retry_requested'
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -144,7 +144,7 @@ assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.1.1; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.2.0; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 [ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'
@@ -152,24 +152,54 @@ assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.1.1; 
 assert_not_contains "$PROJECT_TWO/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
 assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
-# Other auto-loaded root candidates are refused rather than creating ambiguous precedence.
-PROJECT_THREE="$TMP/sibling-project"
+# Root selection prefers AGENTS.md, supports a sole small CLAUDE.md, and preserves siblings.
+PROJECT_THREE="$TMP/root-selection-project"
 PACKAGE_THREE="$PROJECT_THREE/agent-project-guides"
 mkdir -p "$PROJECT_THREE"
 printf 'gitdir: elsewhere\n' > "$PROJECT_THREE/.git"
 copy_package "$PACKAGE_THREE"
 if "$PACKAGE_THREE/scripts/install.sh" check 2> "$TMP/missing-root.err"; then
-  fail 'check accepted a missing root AGENTS.md'
+  fail 'check accepted missing selected root instructions'
 fi
-assert_contains "$TMP/missing-root.err" 'root AGENTS.md does not exist'
-for candidate in CLAUDE.md AGENTS.local.md CLAUDE.local.md; do
-  printf '# Sibling instructions\n' > "$PROJECT_THREE/$candidate"
-  if "$PACKAGE_THREE/scripts/install.sh" merge >/dev/null 2>&1; then
-    fail "merge ignored sibling candidate $candidate"
-  fi
-  [ ! -e "$PROJECT_THREE/AGENTS.md" ] || fail 'failed sibling check created AGENTS.md'
-  rm "$PROJECT_THREE/$candidate"
-done
+assert_contains "$TMP/missing-root.err" 'selected root AGENTS.md does not exist'
+
+printf '# Claude-only project rules\n\n- Preserve this exact rule.\n' > "$PROJECT_THREE/CLAUDE.md"
+cp "$PROJECT_THREE/CLAUDE.md" "$TMP/original-claude.md"
+"$PACKAGE_THREE/scripts/install.sh" trigger >/dev/null
+assert_original_prefix "$TMP/original-claude.md" "$PROJECT_THREE/CLAUDE.md"
+assert_contains "$PROJECT_THREE/CLAUDE.md" 'Re-read root `CLAUDE.md`'
+[ ! -e "$PROJECT_THREE/AGENTS.md" ] || fail 'small CLAUDE-only install unnecessarily created AGENTS.md'
+"$PACKAGE_THREE/scripts/install.sh" check
+"$PACKAGE_THREE/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T14:30:00Z --scope repo --reason none >/dev/null
+"$PACKAGE_THREE/scripts/install.sh" remove-trigger >/dev/null
+"$PACKAGE_THREE/scripts/install.sh" unmerge >/dev/null
+cmp "$PROJECT_THREE/CLAUDE.md" "$TMP/original-claude.md" >/dev/null || fail 'CLAUDE.md lifecycle changed original content'
+
+printf '# Preferred agent rules\n' > "$PROJECT_THREE/AGENTS.md"
+printf '# Local overlay\n' > "$PROJECT_THREE/AGENTS.local.md"
+cp "$PROJECT_THREE/CLAUDE.md" "$TMP/multi-root-claude.md"
+"$PACKAGE_THREE/scripts/install.sh" merge >/dev/null
+assert_contains "$PROJECT_THREE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
+cmp "$PROJECT_THREE/CLAUDE.md" "$TMP/multi-root-claude.md" >/dev/null || fail 'multi-root merge changed non-selected CLAUDE.md'
+assert_not_contains "$PROJECT_THREE/CLAUDE.md" '<!-- agent-project-guides:routing:start -->'
+"$PACKAGE_THREE/scripts/install.sh" check
+printf '\n<!-- agent-project-guides:routing:start -->\n' >> "$PROJECT_THREE/CLAUDE.md"
+if "$PACKAGE_THREE/scripts/install.sh" check >/dev/null 2>&1; then
+  fail 'check accepted package markers in multiple root candidates'
+fi
+cp "$TMP/multi-root-claude.md" "$PROJECT_THREE/CLAUDE.md"
+"$PACKAGE_THREE/scripts/install.sh" unmerge >/dev/null
+rm "$PROJECT_THREE/AGENTS.md" "$PROJECT_THREE/AGENTS.local.md"
+
+# A sole oversized CLAUDE.md remains untouched; routing moves to a new short AGENTS.md.
+dd if=/dev/zero bs=13000 count=1 2>/dev/null | tr '\000' x > "$PROJECT_THREE/CLAUDE.md"
+cp "$PROJECT_THREE/CLAUDE.md" "$TMP/oversized-claude.md"
+"$PACKAGE_THREE/scripts/install.sh" merge >/dev/null
+assert_contains "$PROJECT_THREE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
+cmp "$PROJECT_THREE/CLAUDE.md" "$TMP/oversized-claude.md" >/dev/null || fail 'oversized CLAUDE.md fallback changed original content'
+"$PACKAGE_THREE/scripts/install.sh" check
+"$PACKAGE_THREE/scripts/install.sh" unmerge >/dev/null
+rm "$PROJECT_THREE/AGENTS.md" "$PROJECT_THREE/CLAUDE.md"
 
 # Legacy root-replacement handoff markers require explicit old-version recovery.
 printf '# Legacy\n<!-- agent-project-guides:handoff:start -->\n' > "$PROJECT_THREE/AGENTS.md"
@@ -209,14 +239,14 @@ mkdir -p "$PROJECT_FOUR/.git"
 copy_package "$PACKAGE_FOUR"
 "$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
 "$PACKAGE_FOUR/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T14:00:00Z --scope repo --reason none >/dev/null
-printf '1.2.0\n' > "$PACKAGE_FOUR/PACKAGE_VERSION"
+printf '1.3.0\n' > "$PACKAGE_FOUR/PACKAGE_VERSION"
 "$PACKAGE_FOUR/scripts/install.sh" merge >/dev/null
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.2.0; verified_at=2026-08-24T14:00:00Z; scope=repo; reason=package_revision_changed'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.3.0; verified_at=2026-08-24T14:00:00Z; scope=repo; reason=package_revision_changed'
 assert_not_contains "$PROJECT_FOUR/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 "$PACKAGE_FOUR/scripts/install.sh" check
 "$PACKAGE_FOUR/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'Trigger revision: 1.2.0'
-assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.2.0'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'Trigger revision: 1.3.0'
+assert_contains "$PROJECT_FOUR/AGENTS.md" 'status=stale; package_revision=1.3.0'
 [ "$(grep -Fc '<!-- agent-project-guides:adapter-trigger:start -->' "$PROJECT_FOUR/AGENTS.md")" -eq 1 ] || fail 'version refresh duplicated the trigger'
 "$PACKAGE_FOUR/scripts/install.sh" check
 

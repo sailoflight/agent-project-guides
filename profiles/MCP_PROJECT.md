@@ -6,7 +6,7 @@
 
 ### Development / MCP roles
 
-Developer、Maintainer、Reviewer 和 Field Evaluator 通过仓库 `AGENTS.md`、development、architecture、modules 和 verification 工作。按各自子模式只读取注册、handler、transport、schema 生成、测试或非生产场景评估所需证据。
+Developer、Maintainer、Reviewer 和 Field Evaluator 通过仓库所选根指令文件、development、architecture、modules 和 verification 工作。按各自子模式只读取注册、handler、transport、schema 生成、测试或非生产场景评估所需证据。
 
 ### Production / User
 
@@ -21,7 +21,7 @@ Developer、Maintainer、Reviewer 和 Field Evaluator 通过仓库 `AGENTS.md`�
 ## 2. 推荐项目文档和投递面
 
 ```text
-AGENTS.md                              两层角色路由、适配状态和跨项目红线
+所选根指令文件                       两层角色路由、适配状态和跨项目红线
 docs/architecture/MCP.md              注册、dispatch、transport、状态边界
 docs/modules/<server-or-module>.md     模块契约
 docs/verification/MATRIX.md           协议、schema、offline/sandbox/staging 验证

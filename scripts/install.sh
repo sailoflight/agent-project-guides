@@ -8,6 +8,7 @@ TRIGGER_END='<!-- agent-project-guides:adapter-trigger:end -->'
 LEGACY_HANDOFF='<!-- agent-project-guides:handoff:start -->'
 STATE_PREFIX='Package adaptation:'
 MAX_ROOT_BYTES=16384
+RESERVED_MANAGED_BYTES=4096
 
 fail() {
   printf 'error: %s\n' "$*" >&2
@@ -19,14 +20,15 @@ usage() {
 Usage: scripts/install.sh <command> [--target DIR]
 
 Commands:
-  merge           Scheme 1: append the permanent routing/state block only; never invokes an LLM.
+  merge           Scheme 1: append the permanent routing/state block to the selected root instructions; never invokes an LLM.
   trigger         Scheme 2: ensure routing exists, then append one temporary package-adaptation trigger.
-  check           Validate routing, adaptation state, optional trigger, UTF-8, and root size.
+  check           Validate routing, adaptation state, optional trigger, UTF-8, and selected root size.
   set-state       Adapter submodes update status with --status, --verified-at, --scope, and --reason.
   remove-trigger  Remove the temporary trigger after adaptation reaches status=adapted.
   unmerge         Remove managed routing after any trigger has already been removed.
 
 When --target is omitted, the script walks upward from the package parent to the nearest .git marker.
+Root selection is deterministic: AGENTS.md first, then a small CLAUDE.md; an oversized CLAUDE.md gets a new short AGENTS.md while remaining untouched.
 EOF
 }
 
@@ -116,7 +118,35 @@ ROUTING_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.routing-block.md"
 TRIGGER_TEMPLATE="$PACKAGE_DIR/bootstrap/AGENTS.adapter-trigger.md"
 VERSION_FILE="$PACKAGE_DIR/PACKAGE_VERSION"
 ROUTING_VALIDATOR="$PACKAGE_DIR/scripts/validate-routing.mjs"
-AGENTS_FILE="$TARGET/AGENTS.md"
+
+select_root_instructions() {
+  agents="$TARGET/AGENTS.md"
+  claude="$TARGET/CLAUDE.md"
+  ROOT_NAME=AGENTS.md
+  ROOT_FILE=$agents
+
+  if [ -e "$agents" ] || [ -L "$agents" ]; then
+    return
+  fi
+  if [ ! -e "$claude" ] && [ ! -L "$claude" ]; then
+    return
+  fi
+
+  ROOT_NAME=CLAUDE.md
+  ROOT_FILE=$claude
+  if [ -f "$claude" ] && [ ! -L "$claude" ]; then
+    if grep -Fq "$ROUTING_START" "$claude" || grep -Fq "$TRIGGER_START" "$claude"; then
+      return
+    fi
+    claude_bytes=$(wc -c < "$claude" | tr -d '[:space:]')
+    if [ "$claude_bytes" -gt $((MAX_ROOT_BYTES - RESERVED_MANAGED_BYTES)) ]; then
+      ROOT_NAME=AGENTS.md
+      ROOT_FILE=$agents
+    fi
+  fi
+}
+
+select_root_instructions
 
 [ -f "$ROUTING_TEMPLATE" ] || fail "missing template: $ROUTING_TEMPLATE"
 [ -f "$TRIGGER_TEMPLATE" ] || fail "missing template: $TRIGGER_TEMPLATE"
@@ -167,6 +197,7 @@ render_common() {
     -e "s|{{ADAPTATION_STATUS}}|$status_value|g" \
     -e "s|{{VERIFIED_AT}}|$verified|g" \
     -e "s|{{ADAPTATION_SCOPE}}|$scope_value|g" \
+    -e "s|{{ROOT_INSTRUCTIONS}}|$ROOT_NAME|g" \
     -e "s|{{ADAPTATION_REASON}}|$reason_value|g" \
     "$template"
 }
@@ -184,14 +215,17 @@ count_marker() {
 
 root_has() {
   marker=$1
-  [ -f "$AGENTS_FILE" ] && grep -Fq "$marker" "$AGENTS_FILE"
+  [ -f "$ROOT_FILE" ] && grep -Fq "$marker" "$ROOT_FILE"
 }
 
-reject_ambiguous_root_candidates() {
-  for sibling_name in CLAUDE.md AGENTS.local.md CLAUDE.local.md; do
+reject_conflicting_managed_roots() {
+  for sibling_name in AGENTS.md CLAUDE.md AGENTS.local.md CLAUDE.local.md; do
+    [ "$sibling_name" = "$ROOT_NAME" ] && continue
     sibling="$TARGET/$sibling_name"
-    if [ -e "$sibling" ] || [ -L "$sibling" ]; then
-      fail "$sibling_name is another auto-loaded root candidate; reconcile root candidates before installing package routing"
+    if [ -f "$sibling" ] && {
+      grep -Fq "$ROUTING_START" "$sibling" || grep -Fq "$TRIGGER_START" "$sibling"
+    }; then
+      fail "$sibling_name contains package-managed markers but $ROOT_NAME is the selected root; reconcile duplicate installations"
     fi
   done
 }
@@ -211,7 +245,7 @@ is_utc_timestamp() {
 state_line() {
   sed -n "/$ROUTING_START/,/$ROUTING_END/{
     /^$STATE_PREFIX/p
-  }" "$AGENTS_FILE"
+  }" "$ROOT_FILE"
 }
 
 state_field() {
@@ -221,11 +255,11 @@ state_field() {
 }
 
 validate_routing() {
-  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
-  [ "$(count_marker "$ROUTING_START" "$AGENTS_FILE")" -eq 1 ] || fail 'routing start marker must appear exactly once'
-  [ "$(count_marker "$ROUTING_END" "$AGENTS_FILE")" -eq 1 ] || fail 'routing end marker must appear exactly once'
+  [ -f "$ROOT_FILE" ] || fail "selected root $ROOT_NAME does not exist"
+  [ "$(count_marker "$ROUTING_START" "$ROOT_FILE")" -eq 1 ] || fail 'routing start marker must appear exactly once'
+  [ "$(count_marker "$ROUTING_END" "$ROOT_FILE")" -eq 1 ] || fail 'routing end marker must appear exactly once'
 
-  managed=$(sed -n "/$ROUTING_START/,/$ROUTING_END/p" "$AGENTS_FILE")
+  managed=$(sed -n "/$ROUTING_START/,/$ROUTING_END/p" "$ROOT_FILE")
   ! printf '%s\n' "$managed" | grep -Fq '{{' || fail 'routing block contains unresolved placeholders'
   printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/planes.jsonl" || fail 'routing block points to a different plane registry'
   printf '%s\n' "$managed" | grep -Fq "$GUIDES_PATH/routing/*.roles.jsonl" || fail 'routing block points to a different role registry pattern'
@@ -254,12 +288,12 @@ validate_routing() {
 }
 
 validate_trigger() {
-  start_count=$(count_marker "$TRIGGER_START" "$AGENTS_FILE")
-  end_count=$(count_marker "$TRIGGER_END" "$AGENTS_FILE")
+  start_count=$(count_marker "$TRIGGER_START" "$ROOT_FILE")
+  end_count=$(count_marker "$TRIGGER_END" "$ROOT_FILE")
   [ "$start_count" -eq "$end_count" ] || fail 'adapter trigger markers are unbalanced'
   [ "$start_count" -le 1 ] || fail 'adapter trigger must appear at most once'
   if [ "$start_count" -eq 1 ]; then
-    trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$AGENTS_FILE")
+    trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$ROOT_FILE")
     ! printf '%s\n' "$trigger" | grep -Fq '{{' || fail 'adapter trigger contains unresolved placeholders'
     printf '%s\n' "$trigger" | grep -Fq "$GUIDES_PATH/routing/development.roles.jsonl" || fail 'adapter trigger points to a different development registry'
     printf '%s\n' "$trigger" | grep -Fq "Trigger revision: $PACKAGE_REVISION" || fail 'adapter trigger targets a different package revision'
@@ -268,25 +302,25 @@ validate_trigger() {
 
 write_appended_block() {
   block_file=$1
-  tmp=$(mktemp "$TARGET/.AGENTS.md.merge.XXXXXX")
+  tmp=$(mktemp "$TARGET/.agent-project-guides.md.merge.XXXXXX")
   trap 'rm -f "$tmp"' EXIT HUP INT TERM
 
-  if [ -e "$AGENTS_FILE" ] || [ -L "$AGENTS_FILE" ]; then
-    [ ! -L "$AGENTS_FILE" ] || fail 'root AGENTS.md is a symlink; reconcile it explicitly before append-only merge'
-    [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md exists but is not a regular file'
-    cat -- "$AGENTS_FILE" > "$tmp"
-    if [ -s "$AGENTS_FILE" ]; then
-      last_byte=$(tail -c 1 "$AGENTS_FILE" | od -An -tuC | tr -d '[:space:]')
+  if [ -e "$ROOT_FILE" ] || [ -L "$ROOT_FILE" ]; then
+    [ ! -L "$ROOT_FILE" ] || fail "selected root $ROOT_NAME is a symlink; reconcile it explicitly before append-only merge"
+    [ -f "$ROOT_FILE" ] || fail "selected root $ROOT_NAME exists but is not a regular file"
+    cat -- "$ROOT_FILE" > "$tmp"
+    if [ -s "$ROOT_FILE" ]; then
+      last_byte=$(tail -c 1 "$ROOT_FILE" | od -An -tuC | tr -d '[:space:]')
       [ "$last_byte" = 10 ] || printf '\n' >> "$tmp"
     fi
-    chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+    chmod --reference="$ROOT_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
   else
     : > "$tmp"
     chmod 0644 "$tmp"
   fi
   cat -- "$block_file" >> "$tmp"
   validate_text_file "$tmp"
-  mv -f -- "$tmp" "$AGENTS_FILE"
+  mv -f -- "$tmp" "$ROOT_FILE"
   trap - EXIT HUP INT TERM
 }
 
@@ -294,7 +328,7 @@ replace_marked_block() {
   start=$1
   end=$2
   replacement_file=$3
-  tmp=$(mktemp "$TARGET/.AGENTS.md.replace.XXXXXX")
+  tmp=$(mktemp "$TARGET/.agent-project-guides.md.replace.XXXXXX")
   trap 'rm -f "$tmp"' EXIT HUP INT TERM
   awk -v start="$start" -v end="$end" -v replacement_file="$replacement_file" '
     $0 == start {
@@ -305,10 +339,10 @@ replace_marked_block() {
     }
     $0 == end { inside = 0; next }
     !inside { print }
-  ' "$AGENTS_FILE" > "$tmp"
-  chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+  ' "$ROOT_FILE" > "$tmp"
+  chmod --reference="$ROOT_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
   validate_text_file "$tmp"
-  mv -f -- "$tmp" "$AGENTS_FILE"
+  mv -f -- "$tmp" "$ROOT_FILE"
   trap - EXIT HUP INT TERM
 }
 
@@ -318,24 +352,24 @@ rewrite_state() {
   next_scope=$3
   next_reason=$4
   new_line="$STATE_PREFIX status=$next_status; package_revision=$PACKAGE_REVISION; verified_at=$next_verified; scope=$next_scope; reason=$next_reason"
-  tmp=$(mktemp "$TARGET/.AGENTS.md.state.XXXXXX")
+  tmp=$(mktemp "$TARGET/.agent-project-guides.md.state.XXXXXX")
   trap 'rm -f "$tmp"' EXIT HUP INT TERM
   awk -v start="$ROUTING_START" -v end="$ROUTING_END" -v prefix="$STATE_PREFIX" -v replacement="$new_line" '
     $0 == start { inside = 1 }
     inside && index($0, prefix) == 1 { print replacement; next }
     { print }
     $0 == end { inside = 0 }
-  ' "$AGENTS_FILE" > "$tmp"
-  chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+  ' "$ROOT_FILE" > "$tmp"
+  chmod --reference="$ROOT_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
   validate_text_file "$tmp"
-  mv -f -- "$tmp" "$AGENTS_FILE"
+  mv -f -- "$tmp" "$ROOT_FILE"
   trap - EXIT HUP INT TERM
 }
 
 refresh_routing_for_revision() {
   old_verified=$(state_field verified_at)
   old_scope=$(state_field scope)
-  block=$(mktemp "$TARGET/.AGENTS.routing.refresh.XXXXXX")
+  block=$(mktemp "$TARGET/.agent-project-guides.routing.refresh.XXXXXX")
   trap 'rm -f "$block"' EXIT HUP INT TERM
   render_common "$ROUTING_TEMPLATE" stale "$old_verified" "$old_scope" package_revision_changed > "$block"
   replace_marked_block "$ROUTING_START" "$ROUTING_END" "$block"
@@ -344,16 +378,16 @@ refresh_routing_for_revision() {
 }
 
 merge_routing() {
-  reject_ambiguous_root_candidates
-  [ ! -L "$AGENTS_FILE" ] || fail 'root AGENTS.md is a symlink; reconcile it explicitly before append-only merge'
+  reject_conflicting_managed_roots
+  [ ! -L "$ROOT_FILE" ] || fail "selected root $ROOT_NAME is a symlink; reconcile it explicitly before append-only merge"
   if root_has "$LEGACY_HANDOFF"; then
     fail 'legacy root-replacement handoff is present; restore it before using the append-only installer'
   fi
 
-  routing_count=$(count_marker "$ROUTING_START" "$AGENTS_FILE")
+  routing_count=$(count_marker "$ROUTING_START" "$ROOT_FILE")
   [ "$routing_count" -le 1 ] || fail 'multiple routing blocks already exist'
   if [ "$routing_count" -eq 1 ]; then
-    [ "$(count_marker "$ROUTING_END" "$AGENTS_FILE")" -eq 1 ] || fail 'routing markers are unbalanced'
+    [ "$(count_marker "$ROUTING_END" "$ROOT_FILE")" -eq 1 ] || fail 'routing markers are unbalanced'
     installed_revision=$(state_field package_revision)
     if [ "$installed_revision" != "$PACKAGE_REVISION" ]; then
       refresh_routing_for_revision
@@ -361,12 +395,12 @@ merge_routing() {
     else
       printf 'Permanent routing block already installed.\n'
     fi
-    validate_text_file "$AGENTS_FILE"
+    validate_text_file "$ROOT_FILE"
     validate_routing
     return
   fi
 
-  block=$(mktemp "$TARGET/.AGENTS.routing.XXXXXX")
+  block=$(mktemp "$TARGET/.agent-project-guides.routing.XXXXXX")
   trap 'rm -f "$block"' EXIT HUP INT TERM
   render_common "$ROUTING_TEMPLATE" pending never repo not_adapted > "$block"
   write_appended_block "$block"
@@ -378,12 +412,12 @@ merge_routing() {
 
 append_trigger() {
   merge_routing
-  trigger_count=$(count_marker "$TRIGGER_START" "$AGENTS_FILE")
+  trigger_count=$(count_marker "$TRIGGER_START" "$ROOT_FILE")
   [ "$trigger_count" -le 1 ] || fail 'multiple adapter triggers already exist'
   if [ "$trigger_count" -eq 1 ]; then
-    existing_trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$AGENTS_FILE")
+    existing_trigger=$(sed -n "/$TRIGGER_START/,/$TRIGGER_END/p" "$ROOT_FILE")
     if ! printf '%s\n' "$existing_trigger" | grep -Fq "Trigger revision: $PACKAGE_REVISION"; then
-      block=$(mktemp "$TARGET/.AGENTS.trigger.refresh.XXXXXX")
+      block=$(mktemp "$TARGET/.agent-project-guides.trigger.refresh.XXXXXX")
       trap 'rm -f "$block"' EXIT HUP INT TERM
       render_common "$TRIGGER_TEMPLATE" pending never repo trigger_requested > "$block"
       replace_marked_block "$TRIGGER_START" "$TRIGGER_END" "$block"
@@ -416,7 +450,7 @@ append_trigger() {
       ;;
   esac
 
-  block=$(mktemp "$TARGET/.AGENTS.trigger.XXXXXX")
+  block=$(mktemp "$TARGET/.agent-project-guides.trigger.XXXXXX")
   trap 'rm -f "$block"' EXIT HUP INT TERM
   render_common "$TRIGGER_TEMPLATE" pending never repo trigger_requested > "$block"
   write_appended_block "$block"
@@ -429,16 +463,16 @@ append_trigger() {
 remove_marked_block() {
   start=$1
   end=$2
-  tmp=$(mktemp "$TARGET/.AGENTS.md.remove.XXXXXX")
+  tmp=$(mktemp "$TARGET/.agent-project-guides.md.remove.XXXXXX")
   trap 'rm -f "$tmp"' EXIT HUP INT TERM
   awk -v start="$start" -v end="$end" '
     $0 == start { inside = 1; next }
     $0 == end { inside = 0; next }
     !inside { print }
-  ' "$AGENTS_FILE" > "$tmp"
-  chmod --reference="$AGENTS_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
+  ' "$ROOT_FILE" > "$tmp"
+  chmod --reference="$ROOT_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
   validate_text_file "$tmp"
-  mv -f -- "$tmp" "$AGENTS_FILE"
+  mv -f -- "$tmp" "$ROOT_FILE"
   trap - EXIT HUP INT TERM
 }
 
@@ -476,28 +510,28 @@ set_adaptation_state() {
 
 remove_trigger() {
   validate_routing
-  [ "$(count_marker "$TRIGGER_START" "$AGENTS_FILE")" -eq 1 ] || fail 'exactly one adapter trigger is required for removal'
-  [ "$(count_marker "$TRIGGER_END" "$AGENTS_FILE")" -eq 1 ] || fail 'adapter trigger markers are unbalanced'
+  [ "$(count_marker "$TRIGGER_START" "$ROOT_FILE")" -eq 1 ] || fail 'exactly one adapter trigger is required for removal'
+  [ "$(count_marker "$TRIGGER_END" "$ROOT_FILE")" -eq 1 ] || fail 'adapter trigger markers are unbalanced'
   [ "$(state_field status)" = adapted ] || fail 'adapter trigger can be removed only after status=adapted'
   remove_marked_block "$TRIGGER_START" "$TRIGGER_END"
-  [ "$(count_marker "$TRIGGER_START" "$AGENTS_FILE")" -eq 0 ] || fail 'adapter trigger removal failed'
+  [ "$(count_marker "$TRIGGER_START" "$ROOT_FILE")" -eq 0 ] || fail 'adapter trigger removal failed'
   validate_routing
   printf 'Removed one-time package-adaptation trigger; permanent routing remains.\n'
 }
 
 unmerge_routing() {
-  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
-  [ "$(count_marker "$TRIGGER_START" "$AGENTS_FILE")" -eq 0 ] || fail 'remove the adapter trigger before unmerging routing'
-  [ "$(count_marker "$ROUTING_START" "$AGENTS_FILE")" -eq 1 ] || fail 'exactly one routing block is required for unmerge'
-  [ "$(count_marker "$ROUTING_END" "$AGENTS_FILE")" -eq 1 ] || fail 'routing markers are unbalanced'
+  [ -f "$ROOT_FILE" ] || fail "selected root $ROOT_NAME does not exist"
+  [ "$(count_marker "$TRIGGER_START" "$ROOT_FILE")" -eq 0 ] || fail 'remove the adapter trigger before unmerging routing'
+  [ "$(count_marker "$ROUTING_START" "$ROOT_FILE")" -eq 1 ] || fail 'exactly one routing block is required for unmerge'
+  [ "$(count_marker "$ROUTING_END" "$ROOT_FILE")" -eq 1 ] || fail 'routing markers are unbalanced'
   remove_marked_block "$ROUTING_START" "$ROUTING_END"
-  printf 'Removed managed routing; original AGENTS.md content remains.\n'
+  printf 'Removed managed routing; original %s content remains.\n' "$ROOT_NAME"
 }
 
 check_installation() {
-  reject_ambiguous_root_candidates
-  [ -f "$AGENTS_FILE" ] || fail 'root AGENTS.md does not exist'
-  validate_text_file "$AGENTS_FILE"
+  reject_conflicting_managed_roots
+  [ -f "$ROOT_FILE" ] || fail "selected root $ROOT_NAME does not exist"
+  validate_text_file "$ROOT_FILE"
   validate_routing
   validate_trigger
   printf 'Routing and adaptation state are valid.\n'

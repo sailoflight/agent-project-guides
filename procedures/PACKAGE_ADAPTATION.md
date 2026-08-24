@@ -27,7 +27,7 @@
 
 ## 2. 最小读取顺序
 
-1. 保留所有已加载根候选规则；脚本不会替换或改名它们。
+1. 保留所有已加载根候选规则；安装器只向按 `AGENTS.md` > `CLAUDE.md` 选中的入口追加 managed block，不替换或改名任何候选。
 2. 读取构建/包配置、主要入口、测试配置、CI 和现有文档索引，不做整仓扫描。
 3. 只读一个匹配 profile；组合项目只增加实际匹配项。
 4. 通过 `routing/*.jsonl` 确认实际 plane、role、mode 和投递面。
@@ -40,7 +40,7 @@ Profiles：`profiles/MCP_PROJECT.md`、`profiles/LIBRARY_AND_CLI_PROJECT.md`、`
 按规模创建或合并，不为不存在的角色建立空文档：
 
 ```text
-AGENTS.md                         永久 JSONL 路由、适配状态、项目硬约束
+所选根指令文件                 永久 JSONL 路由、适配状态、项目硬约束
 项目 docs/INDEX.md               角色/任务到权威入口
 项目 architecture/OVERVIEW.md   当前边界和依赖方向
 项目 verification/MATRIX.md     修改类型到真实验证
@@ -65,7 +65,7 @@ AGENTS.md                         永久 JSONL 路由、适配状态、项目硬
 
 ## 4. 边界和投递面
 
-- 根 `AGENTS.md` 保留原项目内容和恰好一个 managed routing block；项目约束写在 block 外。
+- 所选根指令文件保留原项目内容和恰好一个 managed routing block；项目约束写在 block 外。
 - User 只读 usage/API/schema/MCP 公共投递面。
 - Operator 只读 operations/runbook 和必要运行时架构。
 - Reviewer 使用 diff、契约、verification 和 sandbox 入口。
@@ -90,7 +90,7 @@ AGENTS.md                         永久 JSONL 路由、适配状态、项目硬
 
 ## 6. 验证和冷启动
 
-至少检查 JSONL 语法/唯一 ID/路径、根 marker/状态/UTF-8/体积/候选冲突、链接/命令/生成一致性/秘密、公共与高风险模块契约、当前架构真实性、并行修改保留，以及方案二最终无 trigger。
+至少检查 JSONL 语法/唯一 ID/路径、所选根 marker/状态/UTF-8/体积/重复 managed 候选、链接/命令/生成一致性/秘密、公共与高风险模块契约、当前架构真实性、并行修改保留，以及方案二最终无 trigger。
 
 让无历史上下文 agent 在不读完整治理包时：
 
