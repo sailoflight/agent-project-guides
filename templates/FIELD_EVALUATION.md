@@ -1,6 +1,6 @@
-# Field evaluation 记录模板
+# Field evaluation template
 
-目标位置：`<project>/docs/evaluation/<scenario>.md`。只有项目实际执行非生产真实场景评估时创建；不得记录秘密或未脱敏生产数据。
+Target: `<project>/docs/evaluation/<scenario>.md`. Create only for an actually executed non-production realistic evaluation; never store secrets or unsanitized production data.
 
 ```markdown
 # <Scenario> field evaluation
@@ -9,25 +9,37 @@ Mode: scenario-validation | exploratory-evaluation
 Environment: development | test | staging
 Data: synthetic | fixture | sanitized-copy | approved-real-data-copy
 Evaluated at: <ISO-8601 UTC>
-Version/range: <build, commit, schema or data version>
+Version/range: <build, commit, schema, client, and data version>
+
+## Traceability
+
+| Scenario/requirement | Contract/usage source | Acceptance or exploration question |
+|---|---|---|
+| <scenario> | `<link/version>` | <observable criterion> |
 
 ## Permission boundary
 
-<账号、网络、费用、允许写入和禁止动作。>
+<Account, network, cost budget, allowed writes/cleanup, forbidden actions, and approval.>
 
-## Scenario and expected outcome
+## Setup and procedure
 
-<真实工作流、验收条件或探索目标。>
+<Reproducible environment/data setup and steps; identify deviations from the source workflow.>
 
 ## Observations and evidence
 
-<输入、输出、日志/截图引用和副作用；区分 verified 与 inferred。>
+| Step/time | Input/action | Observed output/effect | Evidence reference |
+|---|---|---|---|
+| <step> | <action> | <verified observation> | <log/screenshot/report> |
 
 ## Findings
 
-<product defect | environment issue | data issue | test gap | feature proposal>
+| Finding | Class | Evidence | Impact/follow-up role |
+|---|---|---|---|
+| <finding> | product defect/environment/data/test gap/proposal | <reference> | <Maintainer/Developer/Operator> |
 
-## Cleanup and residual risk
+## Cleanup, limitations, and residual risk
 
-<测试数据清理、未执行场景和剩余风险。>
+<Test data/resource cleanup, unexecuted cases, non-reproducible factors, and remaining risk.>
 ```
+
+Keep raw evidence in `evidence/` when large and link it. Clearly separate observed behavior, inference, and proposal; this record does not itself change the product contract.

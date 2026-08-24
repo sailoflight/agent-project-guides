@@ -1,30 +1,44 @@
-# `docs/verification/MATRIX.md` 模板
+# `docs/verification/MATRIX.md` template
 
-目标位置：`<project>/docs/verification/MATRIX.md`
+Target: `<project>/docs/verification/MATRIX.md`. It selects checks from current executable sources; it is not a historical test-results log.
 
 ```markdown
 # Verification matrix
 
-## Defaults
+## Defaults and boundaries
 
-- 默认网络：offline | mocked | live
-- 默认生产写入：forbidden
-- <项目级验证红线>
+- Default network: offline | mocked | live-approved-only
+- Default production write: forbidden
+- Default data: synthetic | fixture | sanitized
+- Supported verification platforms: <range and evidence>
+- Broader checks trigger on: <shared contract/risk/release conditions>
 
-| Change type/module | Fast check | Required tests | Broader validation | External cost/risk |
+## Command authorities
+
+| Check family | Command/config source | Working directory | Expected evidence |
+|---|---|---|---|
+| <unit/type/build/integration> | `<config or command>` | `<path>` | <exit/report/artifact> |
+
+## Change matrix
+
+| Change type/scope | Fast check | Required checks | Broader trigger | External risk/cost |
 |---|---|---|---|---|
-| Documentation only | <link/lint> | <docs test> | <none> | 0 |
-| Internal logic | <unit> | <target tests> | <integration condition> | <risk> |
-| Public API/tool/CLI | <schema/static> | <contract tests> | <compatibility> | <risk> |
-| Data/migration | <dry run> | <fixture/replay> | <approved integration> | <risk> |
-| UI | <component> | <interaction> | <visual/manual> | <risk> |
-| Deployment/config | <lint> | <smoke> | <staging/approved> | <risk> |
+| Documentation only | <link/lint> | <docs check> | <generated reference changed> | 0 |
+| Internal logic | <unit/static> | <target tests> | <shared boundary> | <risk> |
+| Public API/tool/CLI | <schema/static> | <contract tests> | <compatibility/release> | <risk> |
+| State/data/migration | <dry-run> | <fixture/replay> | <approved integration> | <risk> |
+| UI/workflow | <component> | <interaction/accessibility> | <E2E/visual/platform> | <risk> |
+| Deploy/config | <lint> | <sandbox smoke> | <staging/Operator approval> | <risk> |
 
-## Live or destructive verification
+## Live, destructive, and costly checks
 
-<审批、预算、dry-run、fixture、停止和回滚规则。>
+| Check | Environment/data | Approval | Budget/stop condition | Cleanup/rollback |
+|---|---|---|---|---|
+| <check> | <scope> | <who/what> | <limit> | <procedure> |
 
-## When verification cannot run
+## Evidence and incomplete verification
 
-报告未执行项、原因、剩余风险和人工步骤；不得声称已验证。
+Report commands/checks actually run, scope, environment, result, and relevant artifact. For skipped or failed checks, report reason, remaining risk, and exact follow-up; never convert an unrun check into a pass.
 ```
+
+Do not copy command definitions when a build tool can provide the authority; link the source and record only selection rules or safe wrappers.

@@ -1,48 +1,63 @@
-# `docs/architecture/OVERVIEW.md` 模板
+# Architecture overview template
 
-目标位置：`<project>/docs/architecture/OVERVIEW.md`
+Default target: `<project>/docs/architecture/OVERVIEW.md`; a selected project profile may choose a more precise name such as `MCP.md`, `CLI.md`, `FRONTEND.md`, or `DATA_FLOW.md`.
 
-```markdown
-# Architecture overview
+````markdown
+# <Scope> architecture
 
-## Scope and current status
+Status: verified | inferred | mixed
+Scope: <repository/package/runtime>
+Evidence: <current implementation/build/deploy/schema anchors>
 
-<只描述当前已经实现并由证据支持的系统。未确定项标为 unknown。>
+## System context
+
+<Current implemented capability, actors, external systems, and explicit exclusions.>
 
 ## Runtime topology
 
-<进程、包、服务、浏览器、数据库或外部系统之间的关系。>
+| Unit/process/package | Responsibility | Lifecycle owner | Communicates through |
+|---|---|---|---|
+| <unit> | <responsibility> | <owner> | <protocol/call/schema> |
 
-## Modules
+## Module boundaries
 
 | Module | Owns | Does not own | Entrypoint | Contract |
 |---|---|---|---|---|
-| <module> | <职责> | <非职责> | <path/symbol> | `../modules/<module>.md` |
+| <module> | <responsibility> | <exclusion/owner> | `<path/symbol>` | `../modules/<module>.md` |
 
 ## Dependency direction
 
 ```text
-<上层> -> <下层> -> <基础设施>
+<upper layer> -> <lower layer> -> <adapter/infrastructure>
 ```
 
-- 允许：<依赖规则>
-- 禁止：<反向依赖或跨边界调用>
+- Allowed: <rule evidenced by code/build checks>.
+- Forbidden: <reverse/cross-boundary dependency>.
+
+## Trust and side-effect boundaries
+
+| Boundary/action | Input identity/trust | Effect | Gate/failure rule |
+|---|---|---|---|
+| <network/data/process/user boundary> | <trust> | <read/write/cost> | <gate> |
 
 ## Data and configuration ownership
 
-| Data/config | Owner | Lifecycle | Safety boundary |
+| Item | Authority/owner | Lifecycle | Consistency/retention rule |
 |---|---|---|---|
-| <item> | <module> | <runtime/build/persistent> | <规则> |
+| <data/config/state> | <source/module> | <build/runtime/persistent> | <rule> |
+
+## Failure and recovery model
+
+<Timeout, retry, idempotency, partial-failure, restart, rollback, or recovery boundaries that shape architecture.>
 
 ## Invariants
 
-- <由实现/测试证明的不变量>
+- <Verified cross-module invariant and its evidence>.
 
-## Unknowns
+## Unknowns and decisions
 
-- <尚不能确定的架构事实和所需证据>
+- Unknown: <fact not yet established and required evidence>.
+- Decision: <link an ADR; do not repeat its historical discussion>.
+````
 
-## Decisions
-
-- <仅链接 ADR，不在此重复历史讨论。>
-```
+Describe current architecture only. Keep deployment commands in runbooks, public workflows in usage, and historical arguments in ADRs.

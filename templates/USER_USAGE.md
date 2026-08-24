@@ -1,31 +1,45 @@
-# 消费者 usage 文档模板
+# Consumer usage template
 
-目标位置：按项目实际选择，例如 `docs/usage/API.md`、`docs/usage/CLI.md`。只有项目存在外部消费者时创建。
+Target: an evidenced public surface such as `<project>/docs/usage/API.md`, `CLI.md`, `MCP_CONSUMER.md`, or `USER_FLOWS.md`. Create only when an external consumer exists.
 
 ```markdown
 # <Capability> usage
 
-Audience: <API/library/CLI/MCP consumer>
+Audience: <end user/API/SDK/CLI/MCP consumer>
+Supported version/range: <version and authority>
+Reference source: <generated schema/API/command/tool surface>
 
-## Contract
+## Preconditions and access
 
-<消费者可依赖的公共行为，不包含内部构建细节。>
+<Install/endpoint/account/environment requirements and safe credential channel.>
+
+## Supported workflows
+
+| Goal | Entry/capability | Result | Side effect/gate |
+|---|---|---|---|
+| <goal> | <UI/API/SDK/CLI/tool> | <observable result> | <write/network/cost/confirmation> |
 
 ## Inputs and outputs
 
-<优先链接生成的 schema/command/tool reference。>
+<Stable semantic rules. Link generated parameter/schema/reference details rather than copying them.>
+
+## Errors and recovery
+
+| Error/condition | Meaning | Safe next action |
+|---|---|---|
+| <error> | <contract meaning> | <retry/correct/stop/escalate> |
+
+## Security, data, and cost boundaries
+
+<Allowed identities/data, secret handling, destructive or paid actions, and confirmation behavior.>
 
 ## Examples
 
-<最小真实示例。>
+<Small executable or tested examples tied to the supported version.>
 
-## Errors and side effects
+## Compatibility and deprecation
 
-<错误、网络、数据修改、成本和幂等性。>
-
-## Versioning and compatibility
-
-<兼容承诺和废弃流程。>
+<Stability promise, platform/client range, deprecation and migration path.>
 ```
 
-MCP 消费者说明优先通过 MCP 协议投递；仓库 usage 文档作为权威说明或生成来源，而不是要求消费者读取开发 `AGENTS.md`。
+Keep internal builds, module design, deployment, and operator recovery out of consumer usage. MCP runtime delivery should derive from the same authored contract without requiring consumers to read repository instructions.

@@ -83,16 +83,76 @@ for (const [plane, records] of [['production', production], ['development', deve
 }
 if (seen.size !== expectedRoles.size) fail(`missing role ids: ${[...expectedRoles].filter(id => !seen.has(id)).join(', ')}`);
 
-const expectedProjectTypes = new Set(['mcp', 'library-cli', 'application-service-monorepo']);
+const expectedProjectTypes = new Map([
+  ['mcp', 'profiles/MCP_PROJECT.md'],
+  ['library', 'profiles/LIBRARY_PROJECT.md'],
+  ['cli', 'profiles/CLI_PROJECT.md'],
+  ['service', 'profiles/SERVICE_PROJECT.md'],
+  ['application-ui', 'profiles/APPLICATION_UI_PROJECT.md'],
+  ['data-automation', 'profiles/DATA_AUTOMATION_PROJECT.md'],
+  ['monorepo', 'profiles/MONOREPO_PROJECT.md'],
+]);
 if (projectTypes.length !== expectedProjectTypes.size) fail('project-types registry must contain exactly the supported project types');
 const seenProjectTypes = new Set();
+const seenProfiles = new Set();
 for (const record of projectTypes) {
   if (!expectedProjectTypes.has(record.id) || seenProjectTypes.has(record.id)) fail(`invalid or duplicate project type id: ${record.id}`);
-  if (typeof record.when !== 'string' || typeof record.profile !== 'string' || !record.profile.startsWith('profiles/')) {
+  if (typeof record.when !== 'string' || !record.when.trim() || record.profile !== expectedProjectTypes.get(record.id)) {
     fail(`invalid project type record: ${JSON.stringify(record)}`);
   }
+  if (seenProfiles.has(record.profile)) fail(`project types must not share a profile: ${record.profile}`);
   safePath(record.profile, `project type ${record.id}.profile`);
   seenProjectTypes.add(record.id);
+  seenProfiles.add(record.profile);
+}
+
+const profileHeadings = [
+  '## 1. Selection boundary',
+  '## 2. Artifact preset',
+  '## 3. Evidence map',
+  '## 5. Verification preset',
+  '## 6. Cold-start acceptance',
+];
+for (const record of projectTypes) {
+  const profileText = fs.readFileSync(path.join(packageRoot, record.profile), 'utf8');
+  for (const heading of profileHeadings) {
+    if (!profileText.includes(heading)) fail(`project profile ${record.profile} is missing contract heading: ${heading}`);
+  }
+  const presetSection = profileText.split('## 2. Artifact preset')[1]?.split('## 3. Evidence map')[0] || '';
+  const presetRows = presetSection.split(/\r?\n/).filter(line => /^\|[^-].*\|$/.test(line.trim())).slice(1);
+  if (presetRows.length === 0) fail(`project profile has no artifact preset rows: ${record.profile}`);
+  for (const row of presetRows) {
+    const cells = row.split('|').slice(1, -1).map(cell => cell.trim());
+    if (!['required', 'conditional', 'omit', 'existing-authority'].includes(cells[1])) {
+      fail(`project profile ${record.profile} has invalid artifact decision: ${cells[1] || '<missing>'}`);
+    }
+  }
+  const templateRefs = [...profileText.matchAll(/`(templates\/[A-Z_]+\.md)`/g)].map(match => match[1]);
+  if (templateRefs.length === 0) fail(`project profile does not reference an artifact template: ${record.profile}`);
+  for (const templateRef of new Set(templateRefs)) safePath(templateRef, `project profile ${record.id}.template`);
+}
+
+const templateContracts = new Map([
+  ['templates/ROOT_AGENTS.md', '## Repository map'],
+  ['templates/DOC_INDEX.md', '## Current authorities'],
+  ['templates/DEVELOPMENT_START.md', '## Supported environments'],
+  ['templates/ARCHITECTURE_OVERVIEW.md', '## Trust and side-effect boundaries'],
+  ['templates/MODULE_CONTRACT.md', '## Public surface and entrypoints'],
+  ['templates/VERIFICATION_MATRIX.md', '## Command authorities'],
+  ['templates/USER_USAGE.md', '## Supported workflows'],
+  ['templates/OPERATOR_RUNBOOK.md', '## Change and rollback plan'],
+  ['templates/FIELD_EVALUATION.md', '## Traceability'],
+  ['templates/ADR.md', '## Validation and reversal'],
+  ['templates/SUBAGENT_ASSIGNMENT.md', 'Authority/contract:'],
+]);
+for (const [templatePath, contractMarker] of templateContracts) {
+  safePath(templatePath, `artifact template ${templatePath}`);
+  if (!fs.readFileSync(path.join(packageRoot, templatePath), 'utf8').includes(contractMarker)) {
+    fail(`artifact template ${templatePath} is missing contract marker: ${contractMarker}`);
+  }
+}
+for (const obsolete of ['profiles/LIBRARY_AND_CLI_PROJECT.md', 'profiles/APPLICATION_SERVICE_MONOREPO.md']) {
+  if (fs.existsSync(path.join(packageRoot, obsolete))) fail(`obsolete combined profile remains: ${obsolete}`);
 }
 
 const remoteFile = path.join(packageRoot, 'PACKAGE_REMOTE.json');

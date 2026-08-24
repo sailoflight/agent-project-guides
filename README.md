@@ -16,7 +16,7 @@ DeepSeek Harness 按 `.git` 根到 cwd 的路径链自动加载精确命名的 `
 2. 用户/父 agent 已给 plane/role/mode 时，在任何 pwd/list/glob/read 前，对 `routing/*.roles.jsonl` content-grep exact quoted `id` 或 literal alias；直接使用唯一记录。禁止模糊正则、发现式搜索和重新判断 plane/role。
 3. 未指定时只读 `routing/planes.jsonl` 的两行；Production/Development 不明确时调用可用的结构化问答工具（DSH 为 `ask_user_question`），在收到回答前停止。
 4. 确定 plane 后只搜索对应 registry；role/mode 不明确时使用同一问答工具，并在角色指南前停止。
-5. 适配 trigger 另外从 `routing/project-types.jsonl` 精确 grep 一个主项目类型；不允许通过预读多个 profile 反推类型。未定义或证据实质匹配多个类型时，必须使用结构化问答说明包内没有明确匹配架构，让用户确认最近类型、更新包定义或判定不适用。
+5. 适配 trigger 另外为当前适配 scope 从 `routing/project-types.jsonl` 精确 grep 一个主项目类型；不允许通过预读多个 profile 反推类型。闭合集合为 `mcp`、`library`、`cli`、`service`、`application-ui`、`data-automation`、`monorepo`。未定义或一个不可拆 scope 实质匹配多个类型时，必须使用结构化问答确认最近类型、拆分 scope、更新包定义或判定不适用。
 6. 阻塞性问题不能只在正文列出：使用稳定 question ID、2–4 个互斥选项和每项一行影响；选项会误导时才使用自由文本。没有问答工具时才直接提问。角色指南和适配流程中的“询问用户”都继承此协议。
 7. 只读命中记录的 `guide`、当前 mode 的 `procedure_by_mode` 和一个命中 profile。
 
@@ -60,7 +60,7 @@ routing/project-types.jsonl
 永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.3.2; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.4.0; verified_at=never; scope=repo; reason=not_adapted
 ```
 
 - `pending/stale`：安装器管理。
@@ -155,31 +155,41 @@ node scripts/validate-routing.mjs
 
 ## 精确模板
 
-模板物理拆分，禁止全文枚举：
+模板物理拆分并各自只拥有一个产物职责：
 
-```text
-templates/ROOT_AGENTS.md
-templates/DOC_INDEX.md
-templates/DEVELOPMENT_START.md
-templates/ARCHITECTURE_OVERVIEW.md
-templates/MODULE_CONTRACT.md
-templates/VERIFICATION_MATRIX.md
-templates/USER_USAGE.md
-templates/OPERATOR_RUNBOOK.md
-templates/FIELD_EVALUATION.md
-templates/ADR.md
-templates/SUBAGENT_ASSIGNMENT.md
-```
+| 模板 | 唯一职责 | 不承担 |
+|---|---|---|
+| `ROOT_AGENTS.md` | 自动加载所需的仓库级硬约束和最小项目入口 | 通用角色流程、usage、runbook、动态清单 |
+| `DOC_INDEX.md` | role/task 到一个权威入口 | 实现说明、历史证据正文 |
+| `DEVELOPMENT_START.md` | 可执行开发环境、命令和生成入口 | 架构、产品 usage、生产操作 |
+| `ARCHITECTURE_OVERVIEW.md` | 当前系统、模块、依赖、信任和数据边界 | 历史讨论、部署步骤 |
+| `MODULE_CONTRACT.md` | 一个高价值模块的 owns/does-not-own/invariants/effects | 逐目录复述、全局路由 |
+| `VERIFICATION_MATRIX.md` | 修改范围到检查选择、风险门和结果证据 | 历史测试日志 |
+| `USER_USAGE.md` | 外部消费者可依赖的工作流与稳定契约 | 内部构建和运维恢复 |
+| `OPERATOR_RUNBOOK.md` | 运行态变更、观测、恢复和回滚 | 产品使用和源码修复 |
+| `FIELD_EVALUATION.md` | 带版本/scope 的非生产真实场景证据 | 产品规范和生产 runbook |
+| `ADR.md` | 历史决策原因、取舍和逆转条件 | 当前架构/命令副本 |
+| `SUBAGENT_ASSIGNMENT.md` | 父 agent 显式传递角色、scope 和权限 | 项目持久根规则 |
 
-`procedures/PACKAGE_ADAPTATION.md` 只在即将创建一个产物时点名并读取一个模板；完成该产物后才考虑下一个。禁止批量预读模板或枚举目录。
+适配先根据 profile 把候选产物标为 `required/conditional/omit/existing-authority`，再在即将处理一个产物时点名读取一个模板；完成合并、链接和验证后才考虑下一个。禁止批量预读模板、枚举目录、覆盖更具体的现有权威或为目录完整性创建空文件。
+
+同一动态事实只保留一个 executable/schema authority，其余文档链接或给角色专属短摘要。独立按需加载所需的安全红线、权限边界和权威入口可以有意重复，但不得形成第二份工具、参数、API、schema、版本、package 或命令清单。
 
 ## Profiles
 
-- `profiles/MCP_PROJECT.md`
-- `profiles/LIBRARY_AND_CLI_PROJECT.md`
-- `profiles/APPLICATION_SERVICE_MONOREPO.md`
+项目类型按当前适配 scope 的主要交付契约拆分：
 
-项目类型由 `routing/project-types.jsonl` 固定定义并给出唯一 profile 路径。分类后精确 grep 一条记录，只读取命中 profile；组合或未定义项目不能靠预读多个 profile 猜测，必须请求用户确认最近类型、更新包定义或判定不适用。
+- `mcp` -> `profiles/MCP_PROJECT.md`
+- `library` -> `profiles/LIBRARY_PROJECT.md`
+- `cli` -> `profiles/CLI_PROJECT.md`
+- `service` -> `profiles/SERVICE_PROJECT.md`
+- `application-ui` -> `profiles/APPLICATION_UI_PROJECT.md`
+- `data-automation` -> `profiles/DATA_AUTOMATION_PROJECT.md`
+- `monorepo` -> `profiles/MONOREPO_PROJECT.md`
+
+每个 profile 统一提供 selection boundary、artifact preset、evidence map、类型专属契约、verification preset 和 cold-start acceptance。`required` 表示必须链接现有权威或合并/创建，`conditional` 只在条件有证据成立时处理，`omit` 不创建空投递面，`existing-authority` 只链接不复制。
+
+类型不是按语言、框架或目录名选择。CLI 包含内部 library、UI 调用 service、MCP 使用共享 package 都可以按当前主要 scope 选择一个类型；monorepo 只用于仓库根组合治理，后续 package-scoped pass 再为单个 package 精确选择一个非 monorepo 类型。分类后只读取命中 profile；不可拆的实质混合 scope 通过结构化问答选择最近类型、拆分 scope、更新定义或判定不适用。
 
 ## 包结构
 
@@ -208,8 +218,8 @@ agent-project-guides/
 - 永久 routing template：不超过 2,000 bytes
 - 临时 trigger：不超过 3,000 bytes
 - plane 和 role JSONL 合计：不超过 2,200 bytes
-- project type JSONL：不超过 700 bytes
+- project type JSONL：不超过 1,200 bytes
 - Developer guide：不超过 4,000 bytes
-- Package adaptation procedure：不超过 7,500 bytes
+- Package adaptation procedure：不超过 10,500 bytes
 
 README 是人类权威说明，不自动加载，不为 token 目标牺牲完整性。

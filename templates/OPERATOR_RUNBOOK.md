@@ -1,35 +1,60 @@
-# 运维 runbook 模板
+# Operator runbook template
 
-目标位置：`<project>/docs/operations/<runbook>.md`。只有存在部署或长期运行态时创建。
+Target: `<project>/docs/operations/<runbook>.md`. Create only for a deployed, scheduled, installed, or long-running system with real operator duties.
 
 ```markdown
-# <System> runbook
+# <System/environment> runbook
 
 Audience: operator
+Scope: <environment/service/component>
+Authority/version: <deployment/config source and supported range>
 
 ## Preconditions and access
 
-<环境、权限、秘密来源和安全边界。>
+| Requirement | Source | Minimum permission | Validation |
+|---|---|---|---|
+| <identity/tool/secret/backup> | <secure source> | <permission> | `<read-only check>` |
 
-## Deploy/start/stop
+## Runtime topology and health baseline
 
-<可执行步骤和成功信号。>
+<Units, dependencies, data stores, expected version, health, traffic, and alert baseline.>
 
-## Configuration
+## Deploy, start, stop, or change
 
-<配置来源、优先级、秘密和重载行为。>
+1. <Read-only precheck and impact window.>
+2. <Backup/rollback point.>
+3. <Bounded action with success signal.>
+4. <Post-change health and user/data validation.>
 
-## Health and observability
+## Configuration and secrets
 
-<健康检查、日志、指标和告警。>
+| Setting class | Authority/precedence | Reload/restart | Secret rule |
+|---|---|---|---|
+| <setting> | <source> | <behavior> | <handling> |
 
-## Recovery and rollback
+## Observe and diagnose
 
-<故障诊断顺序、回滚和数据保护。>
+| Signal/symptom | Query/check | Healthy threshold | Next section |
+|---|---|---|---|
+| <health/log/metric/alert> | `<check>` | <baseline> | <incident/recovery> |
 
-## Destructive actions
+## Incident and stop conditions
 
-<确认、备份、审批和停止条件。>
+<Triage order, communication/evidence, hard stop thresholds, and Development handoff for code defects.>
+
+## Backup, recovery, and data validation
+
+<Recovery point, restore order, integrity checks, and accepted data-loss boundary.>
+
+## Change and rollback plan
+
+| Trigger | Rollback action | Verify restored state | Irreversible boundary |
+|---|---|---|---|
+| <condition> | `<procedure>` | `<check>` | <boundary> |
+
+## Operation record and cleanup
+
+<Time, actor/approval, commands/actions, versions, output/effects, temporary permissions, and remaining risk.>
 ```
 
-初始化或维护 agent 只负责在项目需要时创建并验证该文档；日常开发 agent 和产品消费者不应预读它。
+Never embed secrets or unverified production commands. Adaptation may author and sandbox-check a runbook but does not grant production authorization.

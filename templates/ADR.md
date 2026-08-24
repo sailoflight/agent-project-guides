@@ -1,28 +1,47 @@
-# ADR 模板
+# ADR template
 
-目标位置：`<project>/docs/decisions/NNNN-<decision>.md`
+Target: `<project>/docs/decisions/NNNN-<decision>.md`. Use for a consequential architecture or compatibility choice whose rationale will matter later, not for routine implementation notes.
 
 ```markdown
 # NNNN: <Decision>
 
-Status: proposed | accepted | superseded
-Date: <date>
+Status: proposed | accepted | superseded | rejected
+Date: <YYYY-MM-DD>
+Scope: <modules/contracts/environments>
+Deciders/owner: <role or team, no secret identity data>
+Supersedes: <ADR or none>
+Superseded by: <ADR or none>
 
-## Context
+## Context and evidence
 
-<当时的问题和约束。>
+<Problem at decision time, verified facts, uncertainties, and evidence links.>
+
+## Constraints and decision drivers
+
+- <Compatibility, safety, cost, performance, schedule, or operational driver>.
 
 ## Decision
 
-<作出的选择。>
+<Chosen direction and boundaries.>
+
+## Alternatives considered
+
+| Alternative | Benefit | Rejection/tradeoff reason |
+|---|---|---|
+| <option> | <benefit> | <reason at decision time> |
 
 ## Consequences
 
-<收益、代价和后续约束。>
+- Positive: <outcome>.
+- Negative/risk: <cost and mitigation>.
 
-## Alternatives
+## Validation and reversal
 
-<被考虑但未采用的方案。>
+<How the decision is validated, signals that require review, and migration/reversal path.>
+
+## Follow-up
+
+- <Owner, action, and tracked location>.
 ```
 
-ADR 解释历史选择，不承担当前操作步骤；当前边界仍由 architecture/modules 描述。
+ADR owns historical rationale. Current boundaries, commands, and runbooks must be updated in their own authorities and only link back here.
