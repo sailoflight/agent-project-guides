@@ -8,6 +8,8 @@
 
 目标位置：`<project>/AGENTS.md`
 
+这是兼容 harness 在首轮前自动加载的机械入口，不是 README 的重复摘要。若当前根文件是本包安装的 handoff，使用此模板重写同一个文件；先合并 `AGENTS_origin.md` 中仍适用的项目约束，再删除 `handoff`/`origin-mirror` 标记。自动合并不得删除唯一的精确备份；应报告其位置供人工复核。不要保留“再去读取完整治理包”的永久跳转。
+
 ```markdown
 # Repository agent instructions
 
@@ -18,8 +20,8 @@
 ## Mandatory routing
 
 1. 将任务分类为：<本项目实际存在的任务类型>。
-2. 先读 `docs/INDEX.md` 中对应入口。
-3. 再读一个相关模块契约和命中的实现/测试。
+2. 服从 harness 已按路径注入的最近目录级 `AGENTS.md` 局部覆盖。
+3. 再读 `docs/INDEX.md` 中对应入口、一个相关模块契约和命中的实现/测试。
 4. 只有局部证据不足时才扩大到完整架构、ADR、经验或原始资料。
 5. 收集证据后再计划、修改和验证。
 
@@ -53,7 +55,8 @@
 
 - 小项目可以缩短分类和优先级，但不能删除风险、验证和证据顺序。
 - MCP 消费说明、完整 API 表、部署教程和 roadmap 不得放入此文件。
-- 目录级 `AGENTS.md` 只增加局部覆盖。
+- 目录级 `AGENTS.md` 只增加必须在进入目录时生效的局部覆盖，并链接详细模块契约；不得重复根规则。
+- 最终根入口不得保留本包的 `manual-merge`/`handoff`/`origin-mirror` 标记；自动 handoff 留下的 `AGENTS_origin.md` 必须保持未修改并报告供人工复核。
 
 ## 2. `docs/INDEX.md` 模板
 
@@ -247,6 +250,21 @@ Status: verified | inferred | mixed
 
 - <未确认内容及需要的证据>
 ```
+
+只有以下信息必须在 agent 第一次触碰模块文件时生效，才同时创建 `<project>/<module>/AGENTS.md`：
+
+```markdown
+# <Module> local agent instructions
+
+- Scope: this directory and descendants only.
+- Read the authoritative contract: `docs/modules/<module>.md`.
+- Must: <进入模块前必须执行的局部红线>。
+- Must not: <禁止依赖、写入或副作用>。
+- Ownership: <局部数据、配置、生成物所有权摘要>。
+- Verify: `<最小必须验证命令或 MATRIX 精确入口>`。
+```
+
+局部入口依靠 harness 的目录链注入，不要求根入口提前读取。只保留立即可执行的差异；详细职责、证据、动态接口和解释继续放在模块契约或代码权威来源，避免双份漂移。
 
 ## 6. `docs/verification/MATRIX.md` 模板
 
