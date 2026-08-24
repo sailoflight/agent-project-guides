@@ -1,13 +1,13 @@
 <!-- agent-project-guides:adapter-trigger:start -->
 ## Required package adaptation
 
-This trigger overrides ordinary routing and selects Development adaptation. Trigger revision: {{PACKAGE_REVISION}}.
+This overrides ordinary routing for Development adaptation. Trigger revision: {{PACKAGE_REVISION}}. Source: {{PACKAGE_REPOSITORY}}.
 
-0. Compare managed state with `{{GUIDES_PATH}}/PACKAGE_VERSION`. On mismatch run `{{GUIDES_PATH}}/scripts/install.sh trigger --target <project-root>` and re-read this block. If already `adapted`, run `remove-trigger` and continue the original task; if `partial`, resume only its unverified scope/reason.
-1. From low-cost evidence choose one mode: new/effectively empty -> Developer/`initialize`; existing -> Maintainer/`readapt`. If unclear, use the root routing's structured question tool and wait before role guides.
-2. Search that role in `{{GUIDES_PATH}}/routing/development.roles.jsonl`; read only its `guide`, selected `procedure_by_mode`, matching profiles, and exact template files.
-3. Apply the procedure without replacing, renaming, or weakening existing root instructions.
-4. After full verification run `set-state --status adapted --verified-at <UTC> --scope <scope> --reason none`, then `remove-trigger`. Re-read root `{{ROOT_INSTRUCTIONS}}` and route the original task again.
-
-If unsafe to complete, record `blocked` with `verified_at=never`, attempted scope, and a non-secret reason code. Keep this trigger; use the structured question tool for retry/narrow/skip/remove and never loop without an answer.
+0. Do not re-read the already injected root unless this block changes. Before any package read, verify `{{GUIDES_PATH}}/{PACKAGE_VERSION,PACKAGE_REMOTE.json,scripts/install.sh,routing/development.roles.jsonl,routing/project-types.jsonl}`. If missing, use the structured question tool with stable id `package_missing`: restore the vendored package from Source, remove managed blocks, or stop; give impacts and wait. Never treat absence as current.
+1. Compare this revision with local `PACKAGE_VERSION`; on mismatch run `{{GUIDES_PATH}}/scripts/install.sh trigger --target <project-root>` and re-read root. Then run `{{GUIDES_PATH}}/scripts/install.sh check-update --target <project-root>` and inspect its JSON. Continue automatically only for `status=current`. For `remote_differs` or `unavailable`, ask `package_freshness`: sync/retry, explicitly continue with the stated local revision, or stop; wait. The check is read-only. Then honor managed state: `adapted` -> remove-trigger and route the original task; `partial` -> resume only recorded scope/reason; `blocked` -> ask retry/narrow/skip/remove and wait.
+2. Choose one mode from bounded evidence: new/effectively empty -> Developer/`initialize`; existing -> Maintainer/`readapt`. Explicit user role/mode wins when compatible; ambiguity uses the root question protocol.
+3. Never Read/cat a registry. Exact grep one complete record only: `"id":"developer"` or `"id":"maintainer"` in `{{GUIDES_PATH}}/routing/development.roles.jsonl`; do not read `planes.jsonl` in this trigger. Read only that record's `guide` and mode procedure.
+4. Classify exactly one primary type: `mcp`, `library-cli`, or `application-service-monorepo`. Exact grep its `id` in `{{GUIDES_PATH}}/routing/project-types.jsonl`, then read only its `profile`. If none is exact, or evidence materially matches multiple IDs, ask `project_type`: confirm one closest type, update the package with a defined type, or declare the package inapplicable; state that no explicit package architecture matches and wait. Never compare by reading multiple profiles.
+5. Use one bounded root inventory, then targeted build/entry/test/CI/doc evidence; avoid repeated listings and whole-tree scans. Read one exact template immediately before creating one artifact, finish it, then consider another; never preload templates.
+6. Preserve existing root rules. After verification set `adapted` with UTC/scope/reason, then `remove-trigger`; re-read `{{ROOT_INSTRUCTIONS}}` and route the original task. On unsafe completion set `blocked` and retain the trigger.
 <!-- agent-project-guides:adapter-trigger:end -->

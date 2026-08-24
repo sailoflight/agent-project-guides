@@ -8,6 +8,7 @@ const files = {
   planes: 'routing/planes.jsonl',
   production: 'routing/production.roles.jsonl',
   development: 'routing/development.roles.jsonl',
+  projectTypes: 'routing/project-types.jsonl',
 };
 
 function fail(message) {
@@ -43,6 +44,7 @@ function readJsonl(relativePath) {
 const planes = readJsonl(files.planes);
 const production = readJsonl(files.production);
 const development = readJsonl(files.development);
+const projectTypes = readJsonl(files.projectTypes);
 
 const expectedPlanes = new Map([['production', files.production], ['development', files.development]]);
 if (planes.length !== expectedPlanes.size) fail('planes registry must contain exactly production and development');
@@ -74,4 +76,30 @@ for (const [plane, records] of [['production', production], ['development', deve
 }
 if (seen.size !== expectedRoles.size) fail(`missing role ids: ${[...expectedRoles].filter(id => !seen.has(id)).join(', ')}`);
 
-console.log('Routing JSONL is valid.');
+const expectedProjectTypes = new Set(['mcp', 'library-cli', 'application-service-monorepo']);
+if (projectTypes.length !== expectedProjectTypes.size) fail('project-types registry must contain exactly the supported project types');
+const seenProjectTypes = new Set();
+for (const record of projectTypes) {
+  if (!expectedProjectTypes.has(record.id) || seenProjectTypes.has(record.id)) fail(`invalid or duplicate project type id: ${record.id}`);
+  if (typeof record.when !== 'string' || typeof record.profile !== 'string' || !record.profile.startsWith('profiles/')) {
+    fail(`invalid project type record: ${JSON.stringify(record)}`);
+  }
+  safePath(record.profile, `project type ${record.id}.profile`);
+  seenProjectTypes.add(record.id);
+}
+
+const remoteFile = path.join(packageRoot, 'PACKAGE_REMOTE.json');
+let remote;
+try {
+  remote = JSON.parse(fs.readFileSync(remoteFile, 'utf8'));
+} catch (error) {
+  fail(`invalid PACKAGE_REMOTE.json: ${error.message}`);
+}
+if (!remote || Array.isArray(remote) || typeof remote !== 'object' ||
+    typeof remote.repository !== 'string' || !remote.repository.startsWith('https://github.com/') ||
+    typeof remote.api_path !== 'string' || !remote.api_path.startsWith('repos/') || remote.api_path.includes('..') ||
+    typeof remote.version_url !== 'string' || !remote.version_url.startsWith('https://raw.githubusercontent.com/')) {
+  fail('PACKAGE_REMOTE.json must contain trusted repository and version_url fields');
+}
+
+console.log('Routing JSONL and package remote metadata are valid.');

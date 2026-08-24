@@ -16,8 +16,9 @@ DeepSeek Harness 按 `.git` 根到 cwd 的路径链自动加载精确命名的 `
 2. 用户/父 agent 已给 plane/role/mode 时，在 `routing/*.roles.jsonl` 精确 grep `id`，直接读命中记录。
 3. 未指定时只读 `routing/planes.jsonl` 的两行；Production/Development 不明确时调用可用的结构化问答工具（DSH 为 `ask_user_question`），在收到回答前停止。
 4. 确定 plane 后只搜索对应 registry；role/mode 不明确时使用同一问答工具，并在角色指南前停止。
-5. 阻塞性问题不能只在正文列出：使用稳定 question ID、2–4 个互斥选项和每项一行影响；选项会误导时才使用自由文本。没有问答工具时才直接提问。角色指南和适配流程中的“询问用户”都继承此协议。
-6. 只读命中记录的 `guide` 和当前 mode 的 `procedure_by_mode`。
+5. 适配 trigger 另外从 `routing/project-types.jsonl` 精确 grep 一个主项目类型；不允许通过预读多个 profile 反推类型。未定义或证据实质匹配多个类型时，必须使用结构化问答说明包内没有明确匹配架构，让用户确认最近类型、更新包定义或判定不适用。
+6. 阻塞性问题不能只在正文列出：使用稳定 question ID、2–4 个互斥选项和每项一行影响；选项会误导时才使用自由文本。没有问答工具时才直接提问。角色指南和适配流程中的“询问用户”都继承此协议。
+7. 只读命中记录的 `guide`、当前 mode 的 `procedure_by_mode` 和一个命中 profile。
 
 注册表：
 
@@ -25,9 +26,10 @@ DeepSeek Harness 按 `.git` 根到 cwd 的路径链自动加载精确命名的 `
 routing/planes.jsonl
 routing/production.roles.jsonl
 routing/development.roles.jsonl
+routing/project-types.jsonl
 ```
 
-每行都是完整 JSON object，适合 `grep -F '"id":"maintainer"'`；不要全文读取普通 pretty JSON。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID、plane、mode 和包内路径。
+每行都是完整 JSON object，适合 `grep -F '"id":"maintainer"'`；明确 role 时禁止 Read/cat 整个 registry，也不读取 plane registry。`scripts/validate-routing.mjs` 使用 JSON parser 校验语法、唯一 ID、plane、role、project type、mode、profile 和包内路径。
 
 ## Plane、角色和子模式
 
@@ -58,7 +60,7 @@ routing/development.roles.jsonl
 永久根 block 包含：
 
 ```text
-Package adaptation: status=pending; package_revision=1.2.0; verified_at=never; scope=repo; reason=not_adapted
+Package adaptation: status=pending; package_revision=1.3.0; verified_at=never; scope=repo; reason=not_adapted
 ```
 
 - `pending/stale`：安装器管理。
@@ -67,6 +69,16 @@ Package adaptation: status=pending; package_revision=1.2.0; verified_at=never; s
 - `partial/blocked`：精确范围和非敏感 reason code。
 
 时间不能替代适配证据。
+
+## 云端新鲜度与缺包
+
+`PACKAGE_REMOTE.json` 固定受信 GitHub 仓库、Contents API path 和远端 `PACKAGE_VERSION` URL。`scripts/install.sh check-update` 通过 Node 做一次只读探测并输出 JSON。private 仓库依次使用 `GH_TOKEN/GITHUB_TOKEN`、已登录的 `gh api`，最后才尝试匿名 raw URL；无可用凭据时明确返回 `unavailable`，不伪装成最新版：
+
+- `current`：本地与云端 revision 相同，可以继续。
+- `remote_differs`：云端 revision 不同；必须通过结构化问答选择同步包、明确继续所报告的本地版本或停止。
+- `unavailable`：网络、HTTP 或元数据校验失败；不得误报 current，必须选择重试、明确离线继续或停止。
+
+命令不修改包、根指令或状态。trigger 在读取任何包指南前检查本地关键文件；缺失时使用 `package_missing` 问题，让用户选择从 trigger 中渲染的 Source 恢复 vendored 包、移除 managed blocks 或停止。不存在的包绝不能被当作已是最新版。
 
 ## 安装位置
 
@@ -86,7 +98,7 @@ Package adaptation: status=pending; package_revision=1.2.0; verified_at=never; s
 
 脚本保留所选根指令文件的原始字节前缀，只在末尾追加渲染后的永久 routing/state；不调用 LLM、不追加 trigger、不创建或改名 `AGENTS_origin.md`。
 
-客户随后显式指定：
+客户随后显式指定；执行适配的 agent 仍先运行 `check-update`：
 
 ```text
 新项目：Development / Developer / initialize
@@ -101,7 +113,7 @@ Package adaptation: status=pending; package_revision=1.2.0; verified_at=never; s
 ./agent-project-guides/scripts/install.sh trigger
 ```
 
-脚本先确保永久路由存在，再在同一个所选根指令文件末尾追加 `bootstrap/AGENTS.adapter-trigger.md`。下一个 agent 判断 initialize/readapt，完成后更新 `adapted` 并运行 `remove-trigger`；只删除 trigger，原项目内容和永久路由保留。
+脚本先确保永久路由存在，再在同一个所选根指令文件末尾追加 `bootstrap/AGENTS.adapter-trigger.md`。下一个 agent 先验证本地包并对比云端 revision，再判断 initialize/readapt 和一个固定项目类型；完成后更新 `adapted` 并运行 `remove-trigger`。只删除 trigger，原项目内容和永久路由保留。
 
 中断恢复：
 
@@ -115,6 +127,7 @@ Package adaptation: status=pending; package_revision=1.2.0; verified_at=never; s
 scripts/install.sh merge
 scripts/install.sh trigger
 scripts/install.sh check
+scripts/install.sh check-update
 scripts/install.sh set-state --status adapted --verified-at <UTC> --scope repo --reason none
 scripts/install.sh remove-trigger
 scripts/install.sh unmerge
@@ -130,7 +143,8 @@ node scripts/validate-routing.mjs
 - 旧 root-replacement handoff marker 必须先按旧版本恢复。
 - 同版本 `merge/trigger` 幂等；版本变化刷新 routing 并标记 `stale`。
 - `remove-trigger` 只接受 `adapted`；`unmerge` 要求 trigger 已删除。
-- 测试强制 routing/trigger/JSONL/Developer/适配流程 byte budgets，防止 token 成本回涨。
+- `check-update` 只读云端版本，不自动下载或覆盖；`remote_differs/unavailable` 不能静默继续。
+- 测试强制 routing/trigger/JSONL/Developer/适配流程 byte budgets，并断言精确 grep、单 profile 和逐个模板规则。
 
 运行：
 
@@ -156,7 +170,7 @@ templates/ADR.md
 templates/SUBAGENT_ASSIGNMENT.md
 ```
 
-`procedures/PACKAGE_ADAPTATION.md` 按产物点名一个模板；不能把整个目录加入上下文。
+`procedures/PACKAGE_ADAPTATION.md` 只在即将创建一个产物时点名并读取一个模板；完成该产物后才考虑下一个。禁止批量预读模板或枚举目录。
 
 ## Profiles
 
@@ -164,13 +178,14 @@ templates/SUBAGENT_ASSIGNMENT.md
 - `profiles/LIBRARY_AND_CLI_PROJECT.md`
 - `profiles/APPLICATION_SERVICE_MONOREPO.md`
 
-只读取匹配 profile；组合项目只增加实际形态。
+项目类型由 `routing/project-types.jsonl` 固定定义并给出唯一 profile 路径。分类后精确 grep 一条记录，只读取命中 profile；组合或未定义项目不能靠预读多个 profile 猜测，必须请求用户确认最近类型、更新包定义或判定不适用。
 
 ## 包结构
 
 ```text
 agent-project-guides/
   PACKAGE_VERSION
+  PACKAGE_REMOTE.json
   README.md
   bootstrap/
   routing/
@@ -190,8 +205,9 @@ agent-project-guides/
 当前回归上限：
 
 - 永久 routing template：不超过 1,600 bytes
-- 临时 trigger：不超过 1,600 bytes
-- 三个 JSONL registry 合计：不超过 2,200 bytes
+- 临时 trigger：不超过 2,850 bytes
+- plane 和 role JSONL 合计：不超过 2,200 bytes
+- project type JSONL：不超过 700 bytes
 - Developer guide：不超过 4,000 bytes
 - Package adaptation procedure：不超过 7,000 bytes
 
