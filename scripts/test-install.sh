@@ -85,6 +85,16 @@ maintainer_procedure=$(node -e 'const r=JSON.parse(process.argv[1]); process.std
 [ "$(wc -c < "$ROOT/routing/project-types.jsonl" | tr -d '[:space:]')" -le 1200 ] || fail 'project type registry exceeded token-oriented byte budget'
 project_type_ids=$(node -e 'const fs=require("fs"); const rows=fs.readFileSync(process.argv[1],"utf8").trim().split(/\n/).map(JSON.parse); process.stdout.write(rows.map(r=>r.id).join(","))' "$ROOT/routing/project-types.jsonl")
 [ "$project_type_ids" = 'mcp,library,cli,service,application-ui,data-automation,monorepo' ] || fail 'project type registry is not the exact ordered closed set'
+[ "$(wc -c < "$ROOT/routing/mcp-subtypes.jsonl" | tr -d '[:space:]')" -le 400 ] || fail 'MCP subtype registry exceeded compact byte budget'
+mcp_subtype=$(grep -F '"id":"windows-wsl-bridge"' "$ROOT/routing/mcp-subtypes.jsonl")
+[ "$(printf '%s\n' "$mcp_subtype" | wc -l | tr -d '[:space:]')" -eq 1 ] || fail 'Windows-WSL MCP subtype is not uniquely routable'
+mcp_subtype_spec=$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.write(r.spec)' "$mcp_subtype")
+[ -f "$ROOT/$mcp_subtype_spec" ] || fail 'MCP subtype spec did not resolve from package root'
+assert_contains "$ROOT/$mcp_subtype_spec" '## 4. 双生产角色运行时提示（强制）'
+assert_contains "$ROOT/$mcp_subtype_spec" '不是 MCP 产品简介'
+assert_contains "$ROOT/$mcp_subtype_spec" '无项目 `AGENTS.md` 的外部 cwd/聊天环境'
+assert_contains "$ROOT/profiles/MCP_PROJECT.md" 'runtime production-role prompt'
+assert_contains "$ROOT/profiles/MCP_PROJECT.md" 'tool descriptions alone do not pass'
 assert_not_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'library-cli'
 assert_not_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'application-service-monorepo'
 for profile in MCP_PROJECT LIBRARY_PROJECT CLI_PROJECT SERVICE_PROJECT APPLICATION_UI_PROJECT DATA_AUTOMATION_PROJECT MONOREPO_PROJECT
@@ -132,7 +142,7 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 "$PACKAGE_ONE/scripts/install.sh" merge
 assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.4.0; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.4.1; verified_at=never; scope=repo; reason=not_adapted'
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 assert_contains "$PROJECT_ONE/AGENTS.md" 'Routing/state and `pending/stale` are not triggers'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
@@ -144,14 +154,14 @@ after=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
 
 # Cloud freshness checks are read-only and distinguish current, differing, and unavailable sources.
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
-current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.4.0%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
+current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.4.1%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$current" | grep -Fq '"status":"current"' || fail 'check-update did not report current remote revision'
 different=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,9.9.9%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$different" | grep -Fq '"status":"remote_differs"' || fail 'check-update did not report differing remote revision'
 unavailable=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,not%20a%20revision' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$unavailable" | grep -Fq '"status":"unavailable"' || fail 'check-update did not report invalid remote metadata as unavailable'
 mkdir -p "$TMP/fake-bin"
-printf '#!/bin/sh\nprintf "MS40LjA=\\n"\n' > "$TMP/fake-bin/gh"
+printf '#!/bin/sh\nprintf "MS40LjE=\\n"\n' > "$TMP/fake-bin/gh"
 chmod 0755 "$TMP/fake-bin/gh"
 private=$(PATH="$TMP/fake-bin:$PATH" "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$private" | grep -Fq '"transport":"gh"' || fail 'check-update did not use authenticated gh fallback for a private repository'
@@ -199,12 +209,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.4.0; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.4.1; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.4.0; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.4.1; verified_at=never; scope=repo; reason=missing_owner_decision'
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.4.0; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.4.1; verified_at=never; scope=repo; reason=retry_requested'
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -222,7 +232,7 @@ assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.4.0; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.4.1; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 [ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'
@@ -358,6 +368,12 @@ if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
 fi
 [ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'invalid artifact decision failure created root instructions'
 cp "$ROOT/profiles/MCP_PROJECT.md" "$PACKAGE_FIVE/profiles/MCP_PROJECT.md"
+sed -i 's#profiles/mcp/WINDOWS_WSL_BRIDGE.md#profiles/MCP_PROJECT.md#' "$PACKAGE_FIVE/routing/mcp-subtypes.jsonl"
+if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
+  fail 'installer accepted an invalid MCP subtype spec path'
+fi
+[ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'invalid MCP subtype failure created root instructions'
+cp "$ROOT/routing/mcp-subtypes.jsonl" "$PACKAGE_FIVE/routing/mcp-subtypes.jsonl"
 sed -i 's/"production operator"/"仓库维护者"/' "$PACKAGE_FIVE/routing/production.roles.jsonl"
 if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
   fail 'installer accepted an ambiguous cross-plane role alias'
@@ -370,4 +386,4 @@ if "$PACKAGE_FIVE/scripts/install.sh" merge >/dev/null 2>&1; then
 fi
 [ ! -e "$PROJECT_FIVE/AGENTS.md" ] || fail 'invalid remote metadata failure created root instructions'
 
-printf 'PASS: append-only schemes, exact routing, project profiles, artifact presets, cloud freshness, state lifecycle, and safety guards\n'
+printf 'PASS: append-only schemes, exact routing, project profiles, MCP subtypes, artifact presets, cloud freshness, state lifecycle, and safety guards\n'
