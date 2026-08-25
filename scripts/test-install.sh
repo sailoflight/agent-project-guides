@@ -93,8 +93,12 @@ mcp_subtype_spec=$(node -e 'const r=JSON.parse(process.argv[1]); process.stdout.
 assert_contains "$ROOT/$mcp_subtype_spec" '## 4. 双生产角色运行时提示（强制）'
 assert_contains "$ROOT/$mcp_subtype_spec" '不是 MCP 产品简介'
 assert_contains "$ROOT/$mcp_subtype_spec" '无项目 `AGENTS.md` 的外部 cwd/聊天环境'
-assert_contains "$ROOT/profiles/MCP_PROJECT.md" 'runtime production-role prompt'
-assert_contains "$ROOT/profiles/MCP_PROJECT.md" 'tool descriptions alone do not pass'
+assert_contains "$ROOT/profiles/MCP_PROJECT.md" 'one bounded canonical runtime prompt'
+assert_contains "$ROOT/profiles/MCP_PROJECT.md" 'Tool descriptions alone do not pass.'
+assert_contains "$ROOT/README.md" '禁止 profile 复述 subtype 章节'
+assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '本文件只拥有适配算法'
+assert_contains "$ROOT/profiles/MCP_PROJECT.md" 'conditional bridge details stay in the selected subtype spec'
+assert_contains "$ROOT/profiles/mcp/WINDOWS_WSL_BRIDGE.md" '本文件独占该拓扑的通用职责'
 assert_not_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'library-cli'
 assert_not_contains "$ROOT/bootstrap/AGENTS.adapter-trigger.md" 'application-service-monorepo'
 for profile in MCP_PROJECT LIBRARY_PROJECT CLI_PROJECT SERVICE_PROJECT APPLICATION_UI_PROJECT DATA_AUTOMATION_PROJECT MONOREPO_PROJECT
@@ -126,7 +130,10 @@ assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '必须与工具轨迹�
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '相对治理包根目录解析'
 assert_contains "$ROOT/procedures/PACKAGE_ADAPTATION.md" '禁止用 glob 猜路径'
 [ "$(wc -c < "$ROOT/roles/development/DEVELOPER.md" | tr -d '[:space:]')" -le 4000 ] || fail 'Developer guide regained initializer duplication'
-[ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 10500 ] || fail 'adaptation procedure exceeded compact budget'
+[ "$(wc -c < "$ROOT/procedures/PACKAGE_ADAPTATION.md" | tr -d '[:space:]')" -le 9500 ] || fail 'adaptation procedure exceeded ownership budget'
+[ "$(wc -c < "$ROOT/profiles/MCP_PROJECT.md" | tr -d '[:space:]')" -le 5500 ] || fail 'MCP profile regained subtype or procedure duplication'
+[ "$(wc -c < "$ROOT/profiles/mcp/WINDOWS_WSL_BRIDGE.md" | tr -d '[:space:]')" -le 8500 ] || fail 'Windows-WSL subtype spec exceeded ownership budget'
+[ "$(wc -c < "$ROOT/README.md" | tr -d '[:space:]')" -le 11000 ] || fail 'README regained procedure or profile duplication'
 if grep -Eq '(^|[[:space:]])(dsh|claude|codex)([[:space:]]|$)' "$ROOT/scripts/install.sh"; then
   fail 'installer appears to invoke an LLM runner'
 fi
@@ -142,7 +149,7 @@ cp "$PROJECT_ONE/AGENTS.md" "$TMP/original-one.md"
 "$PACKAGE_ONE/scripts/install.sh" merge
 assert_original_prefix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 assert_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:routing:start -->'
-assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.4.1; verified_at=never; scope=repo; reason=not_adapted'
+assert_contains "$PROJECT_ONE/AGENTS.md" 'status=pending; package_revision=1.4.2; verified_at=never; scope=repo; reason=not_adapted'
 assert_not_contains "$PROJECT_ONE/AGENTS.md" '<!-- agent-project-guides:adapter-trigger:start -->'
 assert_contains "$PROJECT_ONE/AGENTS.md" 'Routing/state and `pending/stale` are not triggers'
 [ ! -e "$PROJECT_ONE/AGENTS_origin.md" ] || fail 'scheme 1 renamed or backed up original AGENTS.md'
@@ -154,14 +161,14 @@ after=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
 
 # Cloud freshness checks are read-only and distinguish current, differing, and unavailable sources.
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
-current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.4.1%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
+current=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,1.4.2%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$current" | grep -Fq '"status":"current"' || fail 'check-update did not report current remote revision'
 different=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,9.9.9%0A' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$different" | grep -Fq '"status":"remote_differs"' || fail 'check-update did not report differing remote revision'
 unavailable=$(AGENT_PROJECT_GUIDES_VERSION_URL='data:text/plain,not%20a%20revision' "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$unavailable" | grep -Fq '"status":"unavailable"' || fail 'check-update did not report invalid remote metadata as unavailable'
 mkdir -p "$TMP/fake-bin"
-printf '#!/bin/sh\nprintf "MS40LjE=\\n"\n' > "$TMP/fake-bin/gh"
+printf '#!/bin/sh\nprintf "MS40LjI=\\n"\n' > "$TMP/fake-bin/gh"
 chmod 0755 "$TMP/fake-bin/gh"
 private=$(PATH="$TMP/fake-bin:$PATH" "$PACKAGE_ONE/scripts/install.sh" check-update)
 printf '%s\n' "$private" | grep -Fq '"transport":"gh"' || fail 'check-update did not use authenticated gh fallback for a private repository'
@@ -209,12 +216,12 @@ after=$(sha256sum "$PROJECT_TWO/AGENTS.md" | cut -d' ' -f1)
 # A partial result requires verified scope/time and a reason; blocked runs require explicit retry.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status partial --verified-at 2026-08-24T11:30:00Z --scope docs/api --reason remaining_modules >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" check
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.4.1; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=partial; package_revision=1.4.2; verified_at=2026-08-24T11:30:00Z; scope=docs/api; reason=remaining_modules'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status blocked --verified-at never --scope repo --reason missing_owner_decision
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.4.1; verified_at=never; scope=repo; reason=missing_owner_decision'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=blocked; package_revision=1.4.2; verified_at=never; scope=repo; reason=missing_owner_decision'
 "$PACKAGE_TWO/scripts/install.sh" check
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.4.1; verified_at=never; scope=repo; reason=retry_requested'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=pending; package_revision=1.4.2; verified_at=never; scope=repo; reason=retry_requested'
 
 # Crash recovery: adapted state may coexist briefly with the trigger, then cleanup removes only the trigger.
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T12:00:00Z --scope repo --reason none
@@ -232,7 +239,7 @@ assert_original_prefix "$TMP/original-two.md" "$PROJECT_TWO/AGENTS.md"
 
 # Explicit later trigger marks an adapted project stale for re-adaptation.
 "$PACKAGE_TWO/scripts/install.sh" trigger >/dev/null
-assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.4.1; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
+assert_contains "$PROJECT_TWO/AGENTS.md" 'status=stale; package_revision=1.4.2; verified_at=2026-08-24T12:00:00Z; scope=repo; reason=explicit_readaptation'
 "$PACKAGE_TWO/scripts/install.sh" set-state --status adapted --verified-at 2026-08-24T13:00:00Z --scope repo --reason none >/dev/null
 "$PACKAGE_TWO/scripts/install.sh" remove-trigger >/dev/null
 [ "$(tail -n 1 "$PROJECT_TWO/AGENTS.md")" = '<!-- agent-project-guides:routing:end -->' ] || fail 'repeated trigger cycle accumulated trailing blank lines'
