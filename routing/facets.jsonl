@@ -1,0 +1,8 @@
+{"id":"mcp","risk":"R1","effects":[],"profile":"profiles/MCP_PROJECT.md"}
+{"id":"library","risk":"R1","effects":[],"profile":"profiles/LIBRARY_PROJECT.md"}
+{"id":"cli","risk":"R1","effects":[],"profile":"profiles/CLI_PROJECT.md"}
+{"id":"service","risk":"R1","effects":[],"profile":"profiles/SERVICE_PROJECT.md"}
+{"id":"application-ui","risk":"R1","effects":[],"profile":"profiles/APPLICATION_UI_PROJECT.md"}
+{"id":"data-automation","risk":"R1","effects":[],"profile":"profiles/DATA_AUTOMATION_PROJECT.md"}
+{"id":"content-package","risk":"R1","effects":[],"profile":"profiles/CONTENT_PACKAGE.md"}
+{"id":"monorepo-composition","risk":"R1","effects":[],"profile":"profiles/MONOREPO_PROJECT.md"}

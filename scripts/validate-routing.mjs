@@ -2,6 +2,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { buildCatalog } from '../lib/catalog.mjs';
+import { validateContextRoutes } from '../lib/context-routes.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const files = {
@@ -10,6 +12,9 @@ const files = {
   development: 'routing/development.roles.jsonl',
   projectTypes: 'routing/project-types.jsonl',
   mcpSubtypes: 'routing/mcp-subtypes.jsonl',
+  facets: 'routing/facets.jsonl',
+  overlays: 'routing/domain-overlays.jsonl',
+  effects: 'routing/protected-effects.jsonl',
 };
 
 function fail(message) {
@@ -47,6 +52,9 @@ const production = readJsonl(files.production);
 const development = readJsonl(files.development);
 const projectTypes = readJsonl(files.projectTypes);
 const mcpSubtypes = readJsonl(files.mcpSubtypes);
+const facets = readJsonl(files.facets);
+const overlays = readJsonl(files.overlays);
+const effects = readJsonl(files.effects);
 
 const expectedPlanes = new Map([['production', files.production], ['development', files.development]]);
 if (planes.length !== expectedPlanes.size) fail('planes registry must contain exactly production and development');
@@ -57,7 +65,7 @@ for (const record of planes) {
   safePath(record.roles, `plane ${record.id}.roles`);
 }
 
-const expectedRoles = new Set(['user', 'operator', 'developer', 'maintainer', 'reviewer', 'field-evaluator']);
+const expectedRoles = new Set(['user', 'operator', 'developer', 'maintainer', 'reviewer', 'verifier', 'field-evaluator']);
 const seen = new Set();
 const roleLabels = new Map();
 for (const [plane, records] of [['production', production], ['development', development]]) {
@@ -111,6 +119,59 @@ for (const record of projectTypes) {
   seenProfiles.add(record.profile);
 }
 
+const expectedFacets = new Map([
+  ['mcp', 'profiles/MCP_PROJECT.md'],
+  ['library', 'profiles/LIBRARY_PROJECT.md'],
+  ['cli', 'profiles/CLI_PROJECT.md'],
+  ['service', 'profiles/SERVICE_PROJECT.md'],
+  ['application-ui', 'profiles/APPLICATION_UI_PROJECT.md'],
+  ['data-automation', 'profiles/DATA_AUTOMATION_PROJECT.md'],
+  ['content-package', 'profiles/CONTENT_PACKAGE.md'],
+  ['monorepo-composition', 'profiles/MONOREPO_PROJECT.md'],
+]);
+if (facets.length !== expectedFacets.size) fail('facets registry must contain the exact portable facet set');
+const facetIds = new Set();
+for (const record of facets) {
+  if (!expectedFacets.has(record.id) || facetIds.has(record.id) || record.profile !== expectedFacets.get(record.id) || !['R0', 'R1', 'R2', 'R3'].includes(record.risk) || !Array.isArray(record.effects)) {
+    fail(`invalid facet record: ${JSON.stringify(record)}`);
+  }
+  safePath(record.profile, `facet ${record.id}.profile`);
+  facetIds.add(record.id);
+}
+
+const expectedOverlays = new Map([
+  ['mechanical-modeling', 'profiles/overlays/MECHANICAL_MODELING.md'],
+  ['agent-governance', 'profiles/overlays/AGENT_GOVERNANCE.md'],
+  ['research-reproducibility', 'profiles/overlays/RESEARCH_REPRODUCIBILITY.md'],
+]);
+if (overlays.length !== expectedOverlays.size) fail('domain overlay registry must contain the exact 2.0 overlay set');
+const overlayIds = new Set();
+for (const record of overlays) {
+  if (!expectedOverlays.has(record.id) || overlayIds.has(record.id) || record.guide !== expectedOverlays.get(record.id) || !['R0', 'R1', 'R2', 'R3'].includes(record.risk) || !Array.isArray(record.effects)) {
+    fail(`invalid domain overlay record: ${JSON.stringify(record)}`);
+  }
+  safePath(record.guide, `overlay ${record.id}.guide`);
+  overlayIds.add(record.id);
+}
+
+const catalog = buildCatalog(packageRoot);
+try {
+  validateContextRoutes(packageRoot, catalog);
+} catch (error) {
+  fail(error.message);
+}
+
+const effectIds = new Set();
+for (const record of effects) {
+  if (typeof record.id !== 'string' || effectIds.has(record.id) || !['R2', 'R3'].includes(record.tier) || typeof record.description !== 'string' || !record.description) {
+    fail(`invalid protected effect record: ${JSON.stringify(record)}`);
+  }
+  effectIds.add(record.id);
+}
+for (const record of [...facets, ...overlays]) {
+  for (const effect of record.effects) if (!effectIds.has(effect)) fail(`${record.id} references unknown protected effect: ${effect}`);
+}
+
 if (mcpSubtypes.length !== 1) fail('MCP subtype registry must contain exactly the supported subtype');
 const mcpSubtype = mcpSubtypes[0];
 if (mcpSubtype.id !== 'windows-wsl-bridge' || typeof mcpSubtype.when !== 'string' || !mcpSubtype.when.trim() ||
@@ -136,7 +197,7 @@ const profileHeadings = [
   '## 5. Verification preset',
   '## 6. Cold-start acceptance',
 ];
-for (const record of projectTypes) {
+for (const record of [...projectTypes, { id: 'content-package', profile: 'profiles/CONTENT_PACKAGE.md' }]) {
   const profileText = fs.readFileSync(path.join(packageRoot, record.profile), 'utf8');
   for (const heading of profileHeadings) {
     if (!profileText.includes(heading)) fail(`project profile ${record.profile} is missing contract heading: ${heading}`);

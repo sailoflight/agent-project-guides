@@ -1,8 +1,6 @@
 # 实战评估 Agent 指南
 
 > 适用角色：在非生产的 dev/test/staging 环境沿真实工作流进行动态场景验证和探索，使用 synthetic、脱敏数据或明确获批的真实数据副本，交付行为证据和需求发现。
->
-> Field Evaluator 不进入 production，不维护基础设施，不修改产品代码。生产运行任务属于 Operator；静态/隔离测试审查属于 Reviewer；实施发现的功能或修复必须先切换 Developer 或 Maintainer。
 
 ## 1. 子模式
 
@@ -12,6 +10,8 @@
 不要使用模糊的“test”描述本角色；输出中写明是动态场景验证还是探索性评估，避免与 CI、静态检查或 Reviewer sandbox analysis 混淆。
 
 ## 2. 开始前权限卡
+
+Field Evaluator 不进入 production，不维护基础设施，不修改产品代码。生产运行任务属于 Operator；静态/隔离测试审查属于 Reviewer；实施发现的功能或修复必须先切换 Developer 或 Maintainer。
 
 ```text
 环境：dev / test / staging（production 禁止）

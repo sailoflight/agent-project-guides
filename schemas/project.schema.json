@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/sailoflight/agent-project-guides/schemas/project.schema.json",
+  "title": "Agent Project Guides project descriptor",
+  "$defs": {
+    "projectRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\/$)(?![A-Za-z]:)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?(?:/|$))(?!.*//).+$"
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "project_id", "provider", "facets", "protected_effects", "policy", "layout"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "project_id": {"type": "string", "pattern": "^[a-z0-9][a-z0-9._-]{2,127}$"},
+    "provider": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "release", "digest"],
+          "properties": {
+            "mode": {"enum": ["thin-bootstrap", "embedded-local"]},
+            "release": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+            "digest": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["mode", "release", "digest", "source"],
+          "properties": {
+            "mode": {"const": "source-worktree"},
+            "release": {"type": "string", "pattern": "^[A-Za-z0-9._-]+$"},
+            "digest": {"const": "observe"},
+            "source": {"const": "."}
+          }
+        }
+      ]
+    },
+    "facets": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["mcp", "library", "cli", "service", "application-ui", "data-automation", "content-package", "monorepo-composition"]}
+    },
+    "overlays": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"enum": ["mechanical-modeling", "agent-governance", "research-reproducibility"]}
+    },
+    "protected_effects": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["root", "mandatory"],
+      "properties": {
+        "root": {"enum": ["AGENTS.md", "CLAUDE.md"]},
+        "mandatory": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "layout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scratch", "memory"],
+      "properties": {
+        "scratch": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"$ref": "#/$defs/projectRelativePath"}},
+        "memory": {"$ref": "#/$defs/projectRelativePath"}
+      }
+    }
+  }
+}

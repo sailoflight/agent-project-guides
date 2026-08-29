@@ -1,10 +1,10 @@
 # 审查 Agent 指南
 
-> 适用角色：对已有变更、实现、契约、配置或文档进行独立审查，交付 findings、风险和缺失验证；默认不实施修复。
->
-> Reviewer 可执行静态分析和隔离环境动态分析，但不得使用生产环境、真实凭据或未脱敏生产数据。需要真实场景评估时切换 Field Evaluator，需要修复时按问题性质切换 Maintainer 或 Developer。
+> 适用角色：对已有变更、实现、契约、配置或文档进行独立审查，交付 findings、风险和缺失验证。
 
 ## 1. 子模式
+
+Reviewer 默认 report-only，不实施修复。Reviewer 可执行静态分析和隔离环境动态分析，但不得使用生产环境、真实凭据或未脱敏生产数据。需要真实场景评估时切换 Field Evaluator，需要修复时按问题性质切换 Maintainer 或 Developer。
 
 - **Static Review**：审查 diff、源码、契约、依赖、配置和文档。
 - **Sandbox Dynamic Analysis**：在 development/test/sandbox 使用 synthetic、fixture 或 mock 数据运行确定性测试、模拟和复现。
