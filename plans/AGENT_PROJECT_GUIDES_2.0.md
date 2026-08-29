@@ -23,7 +23,7 @@ Version 2.0 must not become a larger collection of always-loaded Markdown or an 
 - `embedded-local` and `thin-bootstrap` implementations of one portable data core, plus package-source-only `source-worktree` self-hosting;
 - no new generic package content staged or committed by package-managed operations in consumer repositories.
 
-Authoritative workspace services, non-DSH client adapters, semantic retrieval, enterprise attestations, and hardened multi-principal controls are later 2.x capabilities. They do not block the `2.0.0` core.
+Non-DSH client adapters, semantic retrieval, enterprise attestations, and hardened multi-principal controls were deferred beyond `2.0.0`. The later project-materialization decision cancels authoritative external storage for project-specific policy/memory; those assets remain in the project.
 
 ## 2. Scope and non-goals
 
@@ -35,11 +35,11 @@ Authoritative workspace services, non-DSH client adapters, semantic retrieval, e
 - `embedded-local` migration, the default `thin-bootstrap` path, and `source-worktree` self-hosting for this package source only.
 - DeepSeek Harness as the only required client adapter.
 
-### 2.2 Later 2.x scope
+### 2.2 Post-2.0 evaluated scope
 
-- Authoritative multi-user workspace service and remote shared-memory control plane.
 - Non-DSH client adapters after each client exposes enough observable behavior for honest conformance reporting.
 - Optional SQLite/semantic retrieval, reusable evidence backends, enterprise attestations, and hardened multi-principal security profiles when pilots demonstrate the need.
+- Shared generic APG distribution/runtime may be centralized, but project-specific policy, memory, and specialization remain project files; no external project-authority workspace is planned.
 
 ### 2.3 Non-goals
 
@@ -207,29 +207,27 @@ Purpose: the governance package source repository uses its own current implement
 - A mutable/dirty source digest cannot satisfy immutable-release, migration-source, cache-reuse, or release-evidence gates.
 - Self-host development exercises the same descriptor, resolver, catalog, risk, memory, and DSH adapter code as consumers; release acceptance still rebuilds and verifies an immutable package.
 
-### 6.4 `workspace-service`
+### 6.4 External workspace authority (cancelled for project-specific content)
 
-Purpose: later 2.x managed teams, remote catalogs, shared experience, and separated storage.
+`2.0.0` kept an authoritative multi-user workspace service as a possible later option but did not implement it. The next-major project-materialization plan cancels that direction for project policy, memory, specialization, and promoted experience: those remain project files. MCP or another remote service may still be a non-authoritative generic catalog/cache or transport adapter, but it cannot become the sole authority for project-specific governance.
 
-In `2.0.0`, MCP or another remote service may be a non-authoritative catalog/cache only. Making it sole authority is deferred until a real multi-user deployment requires and validates branch/revision binding, identity/ACL, CAS, audit, review/promotion, export, recovery, retention/deletion, and offline behavior.
-
-Those controls are not built speculatively under the mutual-trust protocol. When introduced, the service must declare its additional capabilities and preserve or explicitly report loss of the portable core.
+This cancellation does not alter the released `2.0.0` portable provider core; it constrains future development.
 
 ### 6.5 Default recommendation
 
 1. `thin-bootstrap` is the default `2.0.0` collaboration mode.
 2. `embedded-local` is the migration/offline compatibility mode.
 3. `source-worktree` is the package's self-host development mode only.
-4. `workspace-service` authority is a later 2.x feature, not a `2.0.0` release gate.
+4. Future shared infrastructure may serve generic APG content but not authoritative project-specific state.
 
 ## 7. Upload and retention classes
 
 | Class | Default authority | Commit policy | Examples |
 |---|---|---|---|
 | Generic distribution | Package release | forbidden in consumer Git | roles, templates, adapters, schemas, dependencies |
-| Project normative assets | Git in `2.0.0`; later qualified workspace service | reviewed | project policy, structure binding, contracts, current runbooks |
-| Curated project memory | Git in `2.0.0`; later qualified workspace service | reviewed, bounded | stable facts, accepted decisions, reusable knowledge |
-| Curated experience | Git in `2.0.0`; later qualified workspace service | explicit promotion only | generalized lesson, applicability and evidence |
+| Project normative assets | Project Git | reviewed | project policy, structure binding, contracts, current runbooks |
+| Curated project memory | Project Git | reviewed, bounded | stable facts, accepted decisions, reusable knowledge |
+| Curated experience | Project Git | explicit promotion only | generalized lesson, applicability and evidence |
 | Task state | Local/XDG or task service | forbidden by default | objective, queue, hypotheses, handoff |
 | Raw evidence | CI/object/evidence store | forbidden by default | logs, traces, screenshots, reports, model exports |
 | Derived context | Cache | forbidden | index, repo map, embedding, summary, rendered preview |
@@ -622,7 +620,7 @@ An adapter must not turn intended input into a claim about effective model conte
 
 - Existing vendored installs first migrate to `embedded-local` without semantic change.
 - After the portable-core acceptance passes they may move to `thin-bootstrap` by exporting the same project contract and deleting only receipt-owned generic mirror bytes.
-- Import to a later workspace service is opt-in, capability-checked, and requires a portable-core round-trip comparison plus an explicit report for provider-specific fields.
+- Export/import of project-specific policy or memory to an external authoritative workspace is no longer planned; migrations keep those assets in the project.
 
 ### 17.3 Failure fixtures
 
@@ -674,15 +672,16 @@ Exit: routine R0/R1 work creates zero governance files; R2 classification select
 
 Exit: the hard integrity gates in section 21 pass against one exact immutable candidate and the narrowed Definition of Done is satisfied.
 
-### Later 2.x: evidence, retrieval, hardening, workspace, and clients
+### Later work: evidence, retrieval, hardening, and clients
 
 Only measured need may introduce:
 
 - typed evidence/attestation and cross-system result reuse;
 - SQLite/semantic/graph retrieval;
 - signed distribution and enterprise supply-chain evidence;
-- authoritative multi-user workspace service with identity, ACL, CAS, audit, retention, and recovery;
 - non-DSH adapters with honest observation labels.
+
+Shared infrastructure may distribute generic APG content, but project-specific governance remains in the project.
 
 Each addition has its own acceptance boundary and cannot retroactively become a prerequisite for the mutual-trust `2.0.0` workflow.
 
@@ -718,7 +717,7 @@ No pilot repository is modified until its owner approves the migration mode and 
 11. **Anti-bloat:** routine R0/R1 work creates zero governance files; added artifacts and controls name the failure mode they address.
 12. **No LLM in infrastructure:** installer, updater, migrator, validator, catalog generator, and deterministic retrieval do not invoke an LLM.
 
-Enterprise identity, ACL, signed provenance, hostile multi-tenant defense, authoritative workspace service, semantic retrieval, and non-DSH parity are explicitly outside this `2.0.0` corpus. Their later acceptance suites begin only when those capabilities are proposed.
+Enterprise identity, ACL, signed provenance, hostile multi-tenant defense, semantic retrieval, and non-DSH parity are explicitly outside this `2.0.0` corpus. Their later acceptance suites begin only when those capabilities are proposed. External authoritative storage for project-specific governance is not a planned capability.
 
 ## 21. Measures and release gates
 
@@ -750,24 +749,39 @@ Only decisions required by the next vertical slice block that slice.
 
 ADR [`decisions/0001-v2-core-contract.md`](../decisions/0001-v2-core-contract.md) is accepted and owns the descriptor filename/root relationship, canonical hashing, ordinary-clone and linked-worktree identity, XDG/Windows mapping, immutable store format, Provider modes including source self-hosting, monotonic risk composition, clean-clone minimum policy, mutual-trust responsibility boundary, minimal reviewed memory, and migration ownership. ADR [`decisions/0002-budgeted-section-context-routes.md`](../decisions/0002-budgeted-section-context-routes.md) owns section entrypoints, token budgets, lifecycle full-profile routing, and Production context isolation. Runtime schemas and executable acceptance suites enforce those decisions; this roadmap no longer presents them as open choices.
 
-### 22.2 Later 2.x decisions
+### 22.2 Additive `2.x` decisions
+
+`2.0.x` remains measurement and compatibility maintenance. A later `2.x` may add the deterministic `apg context` command only when it preserves every existing descriptor/provider/resolve/load behavior and introduces no new runtime dependency for current projects.
+
+Other independently gated additive candidates remain:
 
 - SQLite/semantic-index activation thresholds and token benchmarks.
 - Typed evidence storage, retention, attestations, and cross-system reuse.
 - Enforceable multi-principal independence beyond existing CI/human identities.
-- Workspace-service IDs, ACL, CAS, audit, backup, deletion, and authority scope.
 - Signed supply-chain channel, trust roots, freshness/revocation, and offline expiry.
 - Non-DSH adapter observation and compatibility policies.
 
+### 22.3 Next-major / `3.0` candidate decisions
+
+Provider/document evolution is specified in [`plans/PROVIDER_RUNTIME_EVOLUTION.md`](PROVIDER_RUNTIME_EVOLUTION.md). It defines document placement, routing strategy, and executable placement as separate axes, then limits support to six planned preset families with explicitly enumerated router/executable variants: `selected-inline`, `selected-cli`, `shared-runtime`, `self-contained`, `source-worktree`, and explicit `full-local-dangerous`. Project-specific state remains only in the project. Selected-local presets bound the project-workspace corpus; shared CLI routing provides only soft host-level containment unless the host supplies a stronger boundary. This remains proposal-level until Phase A accepts an ADR and fixes compatibility fixtures.
+
+- Project-local selected/full layouts, project-authority namespace/precedence, per-file ownership manifest, inline routing, lifecycle presets, and deterministic role-granular module closure.
+- A deterministic natural-language `apg context` compiler that returns final bounded content directly, preserves ambiguity, budgets, hashes, project/package mandatory authority, and invokes no LLM.
+- Modular verified GitHub Release document assets with an independent manifest trust anchor and deterministic recipe/materializer behavior.
+- Shared/source one-time materialization and optional project-local executable placement.
+- Shared packed runtime with pinned or compatible-channel release policy, per-project lazy activation, generation leases, and honest soft-containment reporting.
+- Source-worktree self-use and explicit full-local no-containment behavior.
+- Dry-run migration, transitional containment reporting, explicit finalization, and exact pre-finalization rollback from deployed `embedded-local`, `thin-bootstrap`, and self-host projects.
+
 An accepted ADR owns its decision. This roadmap links that ADR and updates the affected phase/status so proposal text and accepted architecture do not compete as normative sources.
 
-### 22.3 Evidence-gated development order
+### 22.4 Evidence-gated development order
 
 **P0 - release `2.0.0` (completed).** Every intended file is tracked in one reviewed release commit; the manifest/tag/installed artifact agree; launcher pre-import verification and the deterministic schema/routing/lifecycle/migration/pilot suites pass; independent review has no remaining blocker or medium finding. The verified initial platform is Linux/WSL, and observation preserves `model_effective: unknown`.
 
-**P1 - measurement-led `2.0.x`.** Run fresh DSH tasks in the first adopters and record task outcome, mandatory misses, intervention, host observation, and a two-rater risk sample before claiming outcome or tier-calibration improvement. Add a real Windows smoke before advertising Windows support. Build a gold query/context benchmark before changing retrieval: at least 30 real queries across two projects, including CJK, identifiers, filenames, headings, aliases, phrases, short substrings, and explicit misses. Tune lexical metadata/aliases first; target deterministic top-8 recall of at least 95% and 100% for preregistered required targets. Add at most one distinct R2 or host-observation pilot and measure memory yield before expanding storage.
+**P1 - `2.0.x` measurement plus `3.0` Phase A planning.** Keep deployed `2.0.0` behavior stable. Run fresh DSH adoption tasks and record outcome, mandatory misses, intervention, host observation, token cost, risk disagreement, and recursive-read corpus exposure before claiming improvement. In parallel, complete only Phase A of [`plans/PROVIDER_RUNTIME_EVOLUTION.md`](PROVIDER_RUNTIME_EVOLUTION.md): inventory the corpus and executable dependencies; define descriptor axes, planned variant IDs/schema constraints, project-authority precedence, per-file ownership, lifecycle/role closure, `apg context` matching/output/ambiguity/token bounds, prepared-asset trust/closure authority, compatible-channel per-project lazy activation, containment claims, version boundary, and fixed migration fixtures; then accept an ADR. No provider reinterpretation, asset publication, materializer, or consumer migration begins in this phase. A strictly additive `apg context` may be considered for a compatible later `2.x` only if it changes no existing behavior. Windows and retrieval work remain independently gated.
 
-**P2 - at most one independently gated `2.1` capability.** Select it only from measured demand and accept a new ADR first. Semantic/SQLite retrieval requires persistent lexical failures causing task failure in at least two projects. Typed evidence requires repeated cross-system applicability/invalidation joins or material rerun cost. Signed distribution requires an untrusted/public channel or audit boundary. A workspace service requires named multi-user writers, an owner/SLO, data classification, CAS/ACL/audit/backup/deletion requirements, and a recovery drill. A non-DSH adapter requires a committed adopter and observable loading semantics. Broad adapter parity, a universal evidence database, and workspace/security infrastructure remain rejected without those triggers.
+**P2 - staged `3.0` context-compiler and mode vertical slices.** After the next-major ADR is accepted, first implement the reusable deterministic context compiler while preserving existing resolve/load contracts. Next build selected modular assets and one transaction engine for prepared, shared, and source inputs. Then validate every stable variant in the six planned preset families with accurate runtime-dependency, project-workspace containment, and host-exposure reporting. Inline routing cannot require a hidden CLI; CLI routing must return final bounded content in one call; shared runtime cannot claim physical host isolation; finalized selected-local recursive reads must prove uninstalled modules and legacy rollback copies are absent. Role-classification uncertainty must not union-load safety/role documents or exceed preregistered token budgets; routing remains context selection rather than authorization. Project-local executable support is opt-in. MCP, external project state, semantic retrieval, typed evidence, and unrelated infrastructure remain outside these slices.
 
 ## 23. Definition of done for `2.0.0`
 
@@ -784,6 +798,6 @@ An accepted ADR owns its decision. This roadmap links that ADR and updates the a
 - the preregistered small CLI and complex content-package pilots pass ordered route noninferiority/token-budget, mandatory-authority recall, exact migration ownership, and no-generic-staging gates;
 - migration, degradation, uninstall, recovery, caller responsibility, and known unsupported/hardening boundaries are documented and tested.
 
-Authoritative workspace service, non-DSH adapters, semantic retrieval, general evidence reuse, signed supply-chain infrastructure, and multi-principal hostile-environment security are later 2.x work. Their absence does not block `2.0.0`, and the implementation must not claim those guarantees prematurely.
+Non-DSH adapters, semantic retrieval, general evidence reuse, signed supply-chain infrastructure, and multi-principal hostile-environment security remain later optional work. Authoritative external storage for project-specific governance has been removed from the roadmap; project policy, memory, and specialization stay in the project. None of these later choices blocks `2.0.0`, and the implementation must not claim their guarantees prematurely.
 
 The implementation must prefer deleting or simplifying a control over retaining one that does not prevent a named, measured failure mode. Security hardening follows the same rule: add the smallest effective control after a real boundary or failure justifies it.
