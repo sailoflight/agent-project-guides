@@ -80,21 +80,27 @@ The materializer builds and validates a complete candidate before activation. So
 
 `shared-runtime.pinned` installs one immutable generation under the configured shared data home. Runtime code and registries are separate from one `content.pack.json`; consumer projects contain no generic Markdown tree. This is soft same-user containment, not a host security boundary.
 
-## Migration preview
+## Migration adoption
 
-Schema 1 adoption is dry-run only in this slice:
+Schema 1 adoption starts with a zero-write preview and requires its exact reviewed digest:
 
 ```bash
 apg migrate v3-preview \
   --target /existing-project \
-  --variant selected-inline.none \
+  --variant shared-runtime.pinned \
   --lifecycle maintenance \
   --source /verified/agent-project-guides
+apg migrate v3-apply \
+  --target /existing-project \
+  --variant shared-runtime.pinned \
+  --lifecycle maintenance \
+  --source /verified/agent-project-guides \
+  --digest sha256:<reviewed-plan-digest>
 ```
 
-The result includes the exact proposed descriptor, selected/excluded closure, descriptor/root preimages, postimage hashes, effects, rollback boundary, retained legacy exposure, and finalization tradeoff. It writes neither the project nor a plan file.
+The preview includes the exact proposed descriptor, selected/excluded closure, descriptor/root preimages, postimage hashes, effects, rollback boundary, retained legacy exposure, and finalization tradeoff. Apply rebuilds the candidate, requires unchanged preimages and the exact plan digest, then uses the materializer journal. It records a descriptor-bound recovery digest and remains `transitional` while legacy recovery bytes are retained.
 
-`thin-bootstrap` and `embedded-local` previews report reversible transitional containment. A same-workspace `source-worktree` preview returns a blocker because the full APG source corpus remains present and neither first-slice containment claim would be truthful. Migration apply, rollback, and finalization are deferred.
+`apg migrate v3-rollback --target /existing-project` preflights the recovery anchor, descriptor/root postimages, manifest, runtime, and every APG-owned guide-tree file before writing. Unknown or later-edited content returns a zero-write conflict. `thin-bootstrap` and `embedded-local` are supported; same-workspace `source-worktree` remains blocked. Finalization is deferred.
 
 ## Validation
 
@@ -103,4 +109,4 @@ The result includes the exact proposed descriptor, selected/excluded closure, de
 node scripts/test-v3.mjs
 ```
 
-The 3.0 fixture covers variant-axis rejection, role/profile/overlay closure, inline/shared route parity, CJK and mixed-task ambiguity, protected clarification, selected-view escape, aggregate budgets, packed runtime absence, generation continuity, every materializer failpoint, retry convergence, and zero-write schema 1 migration preview. The unchanged 2.0 suite remains a required regression gate.
+The 3.0 fixture covers variant-axis rejection, role/profile/overlay closure, inline/shared route parity, CJK and mixed-task ambiguity, protected clarification, selected-view escape, aggregate budgets, packed runtime absence, generation continuity, every materializer failpoint, retry convergence, schema 1 thin/embedded apply and exact rollback, dirty root preservation, unknown-guide conflict, receipt-window recovery, and zero-write migration preview/conflicts. The unchanged 2.0 suite remains a required regression gate.

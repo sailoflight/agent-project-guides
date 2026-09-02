@@ -1,7 +1,7 @@
 <!-- agent-project-guides:v2:start -->
 ## Project governance bootstrap
 
-Project ID: `agent-project-guides`; release: `3.0.0`; expected digest: `observe`.
+Project ID: `agent-project-guides`; release: `3.0.1`; expected digest: `observe`.
 
 1. Direct-read `.agent-project-guides.json`; it is project-owned policy, not generic package content. Mutual trust assigns disclosed call consequences to the caller and truthful effect/contract/failure reporting to the callee.
 2. Use the installed `apg` launcher to resolve exact role/task/path sources, then batch-load only returned IDs/sections with `provider load --ids <csv>`. Do not infer a missing package path, fetch `latest`, glob for another package copy, or treat search/cache as mandatory authority.
