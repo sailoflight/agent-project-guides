@@ -146,6 +146,16 @@ const productChoice = run(['context', '--target', inline, '--task', 'use product
 assert.equal(productChoice.kind, 'ordinary-ambiguity');
 assert.ok(productChoice.required_expansion.includes('production/user'));
 
+// Real multi-profile projects require more than the original 3072-token aggregate while remaining bounded by 4096.
+const wideContextProject = project('wide-context');
+const wideHome = path.join(temporary, 'wide-home');
+run(['project', 'materialize', '--target', wideContextProject, '--project-id', 'test.wide-context', '--variant', 'shared-runtime.pinned', '--lifecycle', 'active-development', '--profiles', 'mcp,monorepo-composition', '--overlays', 'agent-governance', '--apply'], { home: wideHome });
+const wideDescriptor = JSON.parse(fs.readFileSync(path.join(wideContextProject, '.agent-project-guides.json'), 'utf8'));
+const wideContext = run(['context', '--target', wideContextProject, '--role', 'maintainer', '--mode', 'code', '--format', 'json'], { home: wideHome });
+assert.equal(wideDescriptor.context.max_tokens, 4096);
+assert.ok(wideContext.budgets.aggregate_tokens > 3072);
+assert.ok(wideContext.budgets.aggregate_tokens <= wideDescriptor.context.max_tokens);
+
 // Shared pinned mode publishes no generic Markdown in the project and routes through one exact packed generation.
 const shared = project('shared');
 const sharedHome = path.join(temporary, 'shared-home');

@@ -33,7 +33,7 @@ apg context --target /project --role maintainer --mode code --format json
 
 Explicit role and mode resolve first. Without them, the compiler screens protected signals and then applies bounded lexical classification. Recognized protected work, an unavailable high-scoring role, no confident match, or a material score tie returns one compact clarification record. No candidate role/profile/overlay union is loaded.
 
-Mandatory IDs are ordered before route content and are never dropped to meet a budget. Existing per-subject section budgets remain authoritative; schema 2 also caps the larger of the exact serialized JSON and direct-context estimates at 3072 tokens, with clarification-choice framing capped at 160 tokens, using `utf8-bytes/4-ceiling`. Hashes are revalidated before content is returned.
+Mandatory IDs are ordered before route content and are never dropped to meet a budget. Existing per-subject section budgets remain authoritative; schema 2 also caps the larger of the exact serialized JSON and direct-context estimates at 4096 tokens, with clarification-choice framing capped at 160 tokens, using `utf8-bytes/4-ceiling`. Hashes are revalidated before content is returned.
 
 A shared pinned context result includes a 15-minute generation handle bound to project ID, exact release digest, and selected-view revision. Handles use an installation-state HMAC key created during runtime installation; a supplied expired, modified, cross-project, or publicly re-signed handle fails instead of mixing generations. Pinned context is read-only and never activates a channel or mutates the project.
 

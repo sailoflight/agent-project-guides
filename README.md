@@ -2,7 +2,7 @@
 
 > DSH 优先的项目治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
 
-当前版本：`3.0.1`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
+当前版本：`3.0.2`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
 ## 1. 互信与责任
 
@@ -24,7 +24,7 @@
   "schema_version": 2,
   "project_id": "example.project",
   "variant": "selected-inline.none",
-  "release": {"policy": "pinned", "version": "3.0.1", "digest": "sha256:<64 lowercase hex>"},
+  "release": {"policy": "pinned", "version": "3.0.2", "digest": "sha256:<64 lowercase hex>"},
   "documents": {
     "placement": "selected-local",
     "lifecycle": "maintenance",
@@ -33,7 +33,7 @@
     "overlays": []
   },
   "router": {"strategy": "inline-route", "executable": "none"},
-  "context": {"max_tokens": 3072, "clarification_max_tokens": 160},
+  "context": {"max_tokens": 4096, "clarification_max_tokens": 160},
   "containment": {"workspace": "physical-selected", "host_corpus_exposure": "unknown"},
   "integrity": {"manifest_digest": "sha256:<64 hex>", "root_block_hash": "sha256:<64 hex>"},
   "protected_effects": [],
