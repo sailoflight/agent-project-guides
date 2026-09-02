@@ -20,8 +20,11 @@ import { buildCatalog, catalogJsonl, loadCatalogEntry, readCatalog, resolveRoute
 import { validateContextRoutes } from '../lib/context-routes.mjs';
 import { defaultDescriptor, readDescriptor, validateDescriptor, writeDescriptor } from '../lib/descriptor.mjs';
 import { inspectBootstrap, installBootstrap, restoreOwnedFile } from '../lib/bootstrap.mjs';
-import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, openProvider, portableSnapshot } from '../lib/provider.mjs';
+import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, openPackedRuntime, openProvider, portableSnapshot, readGenerationKey } from '../lib/provider.mjs';
 import { applyMigration, planMigration, rollbackMigration } from '../lib/migration.mjs';
+import { previewV2ToV3Migration } from '../lib/migration-v3.mjs';
+import { applyMaterialization, previewMaterialization, validateMaterializedProject } from '../lib/materializer.mjs';
+import { compileContext, renderContext } from '../lib/context.mjs';
 import { composeRisk, parseEffectList } from '../lib/risk.mjs';
 import { projectDigest, promoteMemory, proposeMemory, purgeMemoryProposal, readMemoryInput, reviewMemory, supersedeMemory } from '../lib/memory.mjs';
 
@@ -62,8 +65,13 @@ function targetRoot(options, requireDescriptor = true) {
   return root;
 }
 
+function observedTargetRoot(options, requireDescriptor = true) {
+  return options.target ? fs.realpathSync(options.target) : findProjectRoot(process.cwd(), requireDescriptor);
+}
+
 function print(value) {
-  process.stdout.write(canonicalJson(value));
+  if (value && value.__apg_text === true) process.stdout.write(value.text);
+  else process.stdout.write(canonicalJson(value));
 }
 
 function chooseRoot(projectRoot, requested) {
@@ -281,6 +289,7 @@ function hydrateProject(options) {
 function validateProject(options) {
   const projectRoot = targetRoot(options);
   const { descriptor } = readDescriptor(projectRoot);
+  if (descriptor.schema_version === 2) return validateMaterializedProject(projectRoot, descriptor);
   const bootstrap = inspectBootstrap(projectRoot, descriptor);
   let provider;
   try {
@@ -474,6 +483,7 @@ function applyPortableDescriptorImport(projectRoot, currentProjectId, incoming, 
 function providerContext(options) {
   const projectRoot = targetRoot(options);
   const { descriptor } = readDescriptor(projectRoot);
+  if (descriptor.schema_version !== 1) throw new UserError('provider resolve/load are the schema 1 compatibility API; use apg context for schema 2 projects', 'unsupported_command');
   const provider = openProvider(projectRoot, descriptor);
   return { projectRoot, descriptor, provider, catalog: readCatalog(provider.root) };
 }
@@ -593,6 +603,62 @@ function validateSourceCatalog(root) {
   return catalog;
 }
 
+function v3SelectionOptions(options) {
+  if (!options.variant) fail('3.0 operation requires --variant');
+  if (!['selected-inline.none', 'shared-runtime.pinned'].includes(options.variant)) throw new UserError(`unsupported 3.0 variant: ${options.variant}`, 'unsupported_variant');
+  return {
+    projectId: options['project-id'],
+    variant: options.variant,
+    lifecycle: options.lifecycle || 'active-development',
+    roles: splitList(options.roles).length ? splitList(options.roles) : undefined,
+    profiles: options.profiles === undefined ? undefined : splitList(options.profiles),
+    overlays: options.overlays === undefined ? undefined : splitList(options.overlays),
+    mandatory: splitList(options.mandatory),
+    protectedEffects: splitList(options['protected-effects']),
+    rootName: options.root,
+  };
+}
+
+function contextCommand(options) {
+  const projectRoot = targetRoot(options);
+  const { descriptor } = readDescriptor(projectRoot);
+  let runtimeRoot;
+  let packed = false;
+  if (descriptor.schema_version === 1) {
+    runtimeRoot = openProvider(projectRoot, descriptor).root;
+  } else {
+    const runningPacked = fs.statSync(path.join(packageRoot, 'content', 'content.pack.json'), { throwIfNoEntry: false })?.isFile();
+    if (runningPacked) {
+      runtimeRoot = packageRoot;
+      packed = true;
+    } else if (descriptor.variant === 'shared-runtime.pinned') {
+      runtimeRoot = openPackedRuntime(descriptor).root;
+      packed = true;
+    } else {
+      const sourceManifest = buildFileManifest(packageRoot);
+      if (sourceManifest.digest === descriptor.release.digest) runtimeRoot = packageRoot;
+      else {
+        runtimeRoot = openPackedRuntime(descriptor).root;
+        packed = true;
+      }
+    }
+  }
+  const result = compileContext(runtimeRoot, descriptor, {
+    plane: options.plane,
+    role: options.role,
+    mode: options.mode,
+    task: options.task || '',
+    pathHint: options.path || '',
+    generation: options.generation,
+    generationKey: descriptor.schema_version === 2 && descriptor.variant === 'shared-runtime.pinned' ? readGenerationKey() : undefined,
+    packed,
+  });
+  const format = options.format || 'context';
+  if (format === 'context') return { __apg_text: true, text: renderContext(result) };
+  if (format === 'json') return result;
+  fail('--format must be context or json');
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const { positional, options } = parseArgs(argv);
   const [group, action] = positional;
@@ -600,16 +666,18 @@ export async function main(argv = process.argv.slice(2)) {
     name: 'Agent Project Guides',
     version: VERSION,
     usage: [
-      'apg project init|hydrate|validate|uninstall',
+      'apg context --task <text> [--role <role> --mode <mode>] [--format context|json]',
+      'apg project init|hydrate|validate|uninstall|materialize',
       'apg catalog build|check',
       'apg release manifest|verify-source|install|verify',
       'apg provider capabilities|resolve|search|load|export|import',
-      'apg migrate plan|apply|rollback',
+      'apg migrate plan|apply|rollback|v3-preview',
       'apg risk classify',
       'apg memory propose|review|promote|supersede|purge',
       'apg dsh report',
     ],
   };
+  if (group === 'context') return contextCommand(options);
   if (group === 'catalog') {
     if (action === 'build') return { entries: writeCatalog(options.source ? fs.realpathSync(options.source) : packageRoot).length, status: 'built' };
     if (action === 'check') {
@@ -652,9 +720,23 @@ export async function main(argv = process.argv.slice(2)) {
     if (action === 'hydrate') return hydrateProject(options);
     if (action === 'validate' || action === 'status') return validateProject(options);
     if (action === 'uninstall') return uninstallProject(options);
+    if (action === 'materialize') {
+      const projectRoot = observedTargetRoot(options, false);
+      const selection = v3SelectionOptions(options);
+      if (!selection.projectId) fail('project materialize requires --project-id');
+      const sourceRoot = fs.realpathSync(options.source || packageRoot);
+      return options.apply
+        ? applyMaterialization(projectRoot, sourceRoot, selection)
+        : previewMaterialization(projectRoot, sourceRoot, selection);
+    }
   }
   if (group === 'provider') return providerCommand(action, options);
   if (group === 'migrate') {
+    if (action === 'v3-preview') {
+      const projectRoot = observedTargetRoot(options);
+      const selection = v3SelectionOptions(options);
+      return previewV2ToV3Migration(projectRoot, fs.realpathSync(options.source || packageRoot), selection);
+    }
     if (action === 'plan') {
       const projectRoot = targetRoot(options, false);
       if (!options['project-id']) fail('migrate plan requires --project-id');

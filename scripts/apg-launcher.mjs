@@ -90,6 +90,50 @@ function validateRelease(packageRoot, provider) {
   if (JSON.stringify(observed) !== JSON.stringify(expected)) fail('release contains missing or unexpected files');
 }
 
+function validatePackedRuntime(runtimeRoot, descriptor) {
+  const manifestPath = path.join(runtimeRoot, 'runtime-manifest.json');
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  } catch (error) {
+    fail(`exact packed runtime manifest is missing or invalid: ${error.message}`);
+  }
+  if (manifest.schema_version !== 1 || manifest.source_digest !== descriptor.release.digest || manifest.source_version !== descriptor.release.version || manifest.digest !== descriptor.release.runtime_digest || !Array.isArray(manifest.files)) {
+    fail('exact packed runtime does not match the descriptor');
+  }
+  const { digest, ...portable } = manifest;
+  if (digest !== `sha256:${sha256(canonicalJson(portable))}`) fail('packed runtime manifest digest is invalid');
+  const expected = new Set();
+  const foldedPaths = new Set();
+  for (const entry of manifest.files) {
+    if (!entry || typeof entry.path !== 'string' || path.isAbsolute(entry.path) || entry.path.includes('\\') || entry.path.split('/').some((part) => !part || part === '..')) fail('packed runtime manifest contains an unsafe path');
+    const folded = entry.path.toLocaleLowerCase('und');
+    if (expected.has(entry.path) || foldedPaths.has(folded)) fail(`packed runtime manifest contains a duplicate/case-colliding path: ${entry.path}`);
+    expected.add(entry.path);
+    foldedPaths.add(folded);
+    const file = path.resolve(runtimeRoot, entry.path);
+    if (!file.startsWith(`${runtimeRoot}${path.sep}`)) fail(`packed runtime path escapes root: ${entry.path}`);
+    const stat = fs.lstatSync(file, { throwIfNoEntry: false });
+    if (!stat?.isFile() || stat.isSymbolicLink()) fail(`packed runtime file is missing or unsafe: ${entry.path}`);
+    const bytes = fs.readFileSync(file);
+    if (bytes.length !== entry.bytes || sha256(bytes) !== entry.sha256) fail(`packed runtime file hash mismatch: ${entry.path}`);
+  }
+  const observed = [];
+  function visit(relative = '') {
+    for (const entry of fs.readdirSync(path.join(runtimeRoot, relative), { withFileTypes: true })) {
+      const child = relative ? `${relative}/${entry.name}` : entry.name;
+      if (entry.isSymbolicLink()) fail(`packed runtime contains a symlink: ${child}`);
+      if (entry.isDirectory()) visit(child);
+      else if (entry.isFile()) observed.push(child);
+      else fail(`packed runtime contains an unsupported file: ${child}`);
+    }
+  }
+  visit();
+  const listed = [...expected, 'runtime-manifest.json'].sort();
+  observed.sort();
+  if (JSON.stringify(observed) !== JSON.stringify(listed)) fail('packed runtime contains missing or unexpected files');
+}
+
 const targetIndex = process.argv.indexOf('--target');
 const start = targetIndex >= 0 && process.argv[targetIndex + 1] ? process.argv[targetIndex + 1] : process.cwd();
 const project = findProject(start);
@@ -99,36 +143,49 @@ try {
 } catch (error) {
   fail(`invalid project descriptor: ${error.message}`);
 }
-if (!descriptor || Array.isArray(descriptor) || descriptor.schema_version !== 1 || !/^[a-z0-9][a-z0-9._-]{2,127}$/.test(descriptor.project_id || '')) {
+if (!descriptor || Array.isArray(descriptor) || ![1, 2].includes(descriptor.schema_version) || !/^[a-z0-9][a-z0-9._-]{2,127}$/.test(descriptor.project_id || '')) {
   fail('project descriptor identity/schema is invalid');
 }
-const provider = descriptor.provider;
-if (!provider || Array.isArray(provider) || typeof provider !== 'object' || !/^[A-Za-z0-9._-]+$/.test(provider.release || '')) fail('project provider is invalid');
-const providerKeys = Object.keys(provider).sort().join(',');
 let packageRoot;
-if (provider.mode === 'source-worktree') {
-  if (providerKeys !== 'digest,mode,release,source') fail('source-worktree provider fields are invalid');
-  if (provider.digest !== 'observe' || provider.source !== '.') fail('source-worktree requires digest=observe and source=.');
-  packageRoot = fs.realpathSync(project.root);
-} else if (provider.mode === 'embedded-local' || provider.mode === 'thin-bootstrap') {
-  if (providerKeys !== 'digest,mode,release') fail('immutable provider fields are invalid');
-  if (!/^sha256:[0-9a-f]{64}$/.test(provider.digest || '')) fail('immutable provider digest is invalid');
-  packageRoot = provider.mode === 'embedded-local'
-    ? path.join(project.root, '.agent-project-guides', 'local', 'releases', provider.digest.replace(':', '-'))
-    : path.join(dataHome(), 'releases', provider.digest.replace(':', '-'));
-  packageRoot = path.resolve(packageRoot);
-  const packageStat = fs.lstatSync(packageRoot, { throwIfNoEntry: false });
-  if (!packageStat?.isDirectory() || packageStat.isSymbolicLink()) fail(`exact package is missing or unsafe: ${provider.digest}; protected work must stop and other work is degraded`);
-  validateRelease(packageRoot, provider);
+if (descriptor.schema_version === 2) {
+  if (!['selected-inline.none', 'shared-runtime.pinned'].includes(descriptor.variant)) fail(`unsupported 3.0 variant: ${descriptor.variant}`);
+  if (!descriptor.release || descriptor.release.policy !== 'pinned' || !/^[A-Za-z0-9._-]+$/.test(descriptor.release.version || '') || !/^sha256:[0-9a-f]{64}$/.test(descriptor.release.digest || '') || (descriptor.variant === 'shared-runtime.pinned' && !/^sha256:[0-9a-f]{64}$/.test(descriptor.release.runtime_digest || ''))) {
+    fail('3.0 descriptor release identity is invalid');
+  }
+  packageRoot = path.resolve(dataHome(), 'runtimes', descriptor.release.digest.replace(':', '-'));
+  const runtimeStat = fs.lstatSync(packageRoot, { throwIfNoEntry: false });
+  if (!runtimeStat?.isDirectory() || runtimeStat.isSymbolicLink()) fail(`exact packed runtime is missing: ${descriptor.release.digest}`);
+  validatePackedRuntime(packageRoot, descriptor);
 } else {
-  fail(`unsupported provider mode: ${provider.mode}`);
+  const provider = descriptor.provider;
+  if (!provider || Array.isArray(provider) || typeof provider !== 'object' || !/^[A-Za-z0-9._-]+$/.test(provider.release || '')) fail('project provider is invalid');
+  const providerKeys = Object.keys(provider).sort().join(',');
+  if (provider.mode === 'source-worktree') {
+    if (providerKeys !== 'digest,mode,release,source') fail('source-worktree provider fields are invalid');
+    if (provider.digest !== 'observe' || provider.source !== '.') fail('source-worktree requires digest=observe and source=.');
+    packageRoot = fs.realpathSync(project.root);
+  } else if (provider.mode === 'embedded-local' || provider.mode === 'thin-bootstrap') {
+    if (providerKeys !== 'digest,mode,release') fail('immutable provider fields are invalid');
+    if (!/^sha256:[0-9a-f]{64}$/.test(provider.digest || '')) fail('immutable provider digest is invalid');
+    packageRoot = provider.mode === 'embedded-local'
+      ? path.join(project.root, '.agent-project-guides', 'local', 'releases', provider.digest.replace(':', '-'))
+      : path.join(dataHome(), 'releases', provider.digest.replace(':', '-'));
+    packageRoot = path.resolve(packageRoot);
+    const packageStat = fs.lstatSync(packageRoot, { throwIfNoEntry: false });
+    if (!packageStat?.isDirectory() || packageStat.isSymbolicLink()) fail(`exact package is missing or unsafe: ${provider.digest}; protected work must stop and other work is degraded`);
+    validateRelease(packageRoot, provider);
+  } else {
+    fail(`unsupported provider mode: ${provider.mode}`);
+  }
 }
 const cli = path.join(packageRoot, 'scripts', 'apg.mjs');
-if (!fs.statSync(cli, { throwIfNoEntry: false })?.isFile()) fail(`exact package CLI is missing: ${provider.digest || 'observe'}`);
+const expectedCliIdentity = descriptor.schema_version === 2 ? descriptor.release.runtime_digest : descriptor.provider.digest;
+if (!fs.statSync(cli, { throwIfNoEntry: false })?.isFile()) fail(`exact package CLI is missing: ${expectedCliIdentity || 'observe'}`);
 const module = await import(pathToFileURL(cli));
 try {
   const result = await module.main(process.argv.slice(2));
-  process.stdout.write(`${JSON.stringify(result)}\n`);
+  if (result && result.__apg_text === true) process.stdout.write(result.text);
+  else process.stdout.write(`${JSON.stringify(result)}\n`);
 } catch (error) {
   process.stderr.write(`${JSON.stringify({ error: error.code || 'internal_error', message: error.message, details: error.details })}\n`);
   process.exit(error.code ? 2 : 1);

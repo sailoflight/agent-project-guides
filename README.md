@@ -1,8 +1,8 @@
-# Agent Project Guides 2.0
+# Agent Project Guides 3.0
 
-> DSH 优先的项目治理内核：项目只提交最小 descriptor 和 DSH bootstrap，通用角色、流程、profile、schema 与 catalog 存在内容寻址发行包中，按精确 ID/section 加载。
+> DSH 优先的项目治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
 
-当前版本：`2.0.0`。Linux/WSL 的 deterministic core 和 immutable release 已通过完整套件与独立复核；真实项目采用数据继续进入 2.0.x 测量，不改变本版本契约。边界见 [`plans/AGENT_PROJECT_GUIDES_2.0.md`](plans/AGENT_PROJECT_GUIDES_2.0.md)，决策见 [`decisions/`](decisions/)。
+当前版本：`3.0.0`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
 ## 1. 互信与责任
 
@@ -17,103 +17,90 @@
 
 ## 2. 项目文件
 
-项目提交 `.agent-project-guides.json`：
+3.0 项目提交 schema 2 的 `.agent-project-guides.json`，variant 和各轴必须一致：
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "project_id": "example.project",
-  "provider": {
-    "mode": "thin-bootstrap",
-    "release": "2.0.0",
-    "digest": "sha256:<64 lowercase hex>"
+  "variant": "selected-inline.none",
+  "release": {"policy": "pinned", "version": "3.0.0", "digest": "sha256:<64 lowercase hex>"},
+  "documents": {
+    "placement": "selected-local",
+    "lifecycle": "maintenance",
+    "roles": ["development/maintainer", "development/reviewer", "development/verifier"],
+    "profiles": ["cli"],
+    "overlays": []
   },
-  "facets": ["cli"],
-  "overlays": [],
+  "router": {"strategy": "inline-route", "executable": "none"},
+  "context": {"max_tokens": 3072, "clarification_max_tokens": 160},
+  "containment": {"workspace": "physical-selected", "host_corpus_exposure": "unknown"},
+  "integrity": {"manifest_digest": "sha256:<64 hex>", "root_block_hash": "sha256:<64 hex>"},
   "protected_effects": [],
   "policy": {"root": "AGENTS.md", "mandatory": []},
-  "layout": {"scratch": [".agent-scratch"], "memory": "docs/memory"}
+  "layout": {"guides": ".agent-guides", "scratch": [".agent-scratch"], "memory": "docs/memory"}
 }
 ```
 
-该文件只有项目事实，不包含机器路径、命令、凭据、generic package bytes、cache、receipt、journal 或 ACL/audit 状态。`AGENTS.md`/`CLAUDE.md` 只保留紧凑的 managed DSH bootstrap 和项目自有规则。
+Schema 1 descriptor 继续按 2.0 解释，不会自动重写或采用 3.0。Descriptor 只含 portable project facts，不含机器路径、凭据、generic bytes、cache、receipt 或 journal。
 
-## 3. Provider 模式
+## 3. Runtime 模式
 
-| Mode | 用途 | Package 位置 |
+| Variant / legacy mode | 文档位置 | 普通路由依赖 |
 |---|---|---|
-| `thin-bootstrap` | 默认消费者模式 | XDG/Windows 外部 immutable store |
-| `embedded-local` | 1.x 迁移和离线兼容 | `.agent-project-guides/local/releases/`，clone-local ignore |
-| `source-worktree` | 本包源码仓库自举开发 | 当前源码树，动态 observed digest |
+| `selected-inline.none` | `.agent-guides/managed/` 的精确 selected closure | 无 CLI |
+| `shared-runtime.pinned` | XDG/Windows 外部 digest-addressed content pack | shared CLI |
+| schema 1 `thin-bootstrap` | 2.0 外部 immutable release | 2.0 launcher |
+| schema 1 `embedded-local` | 2.0 clone-local ignored release | 2.0 launcher |
+| schema 1 `source-worktree` | 当前 APG 源码树 | source CLI |
 
-`source-worktree` 只允许 package source 以 `source: "."` 给自己使用。它报告 mutable/dirty 状态，不能冒充 immutable release evidence，也不会覆盖供其他 pinned consumer 使用的共享 launcher。
+`shared-runtime.pinned` 的 host containment 是 soft，不是同用户文件系统安全边界；项目内不含 generic Markdown。`source-worktree` 继续只允许 package source 给自己使用，并报告 mutable/dirty 状态。
 
-XDG 默认位置：
+共享 pack 默认在 `$XDG_DATA_HOME/agent-project-guides/runtimes/`；测试可用 `AGENT_PROJECT_GUIDES_HOME` 隔离。
 
-```text
-$XDG_DATA_HOME/agent-project-guides/releases/
-$XDG_STATE_HOME/agent-project-guides/projects/
-$XDG_CACHE_HOME/agent-project-guides/
-```
+## 4. CLI
 
-测试或明确运维可用 `AGENT_PROJECT_GUIDES_HOME` 覆盖。Windows 路径映射已实现为 `%LOCALAPPDATA%\AgentProjectGuides`；正式 Windows 支持仍以 P0 smoke 为门。
-
-## 4. 2.0 CLI
-
-CLI 为无第三方依赖的 Node ESM：
+CLI 为无第三方依赖的 Node ESM。3.0 fresh consumer 先 preview，再显式 apply：
 
 ```bash
-node scripts/apg.mjs help
-node scripts/apg.mjs catalog check
-node scripts/apg.mjs release install --source /path/to/agent-project-guides
-```
-
-初始化新项目：
-
-```bash
-node scripts/apg.mjs project init \
+node scripts/apg.mjs project materialize \
   --target /path/to/project \
   --project-id example.project \
-  --mode thin-bootstrap \
-  --source /path/to/agent-project-guides \
-  --facets cli
-
-node scripts/apg.mjs project validate --target /path/to/project
+  --variant selected-inline.none \
+  --lifecycle maintenance \
+  --profiles cli
 ```
 
-`project init` 报告 launcher 路径，不修改 `PATH`，不运行 LLM，不执行 `git add/commit`。
+Preview 通过后，对同一命令增加 `--apply` 才会写入。随后直接获取 bounded context：
 
-主要接口：
+```bash
+apg context --target /path/to/project --task "fix login recovery" --format context
+```
+
+Schema 1 项目继续使用 `project init|hydrate|uninstall` 和 `provider resolve|load`。3.0 adoption 当前只提供零写入预览：
+
+```bash
+node scripts/apg.mjs migrate v3-preview \
+  --target /existing-project \
+  --variant selected-inline.none \
+  --lifecycle maintenance \
+  --source /path/to/agent-project-guides
+```
+
+`help` 列出 `context`、project/provider/release、migration、risk、memory 和 DSH 接口。`context --format context` 直接输出 bounded governance 内容。命令不运行 LLM，不自动 `git add/commit`，不解析 `latest`；launcher 导入 CLI 前验证精确 manifest 与 hashes。
+
+## 5. 精确路由和 context
+
+语义 ID 由 registry 拥有，路径只是位置。`routing/context-routes.jsonl` 保留 per-subject section budget；`routing/context-classifier.json` 只做 deterministic role recommendation，不制造权限。
 
 ```text
-project init|hydrate|validate|uninstall
-catalog build|check
-release install|verify
-provider capabilities|resolve|search|load|export|import
-migrate plan|apply|rollback
-risk classify
-memory propose|review|promote|supersede|purge
-dsh report
+explicit role/mode or bounded lexical classification
+  -> protected/ambiguous choice, or exactly one selected role
+  -> mandatory IDs + budgeted role/profile/overlay sections
+  -> selected-view allowlist + exact hash checked content
 ```
 
-普通结果为 JSON stdout，诊断为 JSON stderr。`resolve` 返回预算内 section IDs、token 估算和 suggestions；`load --ids <csv>` 批量返回精简的 `[id, content]` pairs。`hydrate` 只接受 pinned version/digest。`provider import` 在 mutation lock 内重检 revision，以可恢复 transaction 更新 portable facts；不能改变项目/provider identity 或 `policy.root`。
-
-Immutable release digest 覆盖 runtime distribution manifest；launcher 在导入 CLI 前验证 manifest、每个文件 hash、case-collision 和意外文件。源码测试、pilot fixture、roadmap 与 decision 记录属于 source release evidence，不作为 consumer runtime bytes 安装。
-
-## 5. 精确路由和 catalog
-
-语义 ID 由 registry 拥有，路径只是位置。`routing/context-routes.jsonl` 声明日常 mode/profile/overlay 的 owner-bound entries/sections 和预算；`initialize/readapt` 才加载完整 profile，Production 不继承 Development profile/overlay。
-
-```text
-exact role/mode + project facts
-  -> budgeted section route + mandatory IDs
-  -> bounded lexical suggestions
-  -> exact hash-checked load
-```
-
-`search` 只提供候选，不能满足 mandatory policy。`load` 重新计算 source/section SHA-256，stale catalog 或 expected hash 不匹配直接失败。不得用 fuzzy role 推断、全包预读或失败后的 glob 猜 authority。
-
-禁止 profile 复述 subtype 章节；同一动态事实只保留一个 executable/schema authority。
+不确定时返回不超过 descriptor clarification budget 的 compact choice，不并集加载候选 roles/profiles/security docs。Production 仍不继承 Development profile/overlay。Schema 1 的 `search` 继续只是候选，不能满足 mandatory policy；`provider resolve/load` 行为保持兼容。禁止 profile 复述 subtype 章节；同一动态事实只保留一个 executable/schema authority。
 
 ## 6. 角色和验证
 
@@ -137,9 +124,9 @@ runtime/admin > operation/tool > project > facet/overlay > task/role/caller
 
 低层不能删除高层 effect 或降低 tier。普通工作为 R1；真正非行为型可为 R0；material protected effect 为 R2；destructive/safety-critical 为 R3。
 
-## 7. Facets、overlays 和布局
+## 7. Profiles、overlays 和布局
 
-2.0 facets：
+3.0 profiles（schema 1 中名为 facets）：
 
 ```text
 mcp library cli service application-ui data-automation
@@ -176,6 +163,8 @@ node scripts/apg.mjs migrate rollback --target /project --project-id example.pro
 
 Rollback 先 preflight 所有 receipt-owned postimage；有任一 later/ambiguous edit 时执行零恢复写入并报告 conflict。没有冲突时只恢复 migration 捕获和拥有的 bytes/path absence。它不删除 tracked legacy package、无关外部状态或 Git history。
 
+从 schema 1 到 schema 2 当前只有 `migrate v3-preview`：纯输出 proposed descriptor、closure、pre/postimage、transitional exposure、rollback/finalization 边界，不写 plan 文件或目标项目。Migration apply/finalize 尚未实现。
+
 离线行为：
 
 - exact release 已安装：完整 core 可用；
@@ -201,7 +190,7 @@ merge trigger check check-update set-state remove-trigger unmerge
 APG_RUN_REAL_PILOTS=1 ./scripts/test-release.sh
 ```
 
-聚合套件覆盖 schema/routing、1.x compatibility、2.0 lifecycle/concurrency、catalog/self-host/manifest 和 diff。`APG_RUN_REAL_PILOTS=1` 在临时副本运行两个 route/migration pilot。
+聚合套件覆盖 schema/routing、1.x compatibility、完整 2.0 regression，以及 3.0 两个 variant 的 closure/context/packed runtime/materializer failpoints/zero-write migration preview。`APG_RUN_REAL_PILOTS=1` 仍运行既有 2.0 route/migration pilots。
 
 Pilot 自动门为 route noninferiority/token budget、mandatory recall、migration ownership 和 no staging。真实 DSH task outcome 是独立发布证据门，基础设施脚本不伪造它。
 
@@ -211,12 +200,12 @@ Pilot 自动门为 route noninferiority/token budget、mandatory recall、migrat
 
 | 路径 | 职责 |
 |---|---|
-| `scripts/apg.mjs`, `lib/` | 2.0 CLI 和 deterministic core |
-| `schemas/` | portable public schema |
+| `scripts/apg.mjs`, `lib/` | schema 1 compatibility 与 3.0 deterministic core |
+| `schemas/` | schema 1 与 schema 2 portable public contracts |
 | `catalog/` | 由 canonical package sources 生成的索引 |
-| `routing/` | semantic role/facet/overlay/effect 和 context-budget registry |
+| `routing/` | semantic role/profile/overlay、classifier 和 context-budget registry |
 | `roles/`, `procedures/`, `profiles/`, `templates/` | canonical generic guidance |
 | `bootstrap/` | DSH v2 bootstrap 和 1.x compatibility blocks |
-| `docs/` | 当前 2.0 使用、迁移和恢复合同 |
+| `docs/` | 2.0 compatibility 与 3.0 minimal-slice contracts |
 | `decisions/` | 已接受架构决策 |
 | `plans/` | 路线图和实施边界，不覆盖当前代码事实 |
