@@ -20,7 +20,7 @@ The schema 2 descriptor is portable project policy. It contains no machine path,
 
 A reversible migration preview uses `workspace: transitional` plus an explicit schema 1 legacy-provider record. Portable descriptors use only `unknown` for selected-inline and `observed-full` for shared-runtime's configured full pack; stronger host-wide claims such as `host-enforced-none` are not descriptor input. Validation reports the observation source and scope separately.
 
-The selected view declares lifecycle, exact roles, profiles, overlays, mandatory IDs, protected effects, and aggregate/clarification context budgets. Lifecycle-required roles cannot be removed. Descriptor integrity fields independently pin the materialized manifest and exact managed root-block hash; shared mode additionally pins the prepared runtime artifact digest.
+The selected view declares lifecycle, exact roles, profiles, overlays, mandatory IDs, protected effects, and aggregate/clarification context budgets. Lifecycle-required roles cannot be removed. Shared-runtime active-development and release-build defaults also select Production User and Operator so one project can route development and operational governance without union loading; selected-inline keeps the smaller lifecycle minimum unless callers explicitly add roles. Descriptor integrity fields independently pin the materialized manifest and exact managed root-block hash; shared mode additionally pins the prepared runtime artifact digest.
 
 ## Context compiler
 
@@ -28,14 +28,15 @@ The selected view declares lifecycle, exact roles, profiles, overlays, mandatory
 
 ```bash
 apg context --target /project --task "fix parser recovery" --format context
-apg context --target /project --role maintainer --mode code --format json
+apg context --target /project --plane production --role operator --mode deploy --format json
+apg context --target /project --generation <token> --select production.operator.deploy --format json
 ```
 
-Explicit role and mode resolve first. Without them, the compiler screens protected signals and then applies bounded lexical classification. Recognized protected work, an unavailable high-scoring role, no confident match, or a material score tie returns one compact clarification record. No candidate role/profile/overlay union is loaded.
+Explicit plane, role, and mode bypass lexical inference and are validated as one exact route. Without them, the compiler screens protected signals and then applies bounded lexical classification. Protected or ambiguous work returns only executable selected-view choices; unavailable roles are reported separately as required expansion. Every choice has a stable ID, full route, route hash, matched rules, conflict reason, and next command. Responses expose `choices_truncated` and `omitted_choice_ids` when the four-choice bound omits valid routes. No candidate role/profile/overlay union is loaded.
 
-Mandatory IDs are ordered before route content and are never dropped to meet a budget. Existing per-subject section budgets remain authoritative; schema 2 also caps the larger of the exact serialized JSON and direct-context estimates at 4096 tokens, with clarification-choice framing capped at 160 tokens, using `utf8-bytes/4-ceiling`. Hashes are revalidated before content is returned.
+Mandatory IDs are ordered before route content and are never dropped to meet a budget. Existing per-subject section budgets remain authoritative; schema 2 also caps the larger of the exact serialized JSON and direct-context estimates at 4096 tokens, with rich clarification framing capped at 2048 tokens, using `utf8-bytes/4-ceiling`. Hashes are revalidated before content is returned.
 
-A shared pinned context result includes a 15-minute generation handle bound to project ID, exact release digest, and selected-view revision. Handles use an installation-state HMAC key created during runtime installation; a supplied expired, modified, cross-project, or publicly re-signed handle fails instead of mixing generations. Pinned context is read-only and never activates a channel or mutates the project.
+A shared pinned clarification includes a 15-minute generation handle bound to project ID, exact release digest, selected-view revision, and its choice IDs/routes/hashes. `--generation <token> --select <choice_id>` can round-trip only one member of that set. Handles use an installation-state HMAC key; expired, modified, cross-project, or publicly re-signed handles fail. `route_resolved=true` reports governance loading only: context always returns `authority_granted=false` and never activates a channel or mutates the project.
 
 ## Selected closure
 

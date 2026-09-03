@@ -2,7 +2,7 @@
 
 > DSH 优先的项目治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
 
-当前版本：`3.0.2`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
+当前版本：`3.0.3`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
 ## 1. 互信与责任
 
@@ -24,7 +24,7 @@
   "schema_version": 2,
   "project_id": "example.project",
   "variant": "selected-inline.none",
-  "release": {"policy": "pinned", "version": "3.0.2", "digest": "sha256:<64 lowercase hex>"},
+  "release": {"policy": "pinned", "version": "3.0.3", "digest": "sha256:<64 lowercase hex>"},
   "documents": {
     "placement": "selected-local",
     "lifecycle": "maintenance",
@@ -33,7 +33,7 @@
     "overlays": []
   },
   "router": {"strategy": "inline-route", "executable": "none"},
-  "context": {"max_tokens": 4096, "clarification_max_tokens": 160},
+  "context": {"max_tokens": 4096, "clarification_max_tokens": 2048},
   "containment": {"workspace": "physical-selected", "host_corpus_exposure": "unknown"},
   "integrity": {"manifest_digest": "sha256:<64 hex>", "root_block_hash": "sha256:<64 hex>"},
   "protected_effects": [],
@@ -93,20 +93,20 @@ node scripts/apg.mjs migrate v3-apply \
   --digest sha256:<reviewed-plan-digest>
 ```
 
-`help` 列出 `context`、project/provider/release、migration、risk、memory 和 DSH 接口。`context --format context` 直接输出 bounded governance 内容。命令不运行 LLM，不自动 `git add/commit`，不解析 `latest`；launcher 导入 CLI 前验证精确 manifest 与 hashes。
+`--help`、`context --help` 和 `--version` 使用普通 CLI 行为。`context --format context` 输出 bounded governance；命令不运行 LLM，不自动提交，不解析 `latest`。launcher 导入 CLI 前验证 exact manifest/hashes。
 
 ## 5. 精确路由和 context
 
 语义 ID 由 registry 拥有，路径只是位置。`routing/context-routes.jsonl` 保留 per-subject section budget；`routing/context-classifier.json` 只做 deterministic role recommendation，不制造权限。
 
 ```text
-explicit role/mode or bounded lexical classification
-  -> protected/ambiguous choice, or exactly one selected role
+explicit plane/role/mode (no inference) or bounded lexical classification
+  -> generation-bound executable choice, or one exact route
   -> mandatory IDs + budgeted role/profile/overlay sections
   -> selected-view allowlist + exact hash checked content
 ```
 
-不确定时返回不超过 descriptor clarification budget 的 compact choice，不并集加载候选 roles/profiles/security docs。Production 仍不继承 Development profile/overlay。Schema 1 的 `search` 继续只是候选，不能满足 mandatory policy；`provider resolve/load` 行为保持兼容。禁止 profile 复述 subtype 章节；同一动态事实只保留一个 executable/schema authority。
+不确定时只返回 selected view 内可执行的 stable `choice_id`、完整 route、匹配规则、冲突原因和 `next_command`；未选 role 单列为 `required_expansion`，不并集加载。可用 `--generation <token> --select <choice_id>` 回传。路由成功只表示 `route_resolved=true`，context 加载不会把 `authority_granted` 变为 true。Production 不继承 Development profile/overlay。禁止 profile 复述 subtype 章节。
 
 ## 6. 角色和验证
 

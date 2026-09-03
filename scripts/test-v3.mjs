@@ -6,6 +6,7 @@ import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { canonicalJson, sha256 } from '../lib/core.mjs';
+import { installSharedLauncher } from '../lib/provider.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cli = path.join(root, 'scripts', 'apg.mjs');
@@ -24,10 +25,11 @@ function run(args, { cwd = root, home = path.join(temporary, 'home'), expect = 0
   return text.trim() ? JSON.parse(text) : undefined;
 }
 
-function runCommand(command, args, { cwd, home, expect = 0 } = {}) {
+function runCommand(command, args, { cwd, home, expect = 0, raw = false } = {}) {
   const result = spawnSync(command, args, { cwd, encoding: 'utf8', env: { ...process.env, AGENT_PROJECT_GUIDES_HOME: home } });
   assert.equal(result.status, expect, `command failed: ${command} ${args.join(' ')}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`);
   const text = expect === 0 ? result.stdout : result.stderr;
+  if (raw) return text;
   return text.trim() ? JSON.parse(text) : undefined;
 }
 
@@ -67,6 +69,23 @@ const baseArgs = [
   '--mandatory', 'profile:content-package#5-verification-preset',
 ];
 
+assert.match(run([], { raw: true }), /^Agent Project Guides/m);
+assert.match(run(['--help'], { raw: true }), /Usage: apg <command>/);
+assert.match(run(['context', '--help'], { raw: true }), /--generation <token>/);
+assert.equal(run(['--version'], { raw: true }), `${fs.readFileSync(path.join(root, 'PACKAGE_VERSION'), 'utf8').trim()}\n`);
+assert.equal(run(['context'], { expect: 2 }).error, 'invalid_arguments');
+const foreignRuntime = path.join(temporary, 'foreign-runtime');
+fs.mkdirSync(path.join(foreignRuntime, 'scripts'), { recursive: true });
+fs.copyFileSync(path.join(root, 'scripts', 'apg-launcher.mjs'), path.join(foreignRuntime, 'scripts', 'apg-launcher.mjs'));
+fs.writeFileSync(path.join(foreignRuntime, 'PACKAGE_VERSION'), '9.9.9\n');
+const foreignHome = path.join(temporary, 'foreign-home');
+const foreignLauncher = installSharedLauncher(foreignRuntime, { ...process.env, AGENT_PROJECT_GUIDES_HOME: foreignHome }).command;
+assert.equal(runCommand(foreignLauncher, ['--version'], { cwd: temporary, home: foreignHome, raw: true }), '9.9.9\n');
+const legacyAmbiguity = run(['context', '--target', root, '--task', 'inspect this work', '--format', 'json']);
+assert.ok(legacyAmbiguity.token_estimate <= 160);
+assert.ok(legacyAmbiguity.budgets.aggregate_tokens <= 2048);
+assert.equal(Object.hasOwn(legacyAmbiguity.choices[0], 'choice_id'), false);
+
 // Preview is pure and exposes only the two implemented variants.
 const previewTarget = project('preview');
 const previewBefore = treeSnapshot(previewTarget);
@@ -77,6 +96,9 @@ assert.ok(['clean', 'dirty', 'unknown'].includes(preview.source_provenance.state
 assert.equal(preview.source_provenance.immutable_release_claim, false);
 assert.deepEqual(treeSnapshot(previewTarget), previewBefore);
 assert.equal(run(['project', 'materialize', '--target', previewTarget, '--project-id', 'test.preview-v3', '--variant', 'selected-cli.shared', ...baseArgs], { expect: 2 }).error, 'unsupported_variant');
+const activeInlinePreview = run(['project', 'materialize', '--target', project('active-inline-preview'), '--project-id', 'test.active-inline-preview', '--variant', 'selected-inline.none', '--lifecycle', 'active-development', '--profiles', 'mcp']);
+assert.equal(activeInlinePreview.applicable, true);
+assert.equal(activeInlinePreview.descriptor.documents.roles.includes('production/operator'), false);
 const occupiedTransition = project('occupied-transition');
 fs.mkdirSync(path.join(occupiedTransition, '.agent-guides-transition'));
 fs.writeFileSync(path.join(occupiedTransition, '.agent-guides-transition', 'user.txt'), 'project-owned\n');
@@ -126,35 +148,59 @@ assert.equal(inlineContext.status, 'ready');
 assert.ok(inlineContext.budgets.aggregate_tokens <= inlineDescriptor.context.max_tokens);
 assert.equal(inlineContext.budgets.json_tokens, Math.ceil(Buffer.byteLength(canonicalJson(inlineContext)) / 4));
 assert.equal(inlineContext.union_loaded, false);
-assert.equal(run(['context', '--target', inline, '--role', 'developer', '--mode', 'feature', '--format', 'json'], { home: inlineHome, expect: 2 }).error, 'route_unresolved');
+const unavailableRole = run(['context', '--target', inline, '--role', 'developer', '--mode', 'feature', '--format', 'json'], { home: inlineHome, expect: 2 });
+assert.equal(unavailableRole.error, 'route_unresolved');
+assert.equal(unavailableRole.details.match_count, 0);
+assert.equal(unavailableRole.details.registry_match_count, 1);
+assert.equal(unavailableRole.details.failed_field, 'role');
+assert.deepEqual(unavailableRole.details.matched_routes, [{ plane: 'development', role: 'developer', plane_match: true, available: false, modes: ['feature', 'initialize'] }]);
+const wrongPlaneRole = run(['context', '--target', inline, '--plane', 'production', '--role', 'maintainer', '--mode', 'code', '--format', 'json'], { home: inlineHome, expect: 2 });
+assert.equal(wrongPlaneRole.error, 'route_unresolved');
+assert.deepEqual(wrongPlaneRole.details.matched_routes, [{ plane: 'development', role: 'maintainer', plane_match: false, available: true, modes: ['code', 'readapt'] }]);
 const cjkContext = run(['context', '--target', inline, '--task', '修复缺陷并保持行为', '--format', 'json'], { home: inlineHome });
 assert.equal(cjkContext.role, 'maintainer');
 const ambiguous = run(['context', '--target', inline, '--task', 'inspect this work', '--format', 'json'], { home: inlineHome });
 assert.equal(ambiguous.status, 'clarification_required');
 assert.equal(ambiguous.union_loaded, false);
+assert.equal(ambiguous.choices.every((choice) => choice.conflict_reason === 'no lexical routing rule matched the request'), true);
 assert.deepEqual(ambiguous.mandatory_ids, ['profile:content-package#5-verification-preset']);
 assert.deepEqual(ambiguous.selected_sources.map((source) => source.id), ambiguous.mandatory_ids);
 assert.ok(ambiguous.token_estimate <= inlineDescriptor.context.clarification_max_tokens);
 assert.ok(ambiguous.budgets.aggregate_tokens <= inlineDescriptor.context.max_tokens);
 const mixed = run(['context', '--target', inline, '--task', 'implement and review this change', '--format', 'json'], { home: inlineHome });
 assert.equal(mixed.status, 'clarification_required');
+assert.equal(mixed.choices.flatMap((choice) => choice.matched_rules).some((rule) => rule.startsWith('protected-pattern:')), false);
 const protectedChoice = run(['context', '--target', inline, '--task', 'deploy this release to production', '--format', 'json'], { home: inlineHome });
 assert.equal(protectedChoice.kind, 'protected');
 assert.equal(protectedChoice.authority_granted, false);
+assert.equal(protectedChoice.route_resolved, false);
+assert.equal(protectedChoice.choices.every((choice) => inlineDescriptor.documents.roles.includes(`${choice.route.plane}/${choice.route.role}`)), true);
+assert.ok(protectedChoice.required_expansion.some((route) => route.plane === 'production' && route.role === 'operator'));
 assert.equal(protectedChoice.union_loaded, false);
 const productChoice = run(['context', '--target', inline, '--task', 'use product through public api', '--format', 'json'], { home: inlineHome });
 assert.equal(productChoice.kind, 'ordinary-ambiguity');
-assert.ok(productChoice.required_expansion.includes('production/user'));
+assert.ok(productChoice.required_expansion.some((route) => route.plane === 'production' && route.role === 'user'));
+assert.equal(productChoice.choices.every((choice) => choice.choice_id && choice.route && choice.route_hash && choice.next_command), true);
 
 // Real multi-profile projects require more than the original 3072-token aggregate while remaining bounded by 4096.
 const wideContextProject = project('wide-context');
 const wideHome = path.join(temporary, 'wide-home');
 run(['project', 'materialize', '--target', wideContextProject, '--project-id', 'test.wide-context', '--variant', 'shared-runtime.pinned', '--lifecycle', 'active-development', '--profiles', 'mcp,monorepo-composition', '--overlays', 'agent-governance', '--apply'], { home: wideHome });
 const wideDescriptor = JSON.parse(fs.readFileSync(path.join(wideContextProject, '.agent-project-guides.json'), 'utf8'));
+assert.ok(wideDescriptor.documents.roles.includes('production/operator'));
 const wideContext = run(['context', '--target', wideContextProject, '--role', 'maintainer', '--mode', 'code', '--format', 'json'], { home: wideHome });
 assert.equal(wideDescriptor.context.max_tokens, 4096);
 assert.ok(wideContext.budgets.aggregate_tokens > 3072);
 assert.ok(wideContext.budgets.aggregate_tokens <= wideDescriptor.context.max_tokens);
+const wideOperator = run(['context', '--target', wideContextProject, '--plane', 'production', '--role', 'operator', '--mode', 'deploy', '--format', 'json'], { home: wideHome });
+assert.equal(wideOperator.route_resolved, true);
+assert.equal(wideOperator.authority_granted, false);
+const wideAmbiguous = run(['context', '--target', wideContextProject, '--task', 'inspect this work', '--format', 'json'], { home: wideHome });
+assert.equal(wideAmbiguous.choices.length, 4);
+assert.equal(wideAmbiguous.choices_truncated, true);
+assert.equal(wideAmbiguous.omitted_choice_ids.length, wideDescriptor.documents.roles.length - 4);
+assert.ok(wideAmbiguous.token_estimate <= wideDescriptor.context.clarification_max_tokens);
+assert.ok(wideAmbiguous.budgets.aggregate_tokens <= wideDescriptor.context.max_tokens);
 
 // Shared pinned mode publishes no generic Markdown in the project and routes through one exact packed generation.
 const shared = project('shared');
@@ -190,6 +236,10 @@ assert.match(runCommand(launcher, ['context', '--target', shared, '--role', 'mai
 fs.writeFileSync(runtimeCliFile, runtimeCliBytes);
 fs.writeFileSync(runtimeManifestFile, runtimeManifestBytes);
 fs.chmodSync(runtimeManifestFile, 0o444);
+assert.match(runCommand(launcher, [], { cwd: temporary, home: sharedHome, raw: true }), /Usage: apg <command>/);
+assert.match(runCommand(launcher, ['--help'], { cwd: temporary, home: sharedHome, raw: true }), /Usage: apg <command>/);
+assert.match(runCommand(launcher, ['context', '--help'], { cwd: temporary, home: sharedHome, raw: true }), /--select <choice_id>/);
+assert.equal(runCommand(launcher, ['--version'], { cwd: temporary, home: sharedHome, raw: true }), `${fs.readFileSync(path.join(root, 'PACKAGE_VERSION'), 'utf8').trim()}\n`);
 const sharedStatus = run(['project', 'validate', '--target', shared], { home: sharedHome });
 assert.equal(sharedStatus.workspace_containment, 'no-generic-corpus');
 assert.equal(sharedStatus.runtime_dependency, 'shared-cli');
@@ -209,6 +259,12 @@ const sharedChoice = runCommand(launcher, ['context', '--target', shared, '--tas
 assert.equal(sharedChoice.status, 'clarification_required');
 assert.ok(sharedChoice.generation);
 assert.deepEqual(sharedChoice.mandatory_ids, ['profile:content-package#5-verification-preset']);
+const sharedAmbiguous = runCommand(launcher, ['context', '--target', shared, '--task', 'inspect this work', '--format', 'json'], { cwd: shared, home: sharedHome });
+assert.equal(sharedAmbiguous.choices.length, sharedDescriptor.documents.roles.length);
+assert.equal(sharedAmbiguous.choices_truncated, false);
+assert.ok(sharedAmbiguous.token_estimate <= sharedDescriptor.context.clarification_max_tokens);
+assert.ok(sharedAmbiguous.budgets.aggregate_tokens <= sharedDescriptor.context.max_tokens);
+assert.equal(sharedAmbiguous.choices.every((choice) => choice.next_command.includes(sharedAmbiguous.generation)), true);
 const continued = runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code', '--format', 'json', '--generation', sharedContext.generation], { cwd: shared, home: sharedHome });
 assert.equal(continued.generation, sharedContext.generation);
 const [encodedGeneration] = sharedContext.generation.split('.');
@@ -218,6 +274,76 @@ const forgedGenerationEncoded = Buffer.from(canonicalJson(forgedGenerationPayloa
 const publiclyResignedGeneration = `${forgedGenerationEncoded}.${sha256(forgedGenerationEncoded)}`;
 assert.equal(runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code', '--format', 'json', '--generation', publiclyResignedGeneration], { cwd: shared, home: sharedHome, expect: 2 }).error, 'generation_mismatch');
 assert.equal(runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code', '--format', 'json', '--generation', `${sharedContext.generation}x`], { cwd: shared, home: sharedHome, expect: 2 }).error, 'generation_mismatch');
+
+// Operator routes expose six exact modes, remain authority-neutral, and round-trip generation-bound choices.
+const operations = project('operations');
+const operationsHome = path.join(temporary, 'operations-home');
+run(['project', 'materialize', '--target', operations, '--project-id', 'test.operations', '--variant', 'shared-runtime.pinned', '--lifecycle', 'operations-only', '--profiles', 'mcp', '--apply'], { home: operationsHome });
+const operationsLauncher = path.join(operationsHome, 'bin', 'apg');
+const operatorModes = ['observe-health', 'deploy', 'configure', 'restart', 'recover', 'rollback'];
+const legacyOperatorModes = ['deploy-configure', 'incident', 'backup-recovery'];
+for (const legacyMode of legacyOperatorModes) {
+  const legacyRoute = run(['provider', 'resolve', '--target', root, '--plane', 'production', '--role', 'operator', '--mode', legacyMode]);
+  assert.equal(legacyRoute.mode, legacyMode);
+}
+let stableOperator;
+for (const operatorMode of operatorModes) {
+  const routed = runCommand(operationsLauncher, ['context', '--target', operations, '--plane', 'production', '--role', 'operator', '--mode', operatorMode, '--task', 'implement source changes instead', '--format', 'json'], { cwd: operations, home: operationsHome });
+  assert.equal(routed.status, 'ready');
+  assert.equal(routed.route_resolved, true);
+  assert.equal(routed.authority_granted, false);
+  assert.deepEqual(routed.route, { plane: 'production', role: 'operator', mode: operatorMode });
+  if (operatorMode === 'deploy') stableOperator = routed;
+}
+for (const [task, expectedMode] of [['configure service settings', 'configure'], ['restart service', 'restart']]) {
+  const inferredOperator = runCommand(operationsLauncher, ['context', '--target', operations, '--task', task, '--format', 'json'], { cwd: operations, home: operationsHome });
+  assert.equal(inferredOperator.status, 'ready');
+  assert.equal(inferredOperator.mode, expectedMode);
+}
+const inferredPlaneOperator = runCommand(operationsLauncher, ['context', '--target', operations, '--role', 'operator', '--mode', 'deploy', '--format', 'json'], { cwd: operations, home: operationsHome });
+assert.deepEqual(inferredPlaneOperator.route, { plane: 'production', role: 'operator', mode: 'deploy' });
+const canonicalOperator = runCommand(operationsLauncher, ['context', '--target', operations, '--role', 'production/operator', '--mode', 'observe-health', '--format', 'json'], { cwd: operations, home: operationsHome });
+assert.deepEqual(canonicalOperator.route, { plane: 'production', role: 'operator', mode: 'observe-health' });
+const stableOperatorAgain = runCommand(operationsLauncher, ['context', '--target', operations, '--plane', 'production', '--role', 'operator', '--mode', 'deploy', '--format', 'json'], { cwd: operations, home: operationsHome });
+assert.equal(stableOperatorAgain.route_hash, stableOperator.route_hash);
+assert.deepEqual(stableOperatorAgain.selected_sources.map(({ id, hash }) => ({ id, hash })), stableOperator.selected_sources.map(({ id, hash }) => ({ id, hash })));
+const invalidOperatorMode = runCommand(operationsLauncher, ['context', '--target', operations, '--plane', 'production', '--role', 'operator', '--mode', 'invalid', '--format', 'json'], { cwd: operations, home: operationsHome, expect: 2 });
+assert.equal(invalidOperatorMode.error, 'route_unresolved');
+assert.equal(invalidOperatorMode.details.failed_field, 'mode');
+assert.equal(invalidOperatorMode.details.match_count, 0);
+assert.equal(invalidOperatorMode.details.role_match_count, 1);
+assert.equal(invalidOperatorMode.details.matched_routes.length, operatorModes.length);
+assert.deepEqual(invalidOperatorMode.details.allowed_values, operatorModes);
+const legacyModeInV3 = runCommand(operationsLauncher, ['context', '--target', operations, '--plane', 'production', '--role', 'operator', '--mode', 'incident', '--format', 'json'], { cwd: operations, home: operationsHome, expect: 2 });
+assert.equal(legacyModeInV3.error, 'route_unresolved');
+assert.deepEqual(legacyModeInV3.details.allowed_values, operatorModes);
+const operatorChoiceResponse = runCommand(operationsLauncher, ['context', '--target', operations, '--task', 'deploy this release to production', '--format', 'json'], { cwd: operations, home: operationsHome });
+const deployChoice = operatorChoiceResponse.choices.find((choice) => choice.choice_id === 'production.operator.deploy');
+assert.ok(deployChoice);
+assert.equal(deployChoice.route_hash, stableOperator.route_hash);
+assert.ok(deployChoice.matched_rules.includes('mode-pattern:deploy'));
+const compoundOperatorChoices = runCommand(operationsLauncher, ['context', '--target', operations, '--task', 'rollback this deployment', '--format', 'json'], { cwd: operations, home: operationsHome });
+assert.ok(compoundOperatorChoices.choices.some((choice) => choice.choice_id === 'production.operator.deploy'));
+assert.ok(compoundOperatorChoices.choices.some((choice) => choice.choice_id === 'production.operator.rollback'));
+for (const [task, choiceId] of [['restart production service', 'production.operator.restart'], ['recover production database', 'production.operator.recover']]) {
+  const protectedModes = runCommand(operationsLauncher, ['context', '--target', operations, '--task', task, '--format', 'json'], { cwd: operations, home: operationsHome });
+  assert.ok(protectedModes.choices.some((choice) => choice.choice_id === choiceId));
+}
+assert.match(deployChoice.next_command, /--generation \S+ --select production\.operator\.deploy/);
+const directChoice = spawnSync('sh', ['-c', deployChoice.next_command], { cwd: operations, encoding: 'utf8', env: { ...process.env, AGENT_PROJECT_GUIDES_HOME: operationsHome, PATH: `${path.join(operationsHome, 'bin')}${path.delimiter}${process.env.PATH || ''}` } });
+assert.equal(directChoice.status, 0, directChoice.stderr);
+assert.match(directChoice.stdout, /APG context: production\/operator \(deploy\)/);
+assert.match(directChoice.stdout, /Authority granted: false/);
+const selectedOperator = runCommand(operationsLauncher, ['context', '--target', operations, '--generation', operatorChoiceResponse.generation, '--select', deployChoice.choice_id, '--task', 'review code only', '--format', 'json'], { cwd: operations, home: operationsHome });
+assert.equal(selectedOperator.status, 'ready');
+assert.equal(selectedOperator.selection_reason.kind, 'generation-choice');
+assert.equal(selectedOperator.route_hash, deployChoice.route_hash);
+assert.equal(selectedOperator.authority_granted, false);
+const wrongChoice = runCommand(operationsLauncher, ['context', '--target', operations, '--generation', operatorChoiceResponse.generation, '--select', 'production.operator.rollback', '--format', 'json'], { cwd: operations, home: operationsHome, expect: 2 });
+assert.equal(wrongChoice.error, 'choice_unresolved');
+const bypassChoice = runCommand(operationsLauncher, ['context', '--target', operations, '--generation', operatorChoiceResponse.generation, '--plane', 'production', '--role', 'operator', '--mode', 'rollback', '--format', 'json'], { cwd: operations, home: operationsHome, expect: 2 });
+assert.equal(bypassChoice.error, 'selection_required');
+
 const runtimeBackup = `${runtimeRoot}.missing`;
 fs.renameSync(runtimeRoot, runtimeBackup);
 assert.match(runCommand(launcher, ['context', '--target', shared, '--role', 'maintainer', '--mode', 'code', '--format', 'json'], { cwd: shared, home: sharedHome, expect: 2 }).message, /packed runtime is missing/);
