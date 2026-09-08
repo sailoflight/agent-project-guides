@@ -8,3 +8,9 @@ __pycache__/
 .claude/
 TESTWORKTREE/
 
+
+# APG agent scratch (review merge 2026-09-03, plans/REVIEW_FINDINGS.md)
+.agent-scratch/
+
+# Harness plugins are independent nested repositories, not APG source/gitlinks.
+/plugins/*/

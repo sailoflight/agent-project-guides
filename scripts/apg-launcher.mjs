@@ -6,6 +6,14 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 function fail(message) {
+  // No runtime imports are allowed before manifest verification.
+  const args = process.argv.slice(2);
+  const formatIndex = args.lastIndexOf('--format');
+  const compact = args[0] === 'context' && (formatIndex < 0 || args[formatIndex + 1] === 'context');
+  if (compact) message = message
+    .replace(/\b[A-Za-z0-9_-]{80,}\.[a-f0-9]{64}\b/gi, '<generation>')
+    .replace(/\bsha256[:-][a-f0-9]{64}\b/gi, '<digest>')
+    .replace(/\b[a-f0-9]{64}\b/gi, '<digest>');
   process.stderr.write(`${JSON.stringify({ error: 'launcher_error', message })}\n`);
   process.exit(2);
 }
@@ -212,6 +220,9 @@ try {
   if (result && result.__apg_text === true) process.stdout.write(result.text);
   else process.stdout.write(`${JSON.stringify(result)}\n`);
 } catch (error) {
-  process.stderr.write(`${JSON.stringify({ error: error.code || 'internal_error', message: error.message, details: error.details })}\n`);
+  const record = typeof module.contextErrorRecord === 'function'
+    ? module.contextErrorRecord(error, process.argv.slice(2))
+    : { error: error.code || 'internal_error', message: error.message, details: error.details };
+  process.stderr.write(`${JSON.stringify(record)}\n`);
   process.exit(error.code ? 2 : 1);
 }

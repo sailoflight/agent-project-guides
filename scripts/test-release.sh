@@ -16,6 +16,7 @@ node scripts/validate-routing.mjs
 ./scripts/test-install.sh
 node scripts/test-v2.mjs
 node scripts/test-v3.mjs
+node scripts/test-context-state.mjs
 node scripts/apg.mjs catalog check
 node scripts/apg.mjs project validate --target .
 node scripts/apg.mjs release verify-source

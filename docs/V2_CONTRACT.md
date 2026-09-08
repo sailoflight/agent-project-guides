@@ -28,7 +28,7 @@ A project commits `.agent-project-guides.json`. It contains only portable projec
 - selected root policy file and mandatory catalog IDs;
 - project-native scratch and memory bindings.
 
-Machine paths, caches, receipts, journals, ACL/audit metadata, generic package bytes, and generated search state remain outside the descriptor.
+Machine paths, caches, receipts, journals, ACL/audit metadata, generic package bytes, and generated search state remain outside the descriptor. APG's project-owned `docs/memory/` research records are excluded from release distribution files.
 
 ## Provider modes
 
@@ -64,6 +64,16 @@ provider import
 Roles, facets, overlays, procedures, and subtypes route through semantic catalog IDs. File paths are current locations, not authority IDs. `routing/context-routes.jsonl` owns the runtime entrypoints: daily role modes and Development facets resolve to owner-bound sections under declared per-subject token budgets; `initialize/readapt` may select a whole profile; Production roles do not inherit Development facet/overlay guidance. `resolve` revalidates every exact entry hash before reporting the ordered IDs and total `utf8-bytes/4-ceiling` estimate. `load --ids <csv>` revalidates the entries and returns ordered compact `[id, content]` pairs; single `--id` retains the detailed compatible result. Search suggestions cannot satisfy mandatory policy.
 
 `provider import` is a lifecycle-receipt-backed, revision-guarded update for portable project facts. Apply acquires the shared project mutation lock, rereads the revision, and records a recoverable descriptor/receipt write-ahead transaction. It may update facets, overlays, protected effects, mandatory IDs, and layout. It reports/refuses changes to `project_id`, provider mode/release/digest, or `policy.root`; it never installs a provider as an import side effect. Raw writers that ignore the cooperative lock are outside the 2.0 mutual-trust concurrency contract.
+
+## Schema 1 context and bootstrap
+
+Release 3.0.4 extends schema 1 `apg context` clarification records additively. Each choice retains the 3.0.3 top-level `plane`, `role`, and `mode` fields and also reports a stable `choice_id`, complete `route`, `route_hash`, matched rules, conflict reason, and direct explicit `next_command`. Continuations preserve the resolved absolute project target, so they remain bound when the original `--target` differs from the working directory. The lower-level `provider resolve/load` request and response contracts are unchanged. Schema 1 does not gain generation handles; its continuation command supplies the exact target, plane, role, and mode.
+
+Schema 1 direct-context and exact serialized JSON outputs are independently gated under a 4096-token limit; requesting one format is not rejected because the other format is oversized. Clarification framing is capped at 2048 tokens. Default `context` is the minimal AI-facing text projection: it retains status, authority-neutral routing, executable semantic choices, explicit truncation/required expansion, and selected canonical content. It omits transport hashes, signed payloads, duplicate source inventories, source-observation diagnostics, redundant route/union booleans, duplicate choice labels, and diagnostic budget records. The explicit `--format json` interface retains complete machine diagnostics. Compact output does not redact or truncate canonical policy content, even when that content discusses hashes. Schema 1 continuations remain stateless explicit target/plane/role/mode commands. `project validate` separately compiles every selected role/mode in both formats and verifies their budgets, route hashes, mandatory recall, `union_loaded=false`, and `authority_granted=false`. Any route or promised-format failure prevents a ready validation result.
+
+Lexical classification treats explicit no-implementation phrases as report-only signals and returns executable clarification for mixed assessment plus implementation-delivery intent. Substring weighting alone never resolves those conflicting delivery instructions.
+
+The managed bootstrap requires `apg context` before repository discovery or operation. Work continues only for `status=ready`; `clarification_required` requires one structured question and a wait, while every other context/compiler error stops work. Only `package_missing` permits the descriptor's explicit ordinary degraded path. This is prompt-level governance, not a claim that the host blocks tools before routing.
 
 ## DSH observation
 

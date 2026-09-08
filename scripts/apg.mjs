@@ -20,11 +20,13 @@ import { buildCatalog, catalogJsonl, loadCatalogEntry, readCatalog, resolveRoute
 import { validateContextRoutes } from '../lib/context-routes.mjs';
 import { defaultDescriptor, readDescriptor, validateDescriptor, writeDescriptor } from '../lib/descriptor.mjs';
 import { inspectBootstrap, installBootstrap, restoreOwnedFile } from '../lib/bootstrap.mjs';
-import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, openPackedRuntime, openProvider, portableSnapshot, readGenerationKey } from '../lib/provider.mjs';
+import { addEmbeddedExclude, createGenerationReference, gitExcludeFile, installEmbedded, installRelease, loadGenerationReference, openPackedRuntime, openProvider, portableSnapshot, readGenerationKey, saveGenerationReference } from '../lib/provider.mjs';
 import { applyMigration, planMigration, rollbackMigration } from '../lib/migration.mjs';
 import { applyV2ToV3Migration, previewV2ToV3Migration, rollbackV3Migration } from '../lib/migration-v3.mjs';
 import { applyMaterialization, previewMaterialization, validateMaterializedProject } from '../lib/materializer.mjs';
-import { compileContext, renderContext } from '../lib/context.mjs';
+import { compileContext, renderContext, validateContextMatrix } from '../lib/context.mjs';
+import { contextErrorRecord } from '../lib/context-errors.mjs';
+export { contextErrorRecord };
 import { composeRisk, parseEffectList } from '../lib/risk.mjs';
 import { projectDigest, promoteMemory, proposeMemory, purgeMemoryProposal, readMemoryInput, reviewMemory, supersedeMemory } from '../lib/memory.mjs';
 
@@ -335,7 +337,31 @@ function hydrateProject(options) {
 function validateProject(options) {
   const projectRoot = targetRoot(options);
   const { descriptor } = readDescriptor(projectRoot);
-  if (descriptor.schema_version === 2) return validateMaterializedProject(projectRoot, descriptor);
+  if (descriptor.schema_version === 2) {
+    const validation = validateMaterializedProject(projectRoot, descriptor);
+    const runningPacked = fs.statSync(path.join(packageRoot, 'content', 'content.pack.json'), { throwIfNoEntry: false })?.isFile();
+    let runtimeRoot;
+    let packed = false;
+    if (runningPacked) {
+      runtimeRoot = packageRoot;
+      packed = true;
+    } else if (descriptor.variant === 'shared-runtime.pinned') {
+      runtimeRoot = openPackedRuntime(descriptor).root;
+      packed = true;
+    } else {
+      const sourceManifest = buildFileManifest(packageRoot);
+      if (sourceManifest.digest === descriptor.release.digest) runtimeRoot = packageRoot;
+      else {
+        runtimeRoot = openPackedRuntime(descriptor).root;
+        packed = true;
+      }
+    }
+    const contextRoutes = validateContextMatrix(runtimeRoot, descriptor, {
+      packed,
+      generationKey: descriptor.variant === 'shared-runtime.pinned' ? readGenerationKey() : undefined,
+    });
+    return { ...validation, context_routes: contextRoutes };
+  }
   const bootstrap = inspectBootstrap(projectRoot, descriptor);
   let provider;
   try {
@@ -367,6 +393,7 @@ function validateProject(options) {
   for (const id of descriptor.policy.mandatory) {
     if (!catalog.some((entry) => entry.id === id)) throw new UserError(`mandatory catalog entry is missing: ${id}`, 'mandatory_missing');
   }
+  const contextRoutes = validateContextMatrix(provider.root, descriptor);
   return {
     valid: true,
     status: provider.mode === 'source-worktree' && provider.source_state === 'dirty' ? 'development-dirty' : 'ready',
@@ -374,6 +401,7 @@ function validateProject(options) {
     project_digest: projectDigest(descriptor),
     descriptor: 'valid',
     bootstrap,
+    context_routes: contextRoutes,
     provider: {
       mode: provider.mode,
       expected_digest: provider.expected_digest,
@@ -668,6 +696,8 @@ function v3SelectionOptions(options) {
 function contextCommand(options) {
   const projectRoot = targetRoot(options);
   const { descriptor } = readDescriptor(projectRoot);
+  const format = options.format || 'context';
+  if (!['context', 'json'].includes(format)) fail('--format must be context or json');
   let runtimeRoot;
   let packed = false;
   if (descriptor.schema_version === 1) {
@@ -689,21 +719,34 @@ function contextCommand(options) {
       }
     }
   }
+  const sharedPinned = descriptor.schema_version === 2 && descriptor.variant === 'shared-runtime.pinned';
+  let generation = options.generation;
+  if (typeof generation === 'string' && generation.startsWith('g1_')) {
+    if (!sharedPinned) throw new UserError('generation reference requires its original shared runtime project', 'generation_mismatch');
+    generation = loadGenerationReference(generation, projectRoot);
+  }
+  const contextReference = format === 'context' && sharedPinned ? createGenerationReference() : undefined;
   const result = compileContext(runtimeRoot, descriptor, {
     plane: options.plane,
     role: options.role,
     mode: options.mode,
     task: options.task || '',
     pathHint: options.path || '',
-    generation: options.generation,
+    generation,
+    contextReference,
     select: options.select,
-    generationKey: descriptor.schema_version === 2 && descriptor.variant === 'shared-runtime.pinned' ? readGenerationKey() : undefined,
+    generationKey: sharedPinned ? readGenerationKey() : undefined,
+    target: projectRoot,
+    format,
     packed,
   });
-  const format = options.format || 'context';
-  if (format === 'context') return { __apg_text: true, text: renderContext(result) };
-  if (format === 'json') return result;
-  fail('--format must be context or json');
+  if (format === 'context') {
+    if (result.status === 'clarification_required' && result.generation && contextReference) {
+      saveGenerationReference(contextReference, result.generation, projectRoot);
+    }
+    return { __apg_text: true, text: renderContext(result) };
+  }
+  return result;
 }
 
 export async function main(argv = process.argv.slice(2)) {
@@ -839,12 +882,8 @@ export async function main(argv = process.argv.slice(2)) {
 
 if (path.resolve(process.argv[1] || '') === fileURLToPath(import.meta.url)) {
   main().then(print).catch((error) => {
-    if (error instanceof UserError) {
-      process.stderr.write(canonicalJson({ error: error.code, message: error.message, details: error.details }));
-      process.exitCode = 2;
-    } else {
-      process.stderr.write(canonicalJson({ error: 'internal_error', message: error.stack || error.message }));
-      process.exitCode = 1;
-    }
+    const reported = error instanceof UserError ? error : { message: error.message, stack: error.stack };
+    process.stderr.write(canonicalJson(contextErrorRecord(reported)));
+    process.exitCode = error instanceof UserError ? 2 : 1;
   });
 }

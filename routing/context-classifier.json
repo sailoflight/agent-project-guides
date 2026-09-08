@@ -1,5 +1,10 @@
 {
   "schema_version": 1,
+  "assessment_patterns": ["review", "audit", "analyze", "analysis", "assess", "assessment", "weakness", "shortcoming", "fix plan", "repair plan", "plan only", "审查", "评审", "分析", "评估", "缺点", "不足", "修复方案", "只提出方案"],
+  "implementation_delivery_patterns": ["implement and", "and implement", "then implement", "implement after", "build and", "and build", "并实现", "再实现", "然后实现", "同时实现", "实现新功能", "落地修复方案", "实施修复", "执行修复", "落实修复", "并修复", "再修复", "然后修复"],
+  "maintenance_delivery_patterns": ["only fix", "fix bug", "fix defect", "repair bug", "repair defect", "只修复", "仅修复", "实施修复", "执行修复", "落实修复", "并修复", "再修复", "然后修复", "修复缺陷"],
+  "negated_maintenance_patterns": ["do not fix", "don't fix", "do not repair", "不要修复", "不修复", "无需修复"],
+  "negated_implementation_patterns": ["do not implement", "don't implement", "without implementation", "do not build", "plan only", "不要实现", "不实现", "无需实现", "不要实施", "不实施", "只提出方案"],
   "protected_patterns": [
     "production", "prod", "deploy", "deployment", "rollback", "incident", "credential", "credentials", "secret", "private data", "customer data", "payment", "purchase", "delete", "destructive", "migration", "migrate", "release", "publish", "promotion", "physical", "safety", "生产", "部署", "回滚", "事故", "凭据", "密钥", "私有数据", "客户数据", "付款", "购买", "删除", "破坏性", "迁移", "发布", "晋升", "物理", "安全关键"
   ],
@@ -7,7 +12,7 @@
     {
       "id": "development/developer",
       "default_mode": "feature",
-      "patterns": ["implement", "build", "create", "add feature", "new feature", "initialize", "scaffold", "开发", "实现", "新增功能", "初始化", "创建"]
+      "patterns": ["implement", "build", "create", "add feature", "new feature", "initialize", "scaffold", "implement fix plan", "implement repair plan", "开发", "实现", "新增功能", "初始化", "创建", "实现修复方案", "落地修复方案"]
     },
     {
       "id": "development/maintainer",
@@ -17,7 +22,7 @@
     {
       "id": "development/reviewer",
       "default_mode": "static",
-      "patterns": ["review", "audit", "inspect change", "finding", "code review", "审查", "评审", "检查变更", "发现问题"]
+      "patterns": ["review", "audit", "inspect change", "finding", "code review", "analyze", "analysis", "assess", "assessment", "weakness", "shortcoming", "fix plan", "repair plan", "propose a fix", "plan only", "do not implement", "审查", "评审", "检查变更", "发现问题", "分析", "评估", "缺点", "不足", "准备修复方案", "修复方案", "只提出方案", "不要实现", "不实现", "不要实施", "不实施"]
     },
     {
       "id": "development/verifier",
