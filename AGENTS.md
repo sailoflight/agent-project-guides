@@ -1,7 +1,7 @@
 <!-- agent-project-guides:v2:start -->
 ## Project governance bootstrap
 
-Project ID: `agent-project-guides`; release: `3.0.6`; expected digest: `observe`.
+Project ID: `agent-project-guides`; release: `3.0.7`; expected digest: `observe`.
 
 1. Direct-read `.agent-project-guides.json`; it is project-owned policy, not generic package content. Mutual trust assigns disclosed call consequences to the caller and truthful effect/contract/failure reporting to the callee.
 2. Before any repository discovery or operation, run the exact `apg context --target . --task <current-task> --format context` route through the installed launcher. An explicitly assigned route must include `--plane`, `--role`, and `--mode` together.
