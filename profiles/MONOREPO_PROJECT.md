@@ -1,47 +1,49 @@
 # Monorepo project profile
 
-> Read only after the `monorepo` record is selected for repository-level adaptation. This profile governs composition; it does not replace the primary-type profile selected later for an individual package scope.
+> Repository-level composition only after `monorepo` selection; package scopes use their own primary-type profile.
 
 ## 1. Selection boundary
 
-Select `monorepo` when the current scope is the repository root and multiple independently built, released, operated, or contracted packages/projects must be routed. Do not select it merely because the repository contains several directories. For a package-scoped pass, classify that package as `mcp`, `library`, `cli`, `service`, `application-ui`, or `data-automation` and read only that profile.
+Select for a root containing independently built, released, operated or contracted packages, not merely multiple directories. For package scope select only its mcp/library/cli/service/application-ui/data-automation profile.
 
 ## 2. Artifact preset
 
-| Artifact | Decision | Target or template | Condition |
+Templates below are exact files under `templates/`.
+
+| Artifact | Decision | Template | Scope |
 |---|---|---|---|
-| Root constraints | required | `templates/ROOT_AGENTS.md` | Only cross-package routing, shared red lines, and workspace-wide commands |
-| Documentation routing | required | `templates/DOC_INDEX.md` | Route tasks to one package before package-local detail |
-| Development start | required | `templates/DEVELOPMENT_START.md` | Workspace bootstrap, package selection, orchestration, generation, and root checks |
-| Repository architecture | required | `templates/ARCHITECTURE_OVERVIEW.md` | Package inventory, dependency direction, shared contracts, release coupling |
-| Package/module contract | conditional | `templates/MODULE_CONTRACT.md` | For independently owned, risky, public, or specially verified packages |
-| Verification matrix | required | `templates/VERIFICATION_MATRIX.md` | Map package changes and shared contracts to affected checks |
-| Repository-wide consumer usage | omit | package-scoped `templates/USER_USAGE.md` | Do not aggregate unrelated package usage at the root |
-| Repository-wide operator runbook | conditional | `templates/OPERATOR_RUNBOOK.md` | Only for real shared workspace orchestration or runtime duties |
-| Package local instructions | conditional | local section in `templates/MODULE_CONTRACT.md` | Only immediate package-specific rules that harness must inject on entry |
+| Root constraints | required | `templates/ROOT_AGENTS.md` | Cross-package routing, red lines, workspace commands |
+| Task index | required | DOC_INDEX.md | Select package before local detail |
+| Development | required | DEVELOPMENT_START.md | Bootstrap, selection, orchestration, generation, root checks |
+| Architecture | required | ARCHITECTURE_OVERVIEW.md | Packages, dependencies, shared contracts, release coupling |
+| Package/module contract | conditional | MODULE_CONTRACT.md | Independent ownership, risk, public or special verification |
+| Verification | required | VERIFICATION_MATRIX.md | Changed packages and shared contracts |
+| Root usage | omit | USER_USAGE.md at package scope | Never aggregate unrelated package usage |
+| Root operations | conditional | OPERATOR_RUNBOOK.md | Actual shared orchestration/runtime duties |
+| Local instructions | conditional | MODULE_CONTRACT.md local section | Only package rules needed before reading files |
 
 ## 3. Evidence map
 
-| Decision | Preferred evidence | Derived view |
+| Decision | Authority | Derived view |
 |---|---|---|
-| Package boundaries | workspace/build configuration | documentation task routing |
-| Dependency direction | manifests, build graph, import rules | repository architecture graph |
-| Shared schemas/protocols | schema source and compatibility tests | cross-package contract links |
-| Build/test impact | task graph and CI selection | verification matrix |
-| Release coupling | release configuration and history | compatibility/release order |
+| Package boundaries | workspace/build config | task routing |
+| Dependencies | manifests/build graph/imports | architecture |
+| Shared protocols | schemas/compatibility tests | contract links |
+| Build/test impact | task graph/CI | verification matrix |
+| Release coupling | release config/history | release order |
 
-Do not hand-maintain a package list when the workspace tool can generate it; keep only stable ownership and routing annotations around the generated view.
+Generate package inventories when tooling supports it; maintain only stable ownership/routing annotations.
 
 ## 4. Monorepo contract
 
-Root authorities own cross-package dependency rules, shared schemas, workspace commands, task routing, compatibility/release order, and repository-wide risks. Package authorities own internal entrypoints, implementation, tests, and type-specific delivery surfaces. Local `AGENTS.md` files contain only differences that must apply before files are read and link the fuller contract.
+Root owns cross-package dependencies, schemas, workspace commands, routing, compatibility/release order and shared risk. Packages own internal entrypoints, implementation, tests and type-specific delivery. Local AGENTS contain only pre-read differences and contract links.
 
-A repository-level pass does not preload every package profile or source tree. Adapt high-risk packages one scope at a time and record partial scope when the whole repository is not verified.
+Do not preload all package profiles/source trees. Adapt high-risk packages one scope at a time; report partial scope when the repository is not fully verified.
 
 ## 5. Verification preset
 
-Verify workspace graph validity, forbidden dependency directions, shared schema compatibility, affected-package test selection, root versus package command behavior, generated package index consistency, and release ordering where coupled. A root check that skips an affected package must be reported, not treated as full verification.
+Verify graph validity, forbidden dependencies, shared-schema compatibility, affected tests, root/package commands, generated indexes and coupled release order. Report skipped affected packages; a root check is not proof of their verification.
 
 ## 6. Cold-start acceptance
 
-A Development agent can map a task to one package, identify its local authority and applicable project type, and avoid reading unrelated packages. A cross-package change exposes dependency, compatibility, affected-test, and release-order requirements before implementation.
+Development maps a task to one package, local authority and applicable type without reading unrelated packages. Cross-package changes expose dependencies, compatibility, affected tests and release order before implementation.
