@@ -20,7 +20,7 @@ import { buildCatalog, catalogJsonl, loadCatalogEntry, readCatalog, resolveRoute
 import { validateContextRoutes } from '../lib/context-routes.mjs';
 import { defaultDescriptor, readDescriptor, validateDescriptor, writeDescriptor } from '../lib/descriptor.mjs';
 import { inspectBootstrap, installBootstrap, restoreOwnedFile } from '../lib/bootstrap.mjs';
-import { addEmbeddedExclude, createGenerationReference, gitExcludeFile, installEmbedded, installRelease, loadGenerationReference, openPackedRuntime, openProvider, portableSnapshot, readGenerationKey, saveGenerationReference } from '../lib/provider.mjs';
+import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, loadGenerationReference, openPackedRuntime, openProvider, portableSnapshot, readGenerationKey } from '../lib/provider.mjs';
 import { applyMigration, planMigration, rollbackMigration } from '../lib/migration.mjs';
 import { applyV2ToV3Migration, previewV2ToV3Migration, rollbackV3Migration } from '../lib/migration-v3.mjs';
 import { applyMaterialization, previewMaterialization, validateMaterializedProject } from '../lib/materializer.mjs';
@@ -725,7 +725,6 @@ function contextCommand(options) {
     if (!sharedPinned) throw new UserError('generation reference requires its original shared runtime project', 'generation_mismatch');
     generation = loadGenerationReference(generation, projectRoot);
   }
-  const contextReference = format === 'context' && sharedPinned ? createGenerationReference() : undefined;
   const result = compileContext(runtimeRoot, descriptor, {
     plane: options.plane,
     role: options.role,
@@ -733,7 +732,6 @@ function contextCommand(options) {
     task: options.task || '',
     pathHint: options.path || '',
     generation,
-    contextReference,
     select: options.select,
     generationKey: sharedPinned ? readGenerationKey() : undefined,
     target: projectRoot,
@@ -741,9 +739,6 @@ function contextCommand(options) {
     packed,
   });
   if (format === 'context') {
-    if (result.status === 'clarification_required' && result.generation && contextReference) {
-      saveGenerationReference(contextReference, result.generation, projectRoot);
-    }
     return { __apg_text: true, text: renderContext(result) };
   }
   return result;
