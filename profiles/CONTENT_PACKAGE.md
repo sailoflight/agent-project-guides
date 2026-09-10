@@ -28,4 +28,4 @@ Author Checks cover parser/schema validation, affected catalog generation, direc
 
 ## 6. Cold-start acceptance
 
-A fresh DSH task must find the descriptor, exact release, one authority route, and one relevant section without loading the full corpus. Missing release and unsupported client behavior must be explicit rather than silently degraded.
+A fresh agent task in a supported client must find the descriptor, exact release, one authority route, and one relevant section without loading the full corpus. Missing release and unsupported client behavior must be explicit rather than silently degraded.

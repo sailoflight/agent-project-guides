@@ -1,6 +1,6 @@
 # Agent Project Guides 3.0
 
-> DSH 优先的项目治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
+> Harness 中立的治理内核：3.0 首个纵向切片支持项目内 selected inline 文档和系统级 pinned packed runtime，同时保留 2.0 descriptor/CLI 行为。
 
 当前版本：`3.0.7`。仅 `selected-inline.none` 与 `shared-runtime.pinned` 可运行；其他模式未实现。合同见 [`docs/V3_MINIMAL_SLICE.md`](docs/V3_MINIMAL_SLICE.md)；2.0 兼容边界见 [`docs/V2_CONTRACT.md`](docs/V2_CONTRACT.md)。
 
@@ -200,7 +200,7 @@ APG_RUN_REAL_PILOTS=1 ./scripts/test-release.sh
 
 聚合套件覆盖 schema/routing、1.x compatibility、完整 2.0 regression，以及 3.0 两个 variant 的 closure/context/packed runtime/materializer failpoints/zero-write migration preview。`APG_RUN_REAL_PILOTS=1` 仍运行既有 2.0 route/migration pilots。
 
-Pilot 自动门为 route noninferiority/token budget、mandatory recall、migration ownership 和 no staging。真实 DSH task outcome 是独立发布证据门，基础设施脚本不伪造它。
+Pilot 自动门为 route noninferiority/token budget、mandatory recall、migration ownership 和 no staging。真实 agent task outcome 是独立发布证据门，基础设施脚本不伪造它。
 
 基础设施命令不调用 LLM，也不自动 stage、commit、付款、使用生产凭据或执行破坏性动作。
 
@@ -213,7 +213,7 @@ Pilot 自动门为 route noninferiority/token budget、mandatory recall、migrat
 | `catalog/` | 由 canonical package sources 生成的索引 |
 | `routing/` | semantic role/profile/overlay、classifier 和 context-budget registry |
 | `roles/`, `procedures/`, `profiles/`, `templates/` | canonical generic guidance |
-| `bootstrap/` | DSH v2 bootstrap 和 1.x compatibility blocks |
+| `bootstrap/` | 通用 v2、1.x 兼容与客户端 blocks |
 | `docs/` | 2.0 compatibility 与 3.0 minimal-slice contracts |
 | `decisions/` | 已接受架构决策 |
 | `plans/` | 路线图和实施边界，不覆盖当前代码事实 |

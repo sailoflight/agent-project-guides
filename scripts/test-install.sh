@@ -56,7 +56,7 @@ do
   [ ! -e "$ROOT/$obsolete" ] || fail "obsolete preload-prone path remains: $obsolete"
 done
 [ "$(wc -c < "$ROOT/bootstrap/AGENTS.routing-block.md" | tr -d '[:space:]')" -le 2000 ] || fail 'per-step routing block exceeded token-oriented byte budget'
-assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'ask_user_question'
+assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'structured question tool'
 assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" '`agent-project-guides:adapter-trigger:start`'
 assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" '`agent-project-guides:adapter-trigger:end`'
 assert_contains "$ROOT/bootstrap/AGENTS.routing-block.md" 'Routing/state and `pending/stale` are not triggers'
