@@ -240,6 +240,38 @@ assert_managed_first "$PROJECT_ONE/AGENTS.md"
 assert_original_suffix "$TMP/original-one.md" "$PROJECT_ONE/AGENTS.md"
 "$PACKAGE_ONE/scripts/install.sh" check
 
+# P3 (decisions/0006). The ADR wording "content that sits above them must not be
+# silently relocated" is deliberately narrowed to *another writer's managed block*
+# so the legacy-tail migration immediately above keeps working: project prose has
+# no marker block to reorder, and is still migrated to the suffix.
+FOREIGN_ABOVE="$TMP/foreign-above.md"
+printf '<!-- br-agent-instructions-v1 -->\n## br blurb\n<!-- end-br-agent-instructions -->\n' > "$FOREIGN_ABOVE"
+PROJECT_P3="$TMP/p3 foreign above prefix"
+PACKAGE_P3="$PROJECT_P3/tools/agent project guides"
+mkdir -p "$PROJECT_P3/.git" "$PROJECT_P3/tools"
+copy_package "$PACKAGE_P3"
+cat "$FOREIGN_ABOVE" > "$PROJECT_P3/AGENTS.md"
+"$PACKAGE_P3/scripts/install.sh" merge >/dev/null
+# Scope boundary: a root with no APG region yet is still prefixed (P1 prefix
+# reservation), so the foreign block lands below the regions byte-for-byte. The
+# refusal below applies once APG's regions exist and a block would be reordered.
+assert_managed_first "$PROJECT_P3/AGENTS.md"
+assert_original_suffix "$FOREIGN_ABOVE" "$PROJECT_P3/AGENTS.md"
+sed -n '/<!-- agent-project-guides:routing:start -->/,/<!-- agent-project-guides:routing:end -->/p' \
+  "$PROJECT_P3/AGENTS.md" > "$TMP/p3-routing.md"
+cat "$FOREIGN_ABOVE" "$TMP/p3-routing.md" > "$PROJECT_P3/AGENTS.md"
+cp "$PROJECT_P3/AGENTS.md" "$TMP/p3-root-before.md"
+if "$PACKAGE_P3/scripts/install.sh" check >/dev/null 2>&1; then
+  fail 'P3: check accepted a foreign block above the managed prefix'
+fi
+if "$PACKAGE_P3/scripts/install.sh" merge >"$TMP/p3.out" 2>"$TMP/p3.err"; then
+  fail 'P3: merge relocated a foreign block above the prefix instead of refusing'
+fi
+grep -qF "sits above APG's regions" "$TMP/p3.err" \
+  || fail "P3: merge refused for an unexpected reason: $(head -1 "$TMP/p3.err")"
+cmp "$TMP/p3-root-before.md" "$PROJECT_P3/AGENTS.md" >/dev/null \
+  || fail 'P3: the refused merge still modified the root file'
+
 # Cloud freshness checks are read-only and distinguish current, differing, and unavailable sources.
 before=$(sha256sum "$PROJECT_ONE/AGENTS.md" | cut -d' ' -f1)
 current=$(AGENT_PROJECT_GUIDES_VERSION_URL="data:text/plain,$PACKAGE_REVISION%0A" "$PACKAGE_ONE/scripts/install.sh" check-update)

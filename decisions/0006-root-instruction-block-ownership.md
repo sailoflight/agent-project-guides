@@ -1,6 +1,6 @@
 # 0006: Root instruction-file block ownership protocol
 
-Status: accepted — P1, P2, P4, P5, P8, P9 implemented and verified; P3, P6, P7 remain follow-up work
+Status: accepted — P1, P2, P3, P4, P5, P8, P9 implemented and verified; P6, P7 remain follow-up work
 Date: 2026-09-19
 Scope: `AGENTS.md` / `CLAUDE.md` root instruction files, the managed-prefix merge, third-party block interop, per-turn token budget
 Deciders/owner: project owner with development/maintainer
@@ -18,7 +18,7 @@ Markers are `<!-- agent-project-guides:routing:start|end -->` and `<!-- agent-pr
 - `scripts/manage-root-blocks.mjs` is a byte-level `Buffer.indexOf` `strip`/`replace`. It preserves every byte it does not own, consumes exactly one trailing CRLF/LF (:25-26), and fails on duplicate or missing markers (:18, :22).
 - `scripts/install.sh:324` asserts the routing block begins at byte 0 of the selected root (`[ "$(sed -n '1p' ...)" = "$ROUTING_START" ]`); `:322-323` require the routing marker pair to appear exactly once; `:540-543` refuse multiple routing blocks or a trigger without routing; `:391` applies the same byte-0 rule to the CLAUDE scope block.
 - `scripts/install.sh:284-295` (`reject_conflicting_managed_roots`) refuses a sibling root file (`CLAUDE.md`, `AGENTS.local.md`, `CLAUDE.local.md`) that carries package-managed markers.
-- `scripts/install.sh:439-465` (`rebuild_root_prefix`) strips all four APG regions into `$unmanaged`, concatenates routing + trigger + `$unmanaged`, and `mv -f`s the result.
+- `scripts/install.sh:507-540` (`rebuild_root_prefix`) runs `manage-root-blocks.mjs guard-prefix` over the existing root (P3), then strips all four APG regions into `$unmanaged`, concatenates routing + trigger + `$unmanaged`, and `mv -f`s the result.
 - **There is no backup** (closed by P8, below): `grep -n 'backup\|\.bak\|cp -' scripts/install.sh` and the same search in `manage-root-blocks.mjs` returned nothing at the time of the survey. A bad merge overwrote the previous root file. Both external writers *do* back up (writer 2 and writer 3 below), so APG was the only writer that did not.
 - **APG's markers carry no integrity data** (closed by P9, below) — only a namespace and a version — so at the time of the survey a hand-edited routing block was silently replaced, not detected.
 
@@ -51,7 +51,7 @@ Three independently developed tools arrived at the **same** protocol from the sa
 
 ### P5: measured against the real binary
 
-`scripts/test-interop-br.sh` (committed; it SKIPs when no binary is present) runs `br` v0.6.0 (SHA256 verified against the upstream release asset) in a target with its own `.git`, captures its real 2,086-byte blurb, and then composes the root file exactly the way `rebuild_root_prefix` does. Result on 2026-09-19, before P8/P9: **13 checks passed, 0 failed, 2 gaps confirmed.** After P8 and P9 landed it is **18 passed, 0 failed, 1 open gap** — the P9 gap is closed and only P3 remains open.
+`scripts/test-interop-br.sh` (committed; it SKIPs when no binary is present) runs `br` v0.6.0 (SHA256 verified against the upstream release asset) in a target with its own `.git`, captures its real 2,086-byte blurb, and then composes the root file exactly the way `rebuild_root_prefix` does, calling the same `guard-prefix` primitive `install.sh` calls. Result on 2026-09-19, before P8/P9: **13 checks passed, 0 failed, 2 gaps confirmed.** After P8 and P9 landed: **18 passed, 0 failed, 1 open gap.** After P3 landed: **19 passed, 0 failed, 0 open gaps.**
 
 | Check | Result |
 |---|---|
@@ -59,14 +59,16 @@ Three independently developed tools arrived at the **same** protocol from the sa
 | `br` region byte-identical, exactly one block, no duplication | pass |
 | APG routing/trigger markers still appear exactly once | pass |
 | Composing twice is byte-identical (idempotence) | pass |
-| **P3 gap**: a third-party block written *above* the prefix was silently relocated from line 1 to line 29 | **confirmed** |
-| **P9 gap** (now closed): `replace` silently overwrote a hand-edited managed block, with no hash check and no refusal | **confirmed**, then fixed by P9 |
+| **P3**: a third-party block written *above* the prefix is refused, and the refusal leaves the root untouched | **pass** (was: silently relocated from line 1 to line 30) |
+| **P3 control**: the pre-P3 algorithm really does relocate that same input | **pass** — a measured 1 → 30 move, so the refusal above is not vacuous |
+| **P3 over-refusal control**: project prose above the prefix is still migrated | **pass** |
+| **P9 gap** (closed): `replace` silently overwrote a hand-edited managed block, with no hash check and no refusal | **confirmed**, then fixed by P9 |
 
 This is the empirical basis for P3, P8 and P9 being real work rather than theory, and it also downgrades the risk of P1/P2/P4: coexistence between APG and `br` **already works today** in the realistic ordering (APG installed first, `br` appends later).
 
 Two facts make the problem concrete:
 
-- APG owns byte 0 (`install.sh:324`), and `rebuild_root_prefix` preserves foreign **bytes** but not foreign **position** — anything a third party writes above APG's block is silently relocated below it on the next install.
+- APG owns byte 0 (`install.sh:324`), and `rebuild_root_prefix` preserved foreign **bytes** but not foreign **position** — anything a third party wrote above APG's block was silently relocated below it on the next install. Closed by P3, for another writer's marker block only; the pre-scheme-1 tail-position prose migration is deliberately retained (see P3's narrowed scope).
 - Every byte in the file is re-paid on every turn. APG's own block is 1,706 B (≈448 tok) while the v3 blocks observed across 13 checked consumer repositories are 731–758 B (≈192–199 tok): APG's own contribution is 2.3× larger than the template its consumers actually use.
 
 ## Constraints and decision drivers
@@ -83,7 +85,7 @@ Adopt a **managed-prefix ownership protocol** for root instruction files:
 
 - **P1 — Prefix reservation.** APG's routing block is the first byte of the selected root file, followed by the optional adapter-trigger block. No other writer may claim byte 0; external writers append after APG's regions or edit strictly inside their own markers. (`br` satisfies this by construction — it appends.)
 - **P2 — Namespaced, versioned markers.** Each writer owns exactly one start/end marker pair whose text carries a namespace and a version: `agent-project-guides:routing`, `agent-project-guides:adapter-trigger`, `br-agent-instructions-v{n}`, legacy `bv-agent-instructions-v{n}`, `ee:agentsmd:begin|end` with `generation=`/`hash=`. Regions are disjoint and no writer touches bytes outside its own pair.
-- **P3 — Verbatim preservation, including position.** All non-owned bytes are preserved exactly, CRLF included. Content already below APG's regions keeps its position; content that sits **above** them must not be silently relocated — the merge fails and asks for reconciliation.
+- **P3 — Verbatim preservation, including position (implemented, narrowed by owner arbitration).** All non-owned bytes are preserved exactly, CRLF included. Content already below APG's regions keeps its position; content that sits **above** them must not be silently relocated — the merge fails and asks for reconciliation. **Scope narrowing (owner decision, this revision).** Taken literally, "content above the regions" also forbids the pre-scheme-1 tail-position layout that `merge` deliberately migrates (project prose above APG's block) and that `scripts/test-install.sh` pins as intended behaviour. The two readings cannot both hold, so the owner chose the narrow one: the merge refuses only when a **foreign managed marker block** — a namespaced start marker whose namespace is not `agent-project-guides`, per P2's grammar (`br-agent-instructions-v{n}`, legacy `bv-agent-instructions-v{n}`, `ee:agentsmd:begin`) — sits above APG's regions. Project prose above the prefix is still migrated. **Documented boundary:** the guard fires only once APG's regions exist. On a root with no APG region yet, P1 still prefixed APG's block and moves existing content below it, byte-for-byte and order-preserving; that is prefix reservation, not the reordering of a foreign block out of a managed layout.
 - **P4 — Exactly once, fail closed.** A marker pair that is missing, duplicated, or unmatched aborts the operation. This is implemented for APG's own pair and is the required contract for any external writer APG invokes on the user's behalf.
 - **P5 — Interop is verified, never assumed.** `scripts/test-interop-br.sh` runs the repeatable sequence (APG prefix, foreign add, APG re-compose, hand-edit probe) and asserts: APG's block is still at byte 0, each marker pair appears exactly once, the foreign region is byte-identical, nothing is duplicated, and the file does not grow without bound. Until it passes, an external writer is reported as `degraded` or `not-installed`, never as supported. `ee`'s bridge is designed in an upstream ADR marked *proposed*; its shipped behaviour must be measured, not inferred from source.
 - **P6 — Observation ledger, not authority.** APG may record which foreign blocks it observed (marker, version, byte range, approximate tokens) as *observed* state. It never edits, upgrades, or removes a foreign block, and a missing foreign block is never an APG error.
@@ -105,13 +107,13 @@ Adopt a **managed-prefix ownership protocol** for root instruction files:
 ## Consequences
 
 - Positive: the coexistence mechanism APG already has becomes a stated contract; foreign blocks survive install and update; `br agents --add` is structurally compatible with APG's byte-0 prefix precisely because it appends; the three-writer convergence is now documented rather than rediscovered; P5 turns "probably fine" into a gate; P8/P9 close the two gaps `ee` had already closed and APG had not.
-- Negative/risk: P3 introduces a refusal path where today content above the prefix is silently absorbed; P8 adds a backup file next to the root file; P9 changes APG's marker grammar, which is contract surface and therefore needs a read alias for the old form; the observation ledger is additional state that must stay honest; `br` and `ee` may change their behaviour in future releases, so the P5 sequence must be re-run when their versions change.
+- Negative/risk: P3 introduces a refusal path where content above the prefix used to be silently absorbed; the owner narrowed it to foreign marker blocks so the legacy tail-position migration survives, which means project prose above the prefix is still relocated (and a fresh install onto a foreign-first root still moves that block below APG's regions — P1 prefix reservation, documented as P3's boundary). P8 adds a backup file next to the root file; P9 changes APG's marker grammar, which is contract surface and therefore needs a read alias for the old form; the observation ledger is additional state that must stay honest; `br` and `ee` may change their behaviour in future releases, so the P5 sequence must be re-run when their versions change, and P3's foreign-marker grammar must be re-checked against them when it does.
 
 ## Validation and reversal
 
-Validation: `scripts/test-install.sh` (managed-prefix routing, recoverable CLAUDE scope transactions, exact aliases, project profiles, MCP subtypes, cloud freshness, state lifecycle, safety guards), `scripts/validate-routing.mjs`, `scripts/test-interop-br.sh`, and catalog/manifest regeneration after any change to shipped content. Signals for review: an external writer that stops appending, an install that relocates content found above the prefix, a root file mutation without a backup, or the root block exceeding its budget.
+Validation: `scripts/test-install.sh` (managed-prefix routing including the P3 refusal and its untouched-file guarantee, recoverable CLAUDE scope transactions, exact aliases, project profiles, MCP subtypes, cloud freshness, state lifecycle, safety guards), `scripts/validate-routing.mjs`, `scripts/test-interop-br.sh`, and catalog/manifest regeneration after any change to shipped content. Signals for review: an external writer that stops appending, an install that relocates content found above the prefix, an install that refuses plain project prose above the prefix (over-refusal), a root file mutation without a backup, or the root block exceeding its budget.
 
-Reversal: P1–P7 are additive policy; reverting them means dropping the P3 refusal path, the P5 test, and the P6 ledger. P8 and P9 touch behavior and must be reverted as a unit with their tests. Installed roots are unaffected by P1–P7 because the protocol introduces no new on-disk format; P9 changes marker grammar and therefore requires the same migration discipline as ADR 0005's catalog-ID aliasing.
+Reversal: P1–P7 are additive policy; reverting P3 means deleting the `guard-prefix` call in `rebuild_root_prefix`, the `FOREIGN_MARKER`/`foreignBlockAbove` primitive in `manage-root-blocks.mjs`, the case-B/over-refusal checks in `scripts/test-interop-br.sh`, and the P3 block in `scripts/test-install.sh`. Reverting P1–P7 overall means dropping the P3 refusal path, the P5 test, and the P6 ledger. P8 and P9 touch behavior and must be reverted as a unit with their tests. Installed roots are unaffected by P1–P7 because the protocol introduces no new on-disk format; P9 changes marker grammar and therefore requires the same migration discipline as ADR 0005's catalog-ID aliasing.
 
 ### P8 and P9: implemented and measured
 
@@ -135,9 +137,21 @@ That finding is about a **different block** and remains open. It records that `l
 
 P9 does **not** close that finding: it covers the `routing:start|end` block written by `install.sh` into consumer roots, not the `v2:start|end` block checked by `inspectBootstrap`. What P9 does provide is the mechanism, already tested: applying `stamp`/`verify` to `V2_START`/`V2_END` and having `inspectBootstrap` compare the recorded hash is now a small, well-understood change rather than a design question.
 
+### P3: implemented and measured
+
+Landed with the narrowed scope above; the full evidence is in the commit that introduces it.
+
+| Claim | Evidence |
+|---|---|
+| A foreign block above APG's prefix is refused instead of relocated | `scripts/test-interop-br.sh` case B: `compose` exits non-zero with `another writer's managed block sits above APG's regions (line 1)`; the pre-P3 algorithm moves that same input from line 1 to line 30 |
+| The refusal is not vacuous | case B's control composes the identical input with the pre-P3 algorithm and asserts the relocation still happens; the harness reports `19 passed, 0 failed, 0 open gaps` |
+| The refusal is measured at the install level too, not just the harness | `scripts/test-install.sh` crafts a root with `br`'s block above APG's regions and requires `merge` to exit non-zero with that message, `check` to reject the layout first, and the root file to be byte-identical afterwards |
+| The install-level test is not vacuous | neutralising the `guard-prefix` call makes the suite fail with `FAIL: P3: merge relocated a foreign block above the prefix instead of refusing`; restoring it passes |
+| The guard does not over-refuse | the legacy tail-position migration in `scripts/test-install.sh` (project prose above the routing block) still succeeds and still preserves the original bytes as the suffix, and `test-interop-br.sh` case B2 asserts the same |
+| Only foreign namespaces are recognised | probe: `br-agent-instructions-v1`, legacy `bv-agent-instructions-v2` and `ee:agentsmd:begin …` refuse; APG's own `v2:start`, plain prose, a leading blank line, a foreign block below the regions, and a root with no regions at all all proceed |
+
 ### Open items this ADR does not close
 
-- **P3** — content found above APG's prefix is still silently relocated rather than refused. Measured live by `scripts/test-interop-br.sh` case B (br's block moved from line 1 to line 30).
 - **P6** — the observation ledger is not implemented; nothing yet records which foreign blocks APG saw.
 - **P7** — APG's own block is still 1,706 B against the 731-758 B its consumers use.
 - The recorded `bootstrap-token-only-validation` finding, as set out above.

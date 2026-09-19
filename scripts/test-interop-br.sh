@@ -82,6 +82,24 @@ check "start marker is still the first line" "$(head -1 "$WORK/routing-stamped.m
 compose() {
   local in="$1" out="$2" unmanaged tmp
   unmanaged="$(mktemp)"; tmp="$(mktemp)"
+  # P3: the same guard install.sh's rebuild_root_prefix runs before it strips.
+  node "$HELPER" guard-prefix "$in" \
+    "$ROUTING_START" "$ROUTING_END" "$TRIGGER_START" "$TRIGGER_END" || { rm -f "$unmanaged" "$tmp"; return 1; }
+  node "$HELPER" strip "$in" "$unmanaged" \
+    "$ROUTING_START" "$ROUTING_END" "$TRIGGER_START" "$TRIGGER_END" || { rm -f "$unmanaged" "$tmp"; return 1; }
+  cat "$WORK/routing-stamped.md"                  >  "$tmp"
+  cat "$ROOT/bootstrap/AGENTS.adapter-trigger.md" >> "$tmp"
+  cat "$unmanaged" >> "$tmp"
+  cp "$tmp" "$out"; rm -f "$unmanaged" "$tmp"
+}
+
+# The pre-P3 algorithm, kept as the non-vacuity control for case B: it strips the
+# APG regions and appends everything else, which is exactly the silent relocation
+# P3 refuses. Without this control a passing case B could mean the guard works or
+# that the input never relocated in the first place.
+compose_pre_p3() {
+  local in="$1" out="$2" unmanaged tmp
+  unmanaged="$(mktemp)"; tmp="$(mktemp)"
   node "$HELPER" strip "$in" "$unmanaged" \
     "$ROUTING_START" "$ROUTING_END" "$TRIGGER_START" "$TRIGGER_END" || return 1
   cat "$WORK/routing-stamped.md"                  >  "$tmp"
@@ -121,29 +139,53 @@ else
 fi
 
 # ---------------------------------------------------------------- Case B
-# A third party wrote above APG's prefix before APG ever ran.
+# A third party's managed block sits above APG's prefix. P3 (narrow scope,
+# decisions/0006): the merge must refuse and ask for reconciliation rather than
+# relocate the foreign block below the prefix.
 echo
-echo "== B. third-party block ABOVE the APG prefix =="
+echo "== B. third-party block ABOVE the APG prefix (P3) =="
 cat "$WORK/br-blurb.txt" \
     "$WORK/routing-stamped.md" \
     "$ROOT/bootstrap/AGENTS.adapter-trigger.md" > "$WORK/caseB-in.md"
-compose "$WORK/caseB-in.md" "$WORK/caseB-out.md" || no "compose B"
-check "B: APG routing block at byte 0 after merge" "$(head -1 "$WORK/caseB-out.md")" "$ROUTING_START"
-check "B: no duplicated br block"     "$(grep -cF "$BR_START_PREFIX" "$WORK/caseB-out.md")" "1"
-if extract_br "$WORK/caseB-out.md" | cmp -s - "$WORK/br-blurb.txt"; then
-  ok "B: br bytes preserved"
+cp "$WORK/caseB-in.md" "$WORK/caseB-in.orig"
+if compose "$WORK/caseB-in.md" "$WORK/caseB-out.md" 2>"$WORK/caseB.err"; then
+  no "B: compose relocated a foreign block above the prefix instead of refusing (P3 regression)"
+elif grep -qF "sits above APG's regions" "$WORK/caseB.err"; then
+  ok "B: compose refused a foreign block above the prefix"
 else
-  no "B: br bytes were altered"
+  no "B: compose failed for an unexpected reason: $(head -1 "$WORK/caseB.err")"
 fi
-b_in_br="$(lineno "$BR_START_PREFIX" "$WORK/caseB-in.md")"
-b_out_br="$(lineno "$BR_START_PREFIX" "$WORK/caseB-out.md")"
-b_out_routing_end="$(lineno "$ROUTING_END" "$WORK/caseB-out.md")"
-printf '  info  input: br at line %s; output: br at line %s (APG routing ends line %s)\n' \
-  "$b_in_br" "$b_out_br" "$b_out_routing_end"
-if [ "$b_out_br" -gt "$b_out_routing_end" ]; then
-  note_gap "P3: content that sat ABOVE the prefix was silently relocated BELOW it"
+if cmp -s "$WORK/caseB-in.md" "$WORK/caseB-in.orig"; then
+  ok "B: the refusal left the root file untouched"
 else
-  ok "B: position preserved (P3 holds)"
+  no "B: the refusal modified the root file"
+fi
+
+# Non-vacuity control: the same input under the pre-P3 algorithm really does get
+# relocated, so case B is guarding against a measured regression.
+if compose_pre_p3 "$WORK/caseB-in.md" "$WORK/caseB-out.md"; then
+  b_in_br="$(lineno "$BR_START_PREFIX" "$WORK/caseB-in.md")"
+  b_out_br="$(lineno "$BR_START_PREFIX" "$WORK/caseB-out.md")"
+  b_out_routing_end="$(lineno "$ROUTING_END" "$WORK/caseB-out.md")"
+  printf '  info  control input: br at line %s; pre-P3 output: br at line %s (APG routing ends line %s)\n' \
+    "$b_in_br" "$b_out_br" "$b_out_routing_end"
+  if [ "$b_out_br" -gt "$b_out_routing_end" ]; then
+    ok "B control: the pre-P3 algorithm relocates the foreign block ($b_in_br -> $b_out_br), so the refusal above is not vacuous"
+  else
+    no "B control: the pre-P3 algorithm no longer relocates this input; case B proves nothing"
+  fi
+else
+  no "B control: could not compose with the pre-P3 algorithm"
+fi
+
+# The guard must not over-refuse: project prose above the prefix is still migrated.
+printf '# A project-authored rule that predates the managed prefix\n' > "$WORK/caseB2-in.md"
+cat "$WORK/routing-stamped.md" >> "$WORK/caseB2-in.md"
+cat "$ROOT/bootstrap/AGENTS.adapter-trigger.md" >> "$WORK/caseB2-in.md"
+if compose "$WORK/caseB2-in.md" "$WORK/caseB2-out.md" 2>/dev/null; then
+  check "B2: project prose above the prefix is still migrated" "$(head -1 "$WORK/caseB2-out.md")" "$ROUTING_START"
+else
+  no "B2: the guard over-refused plain project prose above the prefix"
 fi
 
 # ---------------------------------------------------------------- idempotence

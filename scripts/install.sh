@@ -515,6 +515,14 @@ rebuild_root_prefix() (
     [ ! -L "$ROOT_FILE" ] || fail "selected root $ROOT_NAME is a symlink; reconcile it explicitly before managed-prefix merge"
     [ -f "$ROOT_FILE" ] || fail "selected root $ROOT_NAME exists but is not a regular file"
     validate_text_file "$ROOT_FILE"
+    # P3 (decisions/0006, narrow scope): never reorder another writer's managed
+    # block. Once APG's regions exist, a foreign marker block above them is
+    # refused for explicit reconciliation instead of being silently relocated
+    # below APG's prefix. Project prose above the prefix is still migrated, so
+    # the pre-scheme-1 tail-position layout keeps working.
+    node "$BLOCK_HELPER" guard-prefix "$ROOT_FILE" \
+      "$ROUTING_START" "$ROUTING_END" "$TRIGGER_START" "$TRIGGER_END" \
+      || fail "another writer's managed block sits above APG's regions; move it below the APG regions, or remove it and let its own tool re-add it, before the managed-prefix merge"
     node "$BLOCK_HELPER" strip "$ROOT_FILE" "$unmanaged" \
       "$ROUTING_START" "$ROUTING_END" "$TRIGGER_START" "$TRIGGER_END"
     chmod --reference="$ROOT_FILE" "$tmp" 2>/dev/null || chmod 0644 "$tmp"
