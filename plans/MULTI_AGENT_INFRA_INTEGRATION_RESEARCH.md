@@ -1116,3 +1116,100 @@ writes_project: false, stages_or_commits: false
 | **第 5 步** | 按实测结果定能力状态词表（决策 6 的落地） | 依赖第 4 步的观测 |
 | **第 6 步** | 其余 5 项缺口（主体权威合成 / policy 可复现身份 / 证据验收合同 / 观测分级 / 跨 harness 契约） | 依赖第 2 步的边界与第 4 步的观测 |
 | **贯穿** | 决策 5 的根块拓扑中立（范围确认后随时可做，**越早越便宜**） | 现在零成本，一旦有仓使用该模板就要走发布 |
+
+### 13.6 决策 5 的执行记录（**全改**，7 处）
+
+| 文件 | 改动 |
+|---|---|
+| `bootstrap/AGENTS.routing-block.md`（末行） | "goes to **parent/captain**" → "**escalates to the assigning agent**, never to the end user or through self-expansion. **The assigning agent owns any end-user approval, whatever the topology.**" |
+| `templates/SUBAGENT_ASSIGNMENT.md:3` | "the parent/captain prompt" → "the assignment prompt the **assigner** sends" |
+| `templates/SUBAGENT_ASSIGNMENT.md:23` | "ask parent/captain" → "ask the **assigner** … (the assigner owns end-user approval)" |
+| `templates/SUBAGENT_ASSIGNMENT.md:26` | "returns to the parent/captain" → "returns to the **assigner**" |
+| `roles/development/REVIEWER.md` §6 | "其他权限向 parent/captain 请求。" → "其他权限向**指派方（assigner）**请求；需要用户级批准时由指派方取得。" |
+| `roles/development/FIELD_EVALUATOR.md` §7 | 同上句式 |
+| `scripts/test-install.sh:68` | 正向断言改为新措辞，并新增 **4 条 `assert_not_contains`**，防止 `parent/captain` 回归 |
+
+**为什么用 "assigner"**：它在**层级与 peer 两种拓扑下都成立**——层级里 assigner 就是上级，peer 网格里 assigner 就是发起协作的对等方。
+
+**这一改同时闭合了一条已记录的冲突**：`docs/memory/finding.l1.operator-runbook-approval-gap.json` 的 `attempts` 里写着——"grep 全部角色正文确认同类『问用户 vs 找 parent』冲突存在于 Reviewer/Field Evaluator/Maintainer/Operator"。新措辞把升级目标统一为 **assigner**，并明确 **assigner 承担取得用户批准的责任**，冲突即解。
+
+**验证证据（全部通过）**：
+
+| 检查 | 结果 |
+|---|---|
+| `bash -n scripts/test-install.sh` | 语法 OK |
+| `node scripts/validate-routing.mjs` | routing JSONL / MCP 子类型 / 远端元数据 均有效 |
+| `node scripts/apg.mjs catalog build` | 253 条 |
+| `node scripts/apg.mjs catalog check` | `valid: true` |
+| `node scripts/apg.mjs release manifest` | digest `sha256:334d16be835af9564d8dee93d52f997045c70e4a355194b6d756632013d7673c`，80 文件 |
+| `node scripts/apg.mjs release verify-source` | `valid: true` |
+| **`bash scripts/test-install.sh`** | **PASS**（exit 0）："managed-prefix routing, recoverable CLAUDE scope transactions, exact aliases, project profiles, MCP subtypes, cloud freshness, state lifecycle, and safety guards" |
+
+### 13.7 提交范围问题（**需用户决定**）
+
+`git diff HEAD` 显示：我改的 5 个文件里 **4 个本来就在用户未提交的改动中**（语言统一 / 压缩轮次）。
+
+| 文件 | 总改动 | 其中属本次决策 5 |
+|---|---|---|
+| `bootstrap/AGENTS.routing-block.md` | 4+/5- | 1+/1- |
+| `roles/development/REVIEWER.md` | 8+/8- | 1+/1- |
+| `roles/development/FIELD_EVALUATOR.md` | 6+/6- | 1+/1- |
+| `templates/SUBAGENT_ASSIGNMENT.md` | 3+/3- | 3+/3-（此文件原本干净） |
+| `scripts/test-install.sh` | 10+/1- | 6+/1- |
+
+且 `PACKAGE_MANIFEST.json` / `catalog/catalog.jsonl` 是**整个工作区**的派生，**必然**把用户未提交的改动一并纳入——证据：HEAD 的 catalog 是 **251** 条，重建后 **253** 条，多出的正是**未跟踪**的 `templates/SUGGESTION_BOX.md`。
+
+> 附带说明：这意味着在我动手之前，manifest/catalog **已经**与工作区不一致（stale）。重建后二者恢复自洽。
+
+⇒ **无法只提交"决策 5"而不带上用户其余约 25 个改动文件。** 三个选项：
+
+| 选项 | 结果 |
+|---|---|
+| (a) 一起提交 | 得到一次自洽的提交，但把用户未提交的工作一并提交 |
+| **(b) 暂不提交**（建议） | 改动已在工作区、已通过测试；由用户决定提交粒度 |
+| (c) 部分暂存我的 hunk | 生成物无法同步隔离，会留下不一致状态 |
+
+### 13.8 决策 3 / 4a 执行记录（已完成）
+
+**决策 4a —— `docs/memory` 收录不一致（已修 + 已加回归断言）**
+
+问题性质：**潜在**，非现行。`docs/memory/` 下现有 16 个 finding，全部是 `.json`，而 catalog 只收 `.md`，所以今天 catalog 里 `docs/memory` 命中数为 **0**。但只要将来有人把 finding 写成 `.md`，`lib/catalog.mjs` 的 `walkMarkdown` 会把它收成 `kind=reference`，而 `lib/core.mjs:184` 的分发清单按**目录**跳过 `docs/memory` —— 于是 catalog 会引用不随包分发的文件。
+
+探针实测（旧模块 vs 新模块）：探针 `.md` 在旧逻辑下进入 catalog **2 条**（文档条目 + 小节条目），新逻辑 **0 条**；总数 255 → 253（253 即基线）。
+
+修法选择：不写死两处字面量，而是让两端**共享同一份排除清单**。`lib/core.mjs` 新增导出 `DIST_EXCLUDED_DIRS = new Set(['docs/memory'])`，`listDistributionFiles` 与 `catalog.mjs` 都读它，从结构上消除漂移。
+
+回归断言：`scripts/validate-routing.mjs` 在 `buildCatalog` 之后断言没有任何条目落在分发排除目录内。**负向验证**：临时还原旧 `catalog.mjs` 并放入探针 `.md`，断言如约触发 ——
+
+```
+error: catalog must not collect distribution-excluded content: docs/memory/__probe_guard.md
+exit=1
+```
+
+还原修复版后通过。探针已按显式文件名删除，`docs/memory` 仍为 16 个文件。
+
+**决策 3 —— 文档顺序（进行中）**
+
+- `decisions/0006-root-instruction-block-ownership.md` ✅ 已写（见下）
+- `decisions/0007-authority-plane-and-execution-plane.md` ✅ 已写（权威面/执行面边界）
+- 组织原则 ADR 即 0007
+
+### 13.9 ADR 0006：三个 AGENTS.md 写入方全部取证完成
+
+写 0006 时发现原假设不完整：**第三个写入方 `ee` 此前未验证**。40 仓浅克隆到 `eidetic_engine_cli` 后，另从 raw 直取其源码与自带 ADR 完成取证。
+
+| 写入方 | 标记 | 关键行为 | 备份 | 块完整性 |
+|---|---|---|---|---|
+| APG | `agent-project-guides:routing` / `:adapter-trigger` | 字节级 `strip`/`replace`；`install.sh:324` 断言路由块在**字节 0**；标记对必须恰好 1 次 | **无** | **无**（手改会被静默覆盖） |
+| `br` (beads_rust) | `br-agent-instructions-v{n}` / `end-br-agent-instructions` | `append_blurb` 原样保留已有内容再追加 → **与 APG 的字节 0 前缀天然兼容**；`update_blurb` 把块挪到末尾；`create_new(true)` 拒覆盖；有 `--dry-run` | 无 | 无 |
+| `ee` (eidetic_engine) | `ee:agentsmd:begin generation=N hash=H` / `ee:agentsmd:end` | 只在标记内编辑；`--create` 才建文件；`--dry-run` 打 diff；幂等到字节相同 | **`<file>.ee-backup`** | **标记内带内容哈希 + generation**；手改块用哈希检出后拒绝（`agentsmd_unmanaged_edit_detected`，除非 `--force-managed-block`） |
+
+外加一个**已在野外存在的 legacy 命名空间**：`bv-agent-instructions-v{n}`（`br` 仍能识别并删除，但已不再写入）。
+
+**结论**：三个独立开发的项目在同一压力下收敛到**同一套协议** —— 每个写入方一个标记圈定的管理区、绝不碰标记外的字节、有歧义就拒绝而不是猜、幂等、能检出手改自己的区。差别同样有信息量：`ee` 的标记里带**哈希与 generation**、且**写前备份**，而 APG 两样都没有。
+
+这直接产出 ADR 0006 的两条新增条款：**P8 首次改写前必须备份**、**P9 管理块完整性（APG 自己的标记加内容哈希/修订令牌，`replace` 在不匹配时拒绝）**。AS-IS 事实：`grep -n 'backup\|\.bak\|cp -' scripts/install.sh scripts/manage-root-blocks.mjs` 无任何命中 —— 根指令文件是本工具链里**唯一没有恢复点的被改写面**。
+
+`ee` 的桥接 ADR 上游状态仍为 **proposed**，其实际行为须在测试区实测，不能从源码推断（已写入 0006 的 P5）。
+
+**许可红线复核**：`eidetic_engine_cli` 为 `NOASSERTION`（MIT + OpenAI/Anthropic Rider）。取证副本放在**已被 gitignore** 的 `.agent-scratch/ee-agentsmd/`（带 `README-TEMP.md` 生命周期与许可标签），字节不进 APG 分发面；ADR 0006 只以 APG 自己的措辞记录**事实**。

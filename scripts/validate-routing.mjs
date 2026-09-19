@@ -155,6 +155,11 @@ for (const record of overlays) {
 }
 
 const catalog = buildCatalog(packageRoot);
+for (const entry of catalog) {
+  if (entry.path === 'docs/memory' || entry.path.startsWith('docs/memory/')) {
+    fail(`catalog must not collect distribution-excluded content: ${entry.path}`);
+  }
+}
 try {
   validateContextRoutes(packageRoot, catalog);
 } catch (error) {
