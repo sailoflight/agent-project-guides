@@ -1,0 +1,353 @@
+{
+  "version": 1,
+  "documents": [
+    {
+      "id": "ed071bbb-84e4-4c43-878b-f584b45ab5bf",
+      "title": "APG context generation 重复载荷浪费：根因与修复交接",
+      "description": "APG context 精简输出已实施并验证；记录 json 接口冗长与否定语境误触发的遗留缺口及严格对照实验设计",
+      "status": "active",
+      "filename": "apg-context-generation-ed071bbb.md",
+      "relativePath": "documents/active/apg-context-generation-ed071bbb.md",
+      "sourcePaths": [
+        "lib/context.mjs",
+        "lib/provider.mjs",
+        "lib/context-errors.mjs",
+        "docs/V3_MINIMAL_SLICE.md",
+        ".agent-scratch/compact-context-report.md",
+        ".agent-scratch/dsh-context-routing-observation.md"
+      ],
+      "sessionIds": [
+        "c455a84b-1fee-4196-9ff4-07210c966049",
+        "13151179-fa58-4af7-863a-a4f2de8d0029",
+        "ce23b7a5-51ca-4e9a-aff7-4f60bbb70699"
+      ],
+      "createdAt": "2026-09-08T09:04:24.980Z",
+      "updatedAt": "2026-09-08T10:04:36.328Z",
+      "lastAccessedAt": "2026-09-19T04:35:48.714Z",
+      "revision": 3,
+      "contentHash": "bc72b4cb9a73265d76ba884f3bb4c7bbd6adeb3b48d3889c276891b86299ee06",
+      "sizeBytes": 5869,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "5bf8222a-b0d0-4540-b67e-8d1e5f61cb88",
+      "title": "APG 3.0.7 精简发布与九仓库消费者部署记录（3.0.4→3.0.7）",
+      "description": "APG 3.0.4/3.0.5/3.0.6 轨迹：无状态 g2/g3 票据替代 g1_ 私库、只读沙箱修复、origin/main 推送、9 消费者全部升级验证",
+      "status": "active",
+      "filename": "apg-3-0-4-5bf8222a.md",
+      "relativePath": "documents/active/apg-3-0-4-5bf8222a.md",
+      "sourcePaths": [
+        ".agent-scratch/final-context-release-20260908T101815Z/RESULT.md",
+        ".agent-scratch/final-context-release-20260908T101815Z/deployment-runbook.md",
+        ".agent-scratch/bridge-upgrade-3.0.4/RESULT.md",
+        ".agent-scratch/stateless-context-20260909T012624Z/RESULT.md",
+        ".agent-scratch/short-ticket-20260909T014306Z/RESULT.md",
+        ".agent-scratch/short-ticket-20260909T014306Z/deployment-runbook.md",
+        ".agent-scratch/short-ticket-20260909T014306Z/apply-results.json",
+        ".agent-scratch/ticket64-release/RESULT.md",
+        ".agent-scratch/ticket64-release/deployment-runbook.md",
+        ".agent-scratch/ticket64-release/apply-results.json"
+      ],
+      "sessionIds": [
+        "db020531-c2fe-46fb-8f99-e748b87ee297",
+        "2de80db2-9138-46bf-81f8-a1fc1a4dde5f",
+        "42c4b5ae-450a-4f8f-9789-5b16af7fe782"
+      ],
+      "createdAt": "2026-09-09T01:11:04.085Z",
+      "updatedAt": "2026-09-09T09:10:57.392Z",
+      "lastAccessedAt": "2026-09-19T04:39:31.943Z",
+      "revision": 3,
+      "contentHash": "4da7bfea9fc28282be31964698ba921555148b16df2a1448b3e6ccc40a5b2372",
+      "sizeBytes": 5639,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "4fceda3f-d7c9-46b9-897e-b9e13c60e6ca",
+      "title": "APG 3.0.7 运作方式、角色清单与通用性（DSH 耦合）审查及清理",
+      "description": "APG 3.0.7 公开交付面与治理运行闭环（描述符→context 路由→provider resolve/load）、2 平面 × 7 角色与转换规则、通用性审查的 S1/S2/S3 耦合点（file:line 证据），以及经用户批准的通用性清理实施结果：契约/README/profile/引导块去品牌化、bootstrap:agents-v2 ID 重命名+读别名、观察适配器注册缝、新通用性门禁测试、验证与回滚",
+      "status": "active",
+      "filename": "apg-3-0-7-4fceda3f.md",
+      "relativePath": "documents/active/apg-3-0-7-4fceda3f.md",
+      "sourcePaths": [
+        ".agent-project-guides.json",
+        "docs/V2_CONTRACT.md",
+        "profiles/CONTENT_PACKAGE.md",
+        "README.md",
+        "bootstrap/AGENTS.routing-block.md",
+        "roles/production/USER.md",
+        "lib/catalog.mjs",
+        "lib/core.mjs",
+        "scripts/apg.mjs",
+        "scripts/apg-launcher.mjs",
+        "scripts/test-install.sh",
+        "scripts/test-genericity.mjs",
+        "catalog/catalog.jsonl",
+        "PACKAGE_MANIFEST.json",
+        "plugins/README.md",
+        "plans/DEVELOPMENT_ROADMAP.md",
+        "plans/R6_DESIGN_REVIEW.md"
+      ],
+      "sessionIds": [
+        "ff334275-3992-4f99-9669-865727088bf1",
+        "abdc2086-2eeb-4eae-8f31-9cd29c2d9fd6",
+        "f63cc858-5f96-47b6-a62a-160305fec2ba"
+      ],
+      "createdAt": "2026-09-10T01:26:11.050Z",
+      "updatedAt": "2026-09-10T02:45:10.634Z",
+      "lastAccessedAt": "2026-09-19T04:54:18.723Z",
+      "revision": 3,
+      "contentHash": "4220601029b6a223f63197fc2e600d62ef58313342407490f6f1d75bb09af26f",
+      "sizeBytes": 13392,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "0931a8a0-71de-45ac-932f-f1e3749fc27c",
+      "title": "APG 消费者上下文预算、指导文档瘦身与建议箱机制交接",
+      "description": "APG 消费者上下文预算的完整机制与坑（含 raw-bytes 预算断言）、两轮瘦身结果与瘦身铁律、建议箱机制 v1（写信/三层分诊/权限边界/测试）、路由文档语言统一与待决的双语分工、验证状态与未提交/回滚信息",
+      "status": "active",
+      "filename": "apg-0931a8a0.md",
+      "relativePath": "documents/active/apg-0931a8a0.md",
+      "sourcePaths": [
+        "routing/context-routes.jsonl",
+        "scripts/test-install.sh",
+        "scripts/test-genericity.mjs",
+        "catalog/catalog.jsonl",
+        "bootstrap/AGENTS.v2-block.md",
+        "bootstrap/AGENTS.routing-block.md",
+        "templates/SUGGESTION_BOX.md",
+        "procedures/PACKAGE_ADAPTATION.md",
+        "roles/development/MAINTAINER.md",
+        "roles/production/OPERATOR.md",
+        "profiles/mcp/WINDOWS_WSL_BRIDGE.md",
+        "docs/V2_CONTRACT.md",
+        "decisions/0005-harness-neutral-core.md"
+      ],
+      "sessionIds": [
+        "8c5d8047-3c6c-4962-ac54-b94471646e80",
+        "272d2939-a199-486a-888a-3c5014ebc8fb"
+      ],
+      "createdAt": "2026-09-10T03:12:42.242Z",
+      "updatedAt": "2026-09-10T03:36:05.169Z",
+      "lastAccessedAt": "2026-09-19T04:54:18.723Z",
+      "revision": 2,
+      "contentHash": "076d206b55d35b8bd41a9e7c7b023271767e38da32d995dfa3822e08e4b8280b",
+      "sizeBytes": 9855,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "dabe62f1-e048-458a-b2e6-c69609e54d4a",
+      "title": "APG 3.0.7 新消费者首装记录：fresh materialization 路径与三仓库部署证据",
+      "description": "APG 3.0.7 对三个全新仓库（pythonpubliclib、pid_tuning、dsh-bench-reports）的首装部署证据、配置选择、首装路径与迁移路径的差异、坑与回滚语义；并记录 MSP/ipc/libbase 的排除理由",
+      "status": "active",
+      "filename": "apg-3-0-7-fresh-materialization-dabe62f1.md",
+      "relativePath": "documents/active/apg-3-0-7-fresh-materialization-dabe62f1.md",
+      "sourcePaths": [
+        ".agent-scratch/new-consumers-20260914T035828Z/RESULT.md",
+        ".agent-scratch/new-consumers-20260914T035828Z/deployment-runbook.md",
+        ".agent-scratch/new-consumers-20260914T035828Z/deploy.py",
+        ".agent-scratch/new-consumers-20260914T035828Z/summary.json",
+        ".agent-scratch/new-consumers-20260914T035828Z/baseline.json"
+      ],
+      "sessionIds": [
+        "330844db-48fb-4432-8482-272da892a391"
+      ],
+      "createdAt": "2026-09-14T04:23:20.272Z",
+      "updatedAt": "2026-09-19T09:05:32.591Z",
+      "lastAccessedAt": "2026-09-14T04:23:20.272Z",
+      "revision": 2,
+      "contentHash": "2e5112f61ebf71ea3aeaa3c44de75dfc37a2ea4344e39e827f37cdc14b237936",
+      "sizeBytes": 7933,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "ef9d12e4-81a3-4c8d-acfb-3c95bdc54f3f",
+      "title": "APG × Multi-Agent 生态融合：边界裁定与 Agent Flywheel 取证（最终态）",
+      "description": "APG × Multi-Agent 生态融合的最终边界裁定：融合（正交）与 Architecture B 推荐、档位 1 认定、三套记忆分层、记忆层 token 实测、用户 11 项决策结果、两条红线与许可证/EE trust 核实结论、组织原则。权威源为已提交的报告 plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md（1,118 行，6498163）。",
+      "status": "active",
+      "filename": "apg-multi-agent-control-plane-ef9d12e4.md",
+      "relativePath": "documents/active/apg-multi-agent-control-plane-ef9d12e4.md",
+      "sourcePaths": [
+        "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
+        "plans/DEVELOPMENT_ROADMAP.md",
+        "plans/PROVIDER_RUNTIME_EVOLUTION.md",
+        "schemas/project-v3.schema.json",
+        "bootstrap/AGENTS.routing-block.md",
+        "lib/core.mjs",
+        "lib/catalog.mjs",
+        "lib/migration-v3.mjs",
+        "scripts/manage-root-blocks.mjs",
+        "scripts/test-install.sh",
+        "decisions/0004-threat-model-untrusted-checkouts.md",
+        "decisions/0005-harness-neutral-core.md",
+        "docs/V2_CONTRACT.md",
+        "plans/REVIEW_FINDINGS.md"
+      ],
+      "sessionIds": [
+        "6275cb6d-72bf-40ef-bc3d-4d7d7707444d",
+        "b185bd60-197d-4d4d-b687-8d18e0c584f5",
+        "1ae84e51-bed9-4989-b910-ed814975e922"
+      ],
+      "createdAt": "2026-09-19T04:26:50.620Z",
+      "updatedAt": "2026-09-19T08:35:22.685Z",
+      "lastAccessedAt": "2026-09-19T08:35:22.685Z",
+      "revision": 3,
+      "contentHash": "ffd8d4473bbe9a7af163124fb582657e78074e271ac3cd1db0a5795f5a5a5236",
+      "sizeBytes": 8756,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "7356145d-1e8f-49cd-bf61-1222a080d7fe",
+      "title": "APG 边界裁定：宿主记忆系统（DSH Mnemon）对位与「只补缺口」原则",
+      "description": "在已完成的 APG × Agent Flywheel 融合研究之上，裁定 APG 与宿主（DSH Mnemon）自带记忆系统的关系：DSH 记忆实测形态（workspace 作用域 / 自动写入 / Memory Spaces 未启用）、三套记忆系统的作用域与担责对照、被外部覆盖后仍残留的 6 项缺口（全属权威/合约/可复现类）、「谁有权/凭什么/合约与证据」归 APG 而「如何检索/记忆/运行」归执行栈的组织原则与自检判据、APG 不做记忆存储只做权威声明的可选项，以及本地部署下的两条本机绕过风险。承接文档 id ef9d12e4。",
+      "status": "active",
+      "filename": "apg-dsh-mnemon-7356145d.md",
+      "relativePath": "documents/active/apg-dsh-mnemon-7356145d.md",
+      "sourcePaths": [
+        "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
+        "plans/DEVELOPMENT_ROADMAP.md",
+        "lib/memory.mjs",
+        ".agent-project-guides.json",
+        "docs/V2_CONTRACT.md"
+      ],
+      "sessionIds": [
+        "9082384d-1efb-4d56-9a22-b6924193c509"
+      ],
+      "createdAt": "2026-09-19T04:46:22.985Z",
+      "updatedAt": "2026-09-19T04:46:22.985Z",
+      "lastAccessedAt": "2026-09-19T08:34:56.023Z",
+      "revision": 1,
+      "contentHash": "1e5280cc32c00fcc1c07bc161bbaeb5a8bde56a0619ad4a9079fa488cf556a3e",
+      "sizeBytes": 6856,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "32c3513d-fa5a-4f97-9e45-7152c8d597dd",
+      "title": "APG 记忆层与注入面：token 审计、检索委托与控制面边界（定稿）",
+      "description": "APG 记忆层与注入面定稿：token 审计实测、检索委托（档位 1）、记忆随项目走、控制面扩权、外源事实源头核实与两处更正、待批准清单",
+      "status": "active",
+      "filename": "apg-token-docs-memory-32c3513d.md",
+      "relativePath": "documents/active/apg-token-docs-memory-32c3513d.md",
+      "sourcePaths": [
+        "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
+        "lib/memory.mjs",
+        "lib/core.mjs",
+        "lib/catalog.mjs",
+        "lib/migration-v3.mjs",
+        "scripts/apg.mjs",
+        "scripts/install.sh",
+        "scripts/manage-root-blocks.mjs",
+        "bootstrap/AGENTS.routing-block.md",
+        "docs/V2_CONTRACT.md",
+        ".agent-project-guides.json"
+      ],
+      "sessionIds": [
+        "ecf4a4be-3f0f-41e2-aecc-b95b56be6d5a",
+        "880ad517-c8f4-415d-a9f1-6c5fb762ca3b"
+      ],
+      "createdAt": "2026-09-19T04:54:42.233Z",
+      "updatedAt": "2026-09-19T05:07:52.175Z",
+      "lastAccessedAt": "2026-09-19T08:34:56.023Z",
+      "revision": 2,
+      "contentHash": "f2ccd7891d34ddb89e4b2281adb98cb088834ab1ce236e779aedd0d34b9b9455",
+      "sizeBytes": 8954,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "3359b33d-279a-401a-8848-2f84865b9333",
+      "title": "APG R5 3.0.4: Reviewed Fixes and Verification Handoff",
+      "description": "Digest-bound APG 3.0.4 R5 handoff: H5/M7/M8 fixes, closed Reviewer findings, final PASS evidence, source report paths, verification exceptions and explicit R6/DSH boundaries.",
+      "status": "active",
+      "filename": "apg-r5-3-0-4-reviewed-fixes-and-verification-han-3359b33d.md",
+      "relativePath": "documents/active/apg-r5-3-0-4-reviewed-fixes-and-verification-han-3359b33d.md",
+      "sourcePaths": [
+        "plans/R5_VERIFICATION.md",
+        "plans/REVIEW_FINDINGS.md",
+        "lib/context.mjs",
+        "scripts/apg.mjs",
+        "routing/context-classifier.json",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs",
+        "bootstrap/AGENTS.v2-block.md",
+        "docs/V2_CONTRACT.md",
+        "docs/V3_MINIMAL_SLICE.md",
+        "decisions/0004-threat-model-untrusted-checkouts.md"
+      ],
+      "sessionIds": [
+        "01b01657-67bd-4f62-832e-c8641db9a793"
+      ],
+      "createdAt": "2026-09-08T03:48:25.264Z",
+      "updatedAt": "2026-09-08T03:48:25.264Z",
+      "lastAccessedAt": "2026-09-08T06:50:37.666Z",
+      "revision": 1,
+      "contentHash": "2f4af14f35a87925ff79fdcc7e43f192a4b0c581a4bb9d4533567fd80c1946d1",
+      "sizeBytes": 8157,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "de12cbcf-b552-4198-bf2a-5556563f7ac9",
+      "title": "APG Large-Project Governance Research and R6 Design Boundaries",
+      "description": "APG large-project governance comparison and R6 calibration: Kubernetes/OpenSpec/Spec Kit/Backstage/Nx lessons, existing-template gaps, independent plugin ownership, trust/recovery/lifecycle risks and source-backed limits.",
+      "status": "active",
+      "filename": "apg-large-project-governance-research-and-r6-des-de12cbcf.md",
+      "relativePath": "documents/active/apg-large-project-governance-research-and-r6-des-de12cbcf.md",
+      "sourcePaths": [
+        "plans/LARGE_PROJECT_GOVERNANCE_REVIEW.md",
+        "plans/R6_DESIGN_REVIEW.md",
+        "plans/REVIEW_FINDINGS.md",
+        "plugins/README.md",
+        "templates/MODULE_CONTRACT.md",
+        "templates/ARCHITECTURE_OVERVIEW.md",
+        "templates/VERIFICATION_MATRIX.md",
+        "templates/ADR.md",
+        "scripts/apg-launcher.mjs",
+        "scripts/apg.mjs",
+        "lib/context.mjs",
+        "lib/core.mjs"
+      ],
+      "sessionIds": [
+        "3ae7b73f-ef0a-4607-8a6e-02dee62530bc"
+      ],
+      "createdAt": "2026-09-08T06:24:34.662Z",
+      "updatedAt": "2026-09-08T06:24:34.662Z",
+      "lastAccessedAt": "2026-09-19T08:34:56.023Z",
+      "revision": 1,
+      "contentHash": "7cc17a9b3cd246840a0a8ef93576554bf4f63a6dd1194259a48181e2ccc629e9",
+      "sizeBytes": 10748,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "1fceee58-86cb-4e41-a187-07d4bebd345a",
+      "title": "APG 增量开发路线与 R6 独立插件设计边界",
+      "description": "APG 最终增量开发规划：复用已有 core/tests/profiles/pilots，P0/P1a/P2 优先序，R6 三工作包及六项信任/副作用风险，独立插件 Git 边界和候选/证据纪律。",
+      "status": "active",
+      "filename": "apg-r6-1fceee58.md",
+      "relativePath": "documents/active/apg-r6-1fceee58.md",
+      "sourcePaths": [
+        "plans/DEVELOPMENT_ROADMAP.md",
+        "plans/REVIEW_FINDINGS.md",
+        "plans/LARGE_PROJECT_GOVERNANCE_REVIEW.md",
+        "plans/R6_DESIGN_REVIEW.md",
+        "plans/R5_VERIFICATION.md",
+        "plans/AGENT_PROJECT_GUIDES_2.0.md",
+        "plans/PROVIDER_RUNTIME_EVOLUTION.md",
+        "docs/V2_CONTRACT.md",
+        "docs/V3_MINIMAL_SLICE.md",
+        "plugins/README.md",
+        "fixtures/pilots/small-cli.json",
+        "fixtures/pilots/complex-content-package.json",
+        "scripts/test-release.sh",
+        "scripts/test-release-pilots.mjs"
+      ],
+      "sessionIds": [
+        "a15d271f-2cbe-4f55-b75d-b95e9686569b"
+      ],
+      "createdAt": "2026-09-08T06:55:17.383Z",
+      "updatedAt": "2026-09-19T09:05:32.591Z",
+      "lastAccessedAt": "2026-09-19T05:07:24.091Z",
+      "revision": 2,
+      "contentHash": "7b213c1b5884dd53773499c5d0920f3fd4a98a7e4b46c4d73608387f59e250b0",
+      "sizeBytes": 10700,
+      "memoryBodyIds": []
+    }
+  ]
+}
