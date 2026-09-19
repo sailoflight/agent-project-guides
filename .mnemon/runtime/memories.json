@@ -66,6 +66,13 @@
       "updated_at": "2026-09-19T13:14:23.416Z",
       "target": "memory",
       "importance": "normal"
+    },
+    {
+      "content": "agent-project-guides 的 README.md 受硬性字节上限约束：scripts/test-install.sh:165 要求 ≤12000 字节，超出即 FAIL。往 README 加长内容前先 `wc -c`，或把长文移入仓库内其他文档。",
+      "created_at": "2026-09-19T13:55:00.489Z",
+      "updated_at": "2026-09-19T13:55:00.489Z",
+      "target": "memory",
+      "importance": "normal"
     }
   ]
 }
