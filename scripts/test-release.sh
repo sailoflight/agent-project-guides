@@ -38,6 +38,8 @@ if (bootstrap.template_match !== true) { console.error("self-hosted root bootstr
 
 if [ "${APG_RUN_REAL_PILOTS:-0}" = 1 ]; then
   node scripts/test-release-pilots.mjs
+else
+  printf '%s\n' 'release pilots: skipped (set APG_RUN_REAL_PILOTS=1 to run). Scope when enabled: the self-contained synthetic CLI pilot plus any external pilot source that still declares its frozen 1.4.3 root entry; real-host-task outcomes are separate release evidence and are never produced here.'
 fi
 
 git diff --check
