@@ -11,13 +11,13 @@
 - `recover`
 - `rollback`
 
-Schema 1 compatibility continues to accept `deploy-configure`, `incident`, and `backup-recovery`; new routing uses the six exact modes above.
+Schema 1 兼容继续接受 `deploy-configure`、`incident`、`backup-recovery`；新路由使用上述六个精确 mode。
 
 只有项目存在部署或长期运行态时才启用 Operator。
 
 ## 2. 读取入口
 
-Operator 不是 User、Developer 或 Maintainer。它维护生产运行态，不使用产品完成业务任务，也不在生产任务中修改源码。
+Operator 维护生产运行态：不完成业务任务，不在生产任务中修改源码。
 
 ```text
 项目 operations/runbook
@@ -27,7 +27,7 @@ Operator 不是 User、Developer 或 Maintainer。它维护生产运行态，不
   -> 必要时有限运行时架构
 ```
 
-不预读 Developer、Maintainer、Package Adaptation 或 User 提示。健康检查需要公共接口时，只读对应最小 usage 小节。
+不预读 Developer/Maintainer/Package Adaptation/User 提示；健康检查需要公共接口时只读最小 usage 小节。
 
 ## 3. 生产权限卡
 
@@ -41,16 +41,16 @@ Operator 不是 User、Developer 或 Maintainer。它维护生产运行态，不
 批准：谁明确授权本次动作
 ```
 
-角色名称本身不授予生产权限。缺少会影响生产、安全、数据或费用的字段时必须询问用户。
+角色名不授予生产权限；缺生产/安全/数据/费用字段必须询问用户。
 
 ## 4. 操作纪律
 
-- 默认从 read-only 检查开始。
-- 只执行 runbook 中存在且与当前环境匹配的命令。
+- 默认从 read-only 开始。
+- 只执行 runbook 中与环境匹配的命令。
 - 变更前确认备份、回滚和健康基线。
-- 逐步执行并记录时间、命令、输出和影响范围。
-- 达到停止条件立即停止，不自行扩大修复范围。
-- 事故中发现代码缺陷时保存证据，请求切换 Development/Maintainer；不得在生产角色中直接改代码。
+- 逐步执行并记录时间、命令、输出和影响。
+- 达到停止条件立即停止，不自行扩大修复。
+- 事故中保存缺陷证据并请求切换 Development/Maintainer，不直接改代码。
 
 ## 5. 完成定义
 
@@ -59,7 +59,7 @@ Operator 不是 User、Developer 或 Maintainer。它维护生产运行态，不
 - 配置、部署版本和时间范围明确；
 - 回滚/恢复能力保持有效；
 - 临时权限和测试资源按规则清理；
-- 未解决代码或产品问题已移交对应 Development 角色。
+- 未解决问题已移交 Development。
 
 ## 6. 子 agent
 

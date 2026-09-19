@@ -19,7 +19,7 @@ Windows-only 资源包括 GUI、browser、driver、registry、SDK/service、cred
 
 ## 2. 角色与职责（核心契约）
 
-| 组件 | Owns | Must not own |
+| 组件 | 拥有 | 不得拥有 |
 |---|---|---|
 | WSL Facade | 标准 MCP facade；完整转发 requests、responses、capabilities、instructions、tools、results、errors、notifications | 工具业务、Windows 依赖、凭据、持久状态、提示改写 |
 | Windows Engine | initialize、canonical runtime prompt、tools/handlers、Windows 资源和持久运行态 | 开发仓库演化、公开暴露内层服务、依赖 WSL 根指令提供生产提示 |
@@ -36,10 +36,10 @@ Windows-only 资源包括 GUI、browser、driver、registry、SDK/service、cred
 
 Engine 提供有界、无秘密、带 revision 的 runtime prompt，同时包含：
 
-1. **Role router**：公共能力/业务结果 -> `Production / User`；安装、配置、可用性恢复、观察、备份/恢复、回滚 -> `Production / Operator`；实质歧义先结构化询问。
-2. **User contract**：只用 public capabilities/runtime schemas；优先最低成本、read-only、dry-run；mutation 满足 confirmation；不自行获得凭据、真实数据、额度、费用或破坏权限；runtime/deployment failure 转 Operator，不读源码/客户端配置自行扩权。
-3. **Operator contract**：先取 read-only health evidence；只用匹配环境的 runbook；生产动作明确环境、身份、影响、backup/rollback、stop conditions 和 approval；不执行产品业务或直接改源码。
-4. **Transition/authority**：角色名不授予凭据、真实数据、生产写入、restart、费用或不可逆权限；转换显式且不合并权限。
+1. **角色路由**：公共能力/业务结果 -> `Production / User`；安装、配置、可用性恢复、观察、备份/恢复、回滚 -> `Production / Operator`；实质歧义先结构化询问。
+2. **User 契约**：只用 public capabilities/runtime schemas；优先最低成本、read-only、dry-run；mutation 满足 confirmation；不自行获得凭据、真实数据、额度、费用或破坏权限；runtime/deployment failure 转 Operator，不读源码/客户端配置自行扩权。
+3. **Operator 契约**：先取 read-only health evidence；只用匹配环境的 runbook；生产动作明确环境、身份、影响、backup/rollback、stop conditions 和 approval；不执行产品业务或直接改源码。
+4. **转换与权限**：角色名不授予凭据、真实数据、生产写入、restart、费用或不可逆权限；转换显式且不合并权限。
 
 这是模型操作提示，**不是 MCP 产品简介、README、工具清单、开发 AGENTS 或部署广告**。动态工具、参数、版本、端口和环境状态继续由 tools/schema/state/generated authorities 提供。
 
@@ -55,7 +55,7 @@ initialize
   -> first model task/tool decision
 ```
 
-`tools/list -> register tools` 不合格；tool description 不能承担角色边界。不能消费 runtime instructions 的 client，安装时必须使用从同一 source/revision 生成的 companion prompt。compatibility matrix 逐 client 记录 `native instructions | generated companion` 并实测模型可见。
+`tools/list -> register tools` 不合格；tool description 不能承担角色边界。不能消费 runtime instructions 的 client，安装时必须使用从同一 source/revision 生成的 companion prompt。兼容性矩阵逐 client 记录 `native instructions | generated companion` 并实测模型可见。
 
 ## 6. 提示信任、隔离和生命周期
 
@@ -82,14 +82,14 @@ initialize
 
 | 规范角色 | 项目实体 |
 |---|---|
-| WSL Facade | entrypoint、dependency boundary |
-| Internal transport | address/name、local-only enforcement |
-| Windows Engine | entrypoint、deployment location |
-| Tools/native resources | registry/handler authority、resource owner |
-| Canonical prompt | single authored source、revision、initialize implementation |
+| WSL Facade | 入口、依赖边界 |
+| Internal transport | 地址/命名、仅本机可达的强制 |
+| Windows Engine | 入口、部署位置 |
+| Tools/native resources | registry/handler 权威、资源属主 |
+| Canonical prompt | 单一权威来源、revision、initialize 实现 |
 | Client adapters | client -> native/companion -> prompt section |
-| Operator/runbook | health、restart、recovery authority |
-| Verification | offline、protocol、bridge、external-client tests |
+| Operator/runbook | health、restart、恢复权威 |
+| Verification | offline、protocol、bridge、外部 client 测试 |
 
 项目 ports、paths、selectors、SDK 和恢复命令只放该映射或 runbook。
 
@@ -97,19 +97,19 @@ initialize
 
 - [ ] initialize/tools/list/tools/call 端到端正常，Facade 完整转发 prompt。
 - [ ] Engine 返回当前 dual-role revision；每个 client 在首次工具判断前投递。
-- [ ] tools 可见但 prompt 缺失会失败 compatibility validation。
-- [ ] 无项目 `AGENTS.md` 的外部 cwd/聊天环境仍收到 User/Operator contracts。
-- [ ] User availability success 后停止源码/配置调查；failure 转 Operator。
-- [ ] Operator recovery 不获得 product mutation authority。
-- [ ] reconnect 不重复 prompt；rollback 后 prompt/schema/handler 一致。
-- [ ] WSL 无 Windows 重依赖、credentials、profiles、logs/state；channel 不暴露公网。
+- [ ] tools 可见但 prompt 缺失会未通过兼容性校验。
+- [ ] 无项目 `AGENTS.md` 的外部 cwd/聊天环境仍收到 User/Operator 契约。
+- [ ] User 可用性成功后停止源码/配置调查；失败转 Operator。
+- [ ] Operator 恢复不获得产品变更权限。
+- [ ] 重连不重复 prompt；rollback 后 prompt/schema/handler 一致。
+- [ ] WSL 无 Windows 重依赖、凭据、profiles、日志/状态；通道不暴露公网。
 
 任一 supported client 看不到 runtime production-role prompt 时，本子类型不得标记完成。
 
 ## 10. 维护规则
 
-- Facade change：验证完整 initialize relay 和 local smoke。
-- Engine/tool/prompt change：offline tests -> sync Windows -> one restart -> generation check。
-- Adapter change：验证 tool/prompt 同步 register、replace、dispose。
-- Transport/prompt envelope change：同步 architecture、compatibility matrix、install config、runbook。
+- Facade 变更：验证完整 initialize 中继和本地 smoke。
+- Engine/tool/prompt 变更：offline 测试 -> 同步 Windows -> 一次 restart -> generation 校验。
+- Adapter 变更：验证 tool/prompt 的同步 register、replace、dispose。
+- Transport/prompt 封套变更：同步架构、兼容性矩阵、安装配置与 runbook。
 - 具体 selector/session/product workflow 留在项目模块或经验文档。

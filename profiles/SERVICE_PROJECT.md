@@ -32,13 +32,13 @@ Select `service` when deployment, runtime health, external requests/jobs, and pe
 
 ## 4. Service contract
 
-Document request/message/job entry, application/domain/adapter boundaries, transaction and consistency rules, external timeout/retry/idempotency, configuration and secret ownership, migration ordering, health semantics, observability, and rollback/recovery. Public schema, migration definitions, and configuration schema remain authoritative dynamic sources.
+Document request/message/job entry, application/domain/adapter boundaries, transaction and consistency rules, external timeout/retry/idempotency, configuration and secret ownership, migration ordering, health semantics, observability, and rollback/recovery; public schema, migration definitions, and configuration schema stay authoritative dynamic sources.
 
 Production writes, real credentials, migrations, deployment, and incident actions require Operator authorization; repository adaptation does not grant it.
 
 ## 5. Verification preset
 
-Verify schema/handler consistency, unit and contract behavior, persistence with fixtures, migration ordering and rollback policy, external dependency failure paths, configuration validation, health checks, and safe runbook commands. Live/staging checks require an explicit environment, budget, stop condition, and cleanup evidence.
+Verify schema/handler consistency, unit/contract behavior, persistence with fixtures, migration ordering and rollback policy, external dependency failure paths, configuration validation, health checks, and safe runbook commands; live/staging checks require explicit environment, budget, stop condition, and cleanup evidence.
 
 ## 6. Cold-start acceptance
 

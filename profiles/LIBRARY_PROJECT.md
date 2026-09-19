@@ -36,13 +36,13 @@ Do not maintain the same symbol table manually in README, API usage, generated r
 
 ## 4. Library contract
 
-Public authorities must make stable exports, input/output types, error model, state/purity, concurrency, boundary conditions, compatibility, and resource constraints discoverable. Examples that form part of the public promise must compile or run in automated verification.
+Public authorities must make stable exports, input/output types, error model, state/purity, concurrency, boundary conditions, compatibility, and resource constraints discoverable; examples that are part of the public promise must run in automated verification.
 
-Generated references are derived facts. Handwritten usage should describe stable workflows, selection guidance, errors, and compatibility rather than duplicate declarations.
+Generated references are derived facts; handwritten usage describes stable workflows, selection guidance, errors, and compatibility, not duplicate declarations.
 
 ## 5. Verification preset
 
-Verify public export/reference consistency, type and unit tests, contract tests, executable examples, supported runtime matrix, deprecation paths, and any claimed performance or property invariants. Release or publish commands remain gated and are never implied by Development role selection.
+Verify export/reference consistency, type/unit tests, contract tests, executable examples, runtime matrix, deprecation paths, and claimed performance/property invariants. Release/publish commands stay gated and are never implied by Development role selection.
 
 ## 6. Cold-start acceptance
 

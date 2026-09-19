@@ -40,11 +40,11 @@ Prefer the dependency direction:
 argument parsing -> command/application layer -> domain -> side-effect adapters
 ```
 
-The public contract covers command/subcommand syntax, configuration precedence, current-working-directory and path behavior, stdout/stderr separation, machine-readable output, exit status, idempotency, dry-run, confirmation, and interactive versus non-interactive behavior.
+The public contract covers command syntax, configuration precedence, cwd/path behavior, stdout/stderr separation, machine-readable output, exit status, idempotency, dry-run, confirmation, and interactive behavior.
 
 ## 5. Verification preset
 
-Verify parser/reference consistency, help output, invalid-input diagnostics, exit statuses, configuration precedence, stable machine output, and side effects through temporary directories, fixtures, or mocks. Destructive commands require explicit confirmation behavior and failure-stop tests; dry-run must prove that writes do not occur.
+Verify parser/reference consistency, help output, invalid-input diagnostics, exit statuses, configuration precedence, stable machine output, and side effects via temp directories, fixtures, or mocks. Destructive commands require explicit confirmation and failure-stop tests; dry-run must prove no writes.
 
 ## 6. Cold-start acceptance
 
