@@ -59,6 +59,13 @@
       "updated_at": "2026-09-19T09:06:03.260Z",
       "target": "memory",
       "importance": "normal"
+    },
+    {
+      "content": "APG `memory` 提案机制的操作事实（2026-09-19 实操）：三态 proposed → reviewed → promoted。`apg memory propose --input <record.json>` 只接受**record 对象**，工具自己包上 `schema_version/state:'proposed'/project_digest/review:null`。record 必填字符串字段 = `id`（正则 `^[a-z0-9][a-z0-9._-]{2,127}$`，惯用前缀 `finding.<h1|m1|l1>.`）、`kind`（`knowledge`|`experience`）、`scope`、`summary`、`owner`、`confidence`、`applicability`、`revalidation_trigger`，加 `evidence`（非空字符串数组）；`kind=experience` 还必须给 `environment`、`follow_up` 和无重复的 `attempts` 数组；未知字段直接报错。**提案落盘在仓库之外**：`~/.local/state/agent-project-guides/projects/<project_id>/<cloneId>/memory-proposals/<id>.json`（cloneId = sha256(project_id\\0realpath)[0:24]，故换 clone 路径就是另一份状态），在 workspace-write 沙箱下以 EACCES 失败，需 danger-full-access。**晋升**要 `apg memory promote --id <id> --expected-project-digest <sha256:…>`（该值取 `apg project validate` 输出里的 `project_digest`，它 = sha256(canonicalJson(descriptor))，不是 release manifest 的 digest）以及 `--expected-target-hash`。`review` 需要 `--reviewer/--decision/--rationale`，按仓库惯例 reviewer 是**另一个 agent**（既有记录为 `claude-merger`），不要自审自升。已晋升的 `docs/memory/*.json` 内嵌的 `project_digest` 会随版本前进而变旧，属被接受的历史快照。`docs/memory/` 不进分发面（DIST_EXCLUDED_DIRS）。",
+      "created_at": "2026-09-19T13:00:30.036Z",
+      "updated_at": "2026-09-19T13:00:30.036Z",
+      "target": "memory",
+      "importance": "normal"
     }
   ]
 }
