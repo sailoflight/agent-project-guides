@@ -66,12 +66,25 @@ printf '  info  br blurb captured: %s bytes, %s lines\n' \
   "$(wc -c < "$WORK/br-blurb.txt" | tr -d ' ')" "$(wc -l < "$WORK/br-blurb.txt" | tr -d ' ')"
 check "br blurb ends with its end marker" "$(tail -1 "$WORK/br-blurb.txt")" "$BR_END"
 
+# The routing block APG installs is stamped on the way in (P9, install.sh
+# render_routing_block), so compose from a stamped copy to model a real install.
+INTEGRITY_PREFIX='<!-- agent-project-guides:integrity sha256='
+if node "$HELPER" stamp "$ROOT/bootstrap/AGENTS.routing-block.md" "$WORK/routing-stamped.md" \
+     "$ROUTING_START" "$ROUTING_END"; then
+  ok "installer-shaped routing block stamped"
+else
+  no "could not stamp the routing block"
+fi
+check "stamped block carries exactly one integrity line" \
+  "$(grep -cF "$INTEGRITY_PREFIX" "$WORK/routing-stamped.md")" "1"
+check "start marker is still the first line" "$(head -1 "$WORK/routing-stamped.md")" "$ROUTING_START"
+
 compose() {
   local in="$1" out="$2" unmanaged tmp
   unmanaged="$(mktemp)"; tmp="$(mktemp)"
   node "$HELPER" strip "$in" "$unmanaged" \
     "$ROUTING_START" "$ROUTING_END" "$TRIGGER_START" "$TRIGGER_END" || return 1
-  cat "$ROOT/bootstrap/AGENTS.routing-block.md"  >  "$tmp"
+  cat "$WORK/routing-stamped.md"                  >  "$tmp"
   cat "$ROOT/bootstrap/AGENTS.adapter-trigger.md" >> "$tmp"
   cat "$unmanaged" >> "$tmp"
   cp "$tmp" "$out"; rm -f "$unmanaged" "$tmp"
@@ -87,7 +100,7 @@ lineno() { grep -nF "$1" "$2" | head -1 | cut -d: -f1; }
 # APG installed first, then br appends. The realistic order.
 echo
 echo "== A. APG prefix first, br appended after =="
-cat "$ROOT/bootstrap/AGENTS.routing-block.md" \
+cat "$WORK/routing-stamped.md" \
     "$ROOT/bootstrap/AGENTS.adapter-trigger.md" \
     "$WORK/br-blurb.txt" > "$WORK/caseA-in.md"
 compose "$WORK/caseA-in.md" "$WORK/caseA-out.md" || no "compose A"
@@ -112,7 +125,7 @@ fi
 echo
 echo "== B. third-party block ABOVE the APG prefix =="
 cat "$WORK/br-blurb.txt" \
-    "$ROOT/bootstrap/AGENTS.routing-block.md" \
+    "$WORK/routing-stamped.md" \
     "$ROOT/bootstrap/AGENTS.adapter-trigger.md" > "$WORK/caseB-in.md"
 compose "$WORK/caseB-in.md" "$WORK/caseB-out.md" || no "compose B"
 check "B: APG routing block at byte 0 after merge" "$(head -1 "$WORK/caseB-out.md")" "$ROUTING_START"
@@ -151,14 +164,18 @@ sed 's/^Package adaptation:.*/Package adaptation: HAND EDITED BY A HUMAN/' \
 grep -qF 'HAND EDITED BY A HUMAN' "$WORK/caseD-in.md" \
   || no "D: probe did not land inside the routing block (test setup)"
 if node "$HELPER" replace "$WORK/caseD-in.md" "$WORK/caseD-out.md" \
-     "$ROUTING_START" "$ROUTING_END" "$ROOT/bootstrap/AGENTS.routing-block.md" 2>"$WORK/caseD.err"; then
-  if grep -qF 'HAND EDITED BY A HUMAN' "$WORK/caseD-out.md"; then
-    ok "D: the hand edit survived the replace"
-  else
-    note_gap "P9: replace silently overwrote a hand-edited managed block (no integrity check, no refusal)"
-  fi
+     "$ROUTING_START" "$ROUTING_END" "$WORK/routing-stamped.md" 2>"$WORK/caseD.err"; then
+  no "D: replace overwrote a hand-edited managed block (P9 regression)"
+elif grep -qF 'integrity mismatch' "$WORK/caseD.err"; then
+  ok "D: replace refused a hand-edited managed block"
 else
-  no "D: replace failed unexpectedly: $(head -1 "$WORK/caseD.err")"
+  no "D: replace failed for an unexpected reason: $(head -1 "$WORK/caseD.err")"
+fi
+if AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1 node "$HELPER" replace "$WORK/caseD-in.md" "$WORK/caseD-out.md" \
+     "$ROUTING_START" "$ROUTING_END" "$WORK/routing-stamped.md" 2>/dev/null; then
+  ok "D: the documented override still lets the owner replace it"
+else
+  no "D: the override did not allow the replace"
 fi
 
 echo

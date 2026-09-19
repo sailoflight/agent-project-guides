@@ -1,6 +1,6 @@
 # 0006: Root instruction-file block ownership protocol
 
-Status: accepted — P1, P2, P4 are implemented today; P3, P5, P6, P7, P8, P9 are follow-up work
+Status: accepted — P1, P2, P4, P5, P8, P9 implemented and verified; P3, P6, P7 remain follow-up work
 Date: 2026-09-19
 Scope: `AGENTS.md` / `CLAUDE.md` root instruction files, the managed-prefix merge, third-party block interop, per-turn token budget
 Deciders/owner: project owner with development/maintainer
@@ -19,8 +19,8 @@ Markers are `<!-- agent-project-guides:routing:start|end -->` and `<!-- agent-pr
 - `scripts/install.sh:324` asserts the routing block begins at byte 0 of the selected root (`[ "$(sed -n '1p' ...)" = "$ROUTING_START" ]`); `:322-323` require the routing marker pair to appear exactly once; `:540-543` refuse multiple routing blocks or a trigger without routing; `:391` applies the same byte-0 rule to the CLAUDE scope block.
 - `scripts/install.sh:284-295` (`reject_conflicting_managed_roots`) refuses a sibling root file (`CLAUDE.md`, `AGENTS.local.md`, `CLAUDE.local.md`) that carries package-managed markers.
 - `scripts/install.sh:439-465` (`rebuild_root_prefix`) strips all four APG regions into `$unmanaged`, concatenates routing + trigger + `$unmanaged`, and `mv -f`s the result.
-- **There is no backup**: `grep -n 'backup\|\.bak\|cp -' scripts/install.sh` and the same search in `manage-root-blocks.mjs` return nothing. A bad merge overwrites the previous root file. Both external writers *do* back up (writer 2 and writer 3 below), so APG is the only writer that does not.
-- **APG's markers carry no integrity data** — only a namespace and a version — so a hand-edited routing block is silently replaced, not detected.
+- **There is no backup** (closed by P8, below): `grep -n 'backup\|\.bak\|cp -' scripts/install.sh` and the same search in `manage-root-blocks.mjs` returned nothing at the time of the survey. A bad merge overwrote the previous root file. Both external writers *do* back up (writer 2 and writer 3 below), so APG was the only writer that did not.
+- **APG's markers carry no integrity data** (closed by P9, below) — only a namespace and a version — so at the time of the survey a hand-edited routing block was silently replaced, not detected.
 
 ### Writer 2 — beads_rust `br`
 
@@ -47,11 +47,11 @@ Source: `src/core/agentsmd.rs` plus that repository's own `docs/adr/0065-workspa
 
 ### The convergence
 
-Three independently developed tools arrived at the **same** protocol from the same pressure: one marker-delimited managed region per writer, never touch bytes outside it, refuse rather than guess, be idempotent, and detect hand edits of your own region. The differences are equally informative: **both external writers back up before mutating** (`br` writes `<file>.md.bak`, `ee` writes `<file>.ee-backup`) and **only `ee` carries integrity data inside its marker** — APG does neither, and the root instruction file is consequently the one guarded surface in this toolchain with no recovery point and no hand-edit detection.
+Three independently developed tools arrived at the **same** protocol from the same pressure: one marker-delimited managed region per writer, never touch bytes outside it, refuse rather than guess, be idempotent, and detect hand edits of your own region. The differences are equally informative: **both external writers back up before mutating** (`br` writes `<file>.md.bak`, `ee` writes `<file>.ee-backup`) and **only `ee` carries integrity data inside its marker** — APG did neither, which made the root instruction file the one guarded surface in this toolchain with no recovery point and no hand-edit detection. P8 and P9 close both gaps.
 
 ### P5: measured against the real binary
 
-`scripts/test-interop-br.sh` (committed; it SKIPs when no binary is present) runs `br` v0.6.0 (SHA256 verified against the upstream release asset) in a target with its own `.git`, captures its real 2,086-byte blurb, and then composes the root file exactly the way `rebuild_root_prefix` does. Result on 2026-09-19: **13 checks passed, 0 failed, 2 gaps confirmed.**
+`scripts/test-interop-br.sh` (committed; it SKIPs when no binary is present) runs `br` v0.6.0 (SHA256 verified against the upstream release asset) in a target with its own `.git`, captures its real 2,086-byte blurb, and then composes the root file exactly the way `rebuild_root_prefix` does. Result on 2026-09-19, before P8/P9: **13 checks passed, 0 failed, 2 gaps confirmed.** After P8 and P9 landed it is **18 passed, 0 failed, 1 open gap** — the P9 gap is closed and only P3 remains open.
 
 | Check | Result |
 |---|---|
@@ -60,7 +60,7 @@ Three independently developed tools arrived at the **same** protocol from the sa
 | APG routing/trigger markers still appear exactly once | pass |
 | Composing twice is byte-identical (idempotence) | pass |
 | **P3 gap**: a third-party block written *above* the prefix was silently relocated from line 1 to line 29 | **confirmed** |
-| **P9 gap**: `replace` silently overwrote a hand-edited managed block, with no hash check and no refusal | **confirmed** |
+| **P9 gap** (now closed): `replace` silently overwrote a hand-edited managed block, with no hash check and no refusal | **confirmed**, then fixed by P9 |
 
 This is the empirical basis for P3, P8 and P9 being real work rather than theory, and it also downgrades the risk of P1/P2/P4: coexistence between APG and `br` **already works today** in the realistic ordering (APG installed first, `br` appends later).
 
@@ -88,8 +88,8 @@ Adopt a **managed-prefix ownership protocol** for root instruction files:
 - **P5 — Interop is verified, never assumed.** `scripts/test-interop-br.sh` runs the repeatable sequence (APG prefix, foreign add, APG re-compose, hand-edit probe) and asserts: APG's block is still at byte 0, each marker pair appears exactly once, the foreign region is byte-identical, nothing is duplicated, and the file does not grow without bound. Until it passes, an external writer is reported as `degraded` or `not-installed`, never as supported. `ee`'s bridge is designed in an upstream ADR marked *proposed*; its shipped behaviour must be measured, not inferred from source.
 - **P6 — Observation ledger, not authority.** APG may record which foreign blocks it observed (marker, version, byte range, approximate tokens) as *observed* state. It never edits, upgrades, or removes a foreign block, and a missing foreign block is never an APG error.
 - **P7 — Budget.** APG's own contribution to the per-turn surface is capped, and the current 1,706 B v2 block is treated as a regression to shrink rather than a baseline to defend.
-- **P8 — Back up before the first mutation.** Any APG operation that rewrites an existing root instruction file writes a recoverable copy first, then mutates. This closes the only unbacked mutation surface in the toolchain and matches the external writers' practice (`br`'s `.md.bak`, `ee`'s `.ee-backup`) and this project's own "every change backed up and rollback-capable" rule.
-- **P9 — Managed-block integrity.** APG's own markers gain an integrity attribute (content hash, and a generation or revision token) so that a hand-edited APG block is *detected* rather than silently overwritten. `manage-root-blocks.mjs replace` refuses on mismatch and requires an explicit override, mirroring `ee`'s `agentsmd_unmanaged_edit_detected` / `--force-managed-block` pair.
+- **P8 — Back up before the first mutation (implemented).** Any APG operation that rewrites an existing root instruction file writes a recoverable copy first, then mutates. This closes the only unbacked mutation surface in the toolchain and matches the external writers' practice (`br`'s `.md.bak`, `ee`'s `.ee-backup`) and this project's own "every change backed up and rollback-capable" rule.
+- **P9 — Managed-block integrity (implemented).** A managed block carries `<!-- agent-project-guides:integrity sha256=<hex> -->` as its **second line**, so the start marker stays the first byte and every byte-0 / exactly-once assertion keeps holding. `<hex>` is sha256 over the body lines after the integrity line, each `\n`-terminated, up to but not including the end marker. `manage-root-blocks.mjs` gains `stamp` and `verify`; `replace` refuses on mismatch; the installer stamps every routing block it writes and gates `merge` and `validate_routing` on `verify`. A block with no integrity line is a pre-P9 install: accepted, and upgraded on its next write. The override is the environment variable `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`.
 
 ## Alternatives considered
 
@@ -112,3 +112,32 @@ Adopt a **managed-prefix ownership protocol** for root instruction files:
 Validation: `scripts/test-install.sh` (managed-prefix routing, recoverable CLAUDE scope transactions, exact aliases, project profiles, MCP subtypes, cloud freshness, state lifecycle, safety guards), `scripts/validate-routing.mjs`, `scripts/test-interop-br.sh`, and catalog/manifest regeneration after any change to shipped content. Signals for review: an external writer that stops appending, an install that relocates content found above the prefix, a root file mutation without a backup, or the root block exceeding its budget.
 
 Reversal: P1–P7 are additive policy; reverting them means dropping the P3 refusal path, the P5 test, and the P6 ledger. P8 and P9 touch behavior and must be reverted as a unit with their tests. Installed roots are unaffected by P1–P7 because the protocol introduces no new on-disk format; P9 changes marker grammar and therefore requires the same migration discipline as ADR 0005's catalog-ID aliasing.
+
+### P8 and P9: implemented and measured
+
+Both landed on 2026-09-19; the full evidence is in the commit that introduces them.
+
+| Claim | Evidence |
+|---|---|
+| Every rewrite of an instruction file is preceded by a recovery point | `backup_file_before_write` is called immediately before all four `mv -f` sites that write `AGENTS.md` or `CLAUDE.md`; `scripts/test-install.sh` asserts the recovery point exists and `cmp`s it against the pre-merge root |
+| The P8 test is not vacuous | disabling the call makes the suite fail with `FAIL: P8: root was rewritten with no recovery point` |
+| A hand edit of APG's routing block is detected | tampering with the block body makes both `install.sh check` and `install.sh merge` fail with `managed block integrity mismatch: recorded ..., computed ...`, exit 1 |
+| The override is a real escape hatch | the same tampered root proceeds under `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`, and the block verifies again afterwards |
+| Pre-P9 installs do not break | a block with no integrity line verifies as `legacy` (exit 0) and `replace` still works on it; the next write stamps it |
+| `replace` self-protects | with a mismatching block it exits 1; with the override it exits 0 |
+| The primitive's other modes are unchanged | `strip` and `replace` byte behaviour is unchanged, covered by the existing suite |
+
+**Override semantics differ from `ee` deliberately.** `ee` re-renders its block, so `--force-managed-block` *overwrites* the hand edit (it survives in the backup). APG's block carries live adaptation state - status, revision, verified-at, scope, reason - that must never be reset, so APG's update path reuses the installed block rather than re-rendering it. With the override, APG therefore **accepts the hand-edited block and re-attests it** by recomputing the hash, and the pre-change file is in the P8 backup. The trade is explicit: no silent data loss, at the cost that a hand edit survives once its owner has consented to it.
+
+### Relationship to the recorded finding `finding.h1.bootstrap-token-only-validation`
+
+That finding is about a **different block** and remains open. It records that `lib/bootstrap.mjs`'s `inspectBootstrap` (:97-108) validates the schema-1 **v2 bootstrap block** (`<!-- agent-project-guides:v2:start -->`) by requiring byte 0 plus three `includes` checks (`project_id`, `provider.release`, `provider.digest`) and comparing no hash at all, so the rest of the block's governance instructions can be rewritten while `project validate` still reports ready. Schema 2 answered this by design with `integrity.root_block_hash` (`schemas/project-v3.schema.json`, required alongside `manifest_digest`), but the schema-1 path is still token-only.
+
+P9 does **not** close that finding: it covers the `routing:start|end` block written by `install.sh` into consumer roots, not the `v2:start|end` block checked by `inspectBootstrap`. What P9 does provide is the mechanism, already tested: applying `stamp`/`verify` to `V2_START`/`V2_END` and having `inspectBootstrap` compare the recorded hash is now a small, well-understood change rather than a design question.
+
+### Open items this ADR does not close
+
+- **P3** — content found above APG's prefix is still silently relocated rather than refused. Measured live by `scripts/test-interop-br.sh` case B (br's block moved from line 1 to line 30).
+- **P6** — the observation ledger is not implemented; nothing yet records which foreign blocks APG saw.
+- **P7** — APG's own block is still 1,706 B against the 731-758 B its consumers use.
+- The recorded `bootstrap-token-only-validation` finding, as set out above.
