@@ -40,9 +40,9 @@
       "importance": "critical"
     },
     {
-      "content": "AGENTS.md 块所有权协议（decisions/0006；P1–P9 已实施，P6/P7 未做）。**写入方实测 11 个**（39 个 checkout 普查，3→5→11）：br（`br-agent-instructions-v1`/`.md.bak`）、bv（`…-v{1,5,7}`，版本号是数据，不备份）、ee（`ee:agentsmd:begin`/`.ee-backup`）、slb、sbh（`sbh-docs:begin`）、frankenterm、am（`<!-- am:blurb -->` 无版本 token、裸 fs::write、**无备份**、递归 3 层）、ubs（`<!-- >>> … -->` 内容 grep 识别、写前 `.backup`，但**幂等重跑会覆盖该备份**）、cass（`<!-- Auto-generated rules from cass-memory playbook -->` + `<project_rules>`，整文件重写）、ntm（**无 HTML 注释**，边界 `<INSTRUCTIONS>`，整文件模板）、acfs（复用 br 标记 + 无标记生成器）。**能力边界**：ntm/acfs/cass 属整文件改写方，marker 守卫只保护「APG 的插入不搬移他人区域」，改写在 APG 之后发生时只有 `install.sh check` 能发现。P3=guard-prefix 在 strip 前拒绝「其他写入方的受管 marker 块位于前缀之上」（纯项目正文仍迁移）；3.0.10 文法=命名空间注释 + 区分大小写的裸容器 tag（`<INSTRUCTIONS>`/`<project_rules>`）+ `>>>`/`<<<` 需箭头后有文本；`test-install.sh` 32 行词表（14 refuse/18 allow）钉住两个方向。schema-1 引导块锚=`integrity.root_block_hash`（init 记录 / `project reattest` 刷新；两锚皆无 → `bootstrap_unverifiable`）。升版：改 PACKAGE_VERSION → 同步描述符 provider.release（source-worktree 强制相等）→ `project reattest --target .` → `release manifest`；勿手改描述符或根块。危险：br 向上找最近 `.git`/`.beads` 作根，在被管理仓的子目录跑 `br agents --add` 会改外层仓的 AGENTS.md。",
+      "content": "AGENTS.md 块所有权协议（decisions/0006；P1–P9 已实施，P6/P7 未做；细节以 ADR 为准）。**写入方 11 个**，且 8 个已用各自**发布二进制**实测过。关键事实：bv 发布版写 **v6**（源码 HEAD 是 v7）且无备份；slb **只写 `.cursorrules`**，不是 AGENTS.md 写入方；ntm 的 `quick` 不写 AGENTS.md，`setup` 才是写入方、默认跳过已存在文件、`--force` 整份覆盖且**无备份**；ee 写 `ee:agentsmd:begin generation=N hash=blake3:…` 且有与写入前逐字节相同的 `.ee-backup`，`ee init` 无 `--force` 时自身拒绝；cass 无 `--force` 时 exit 2 拒绝，给了就整文件重写；am 默认递归**深度 3**（`--max-depth` 可改）；ubs 写前 `.backup` 但幂等重跑会**覆盖**该备份；frankenterm 发布版**未编入**该功能。**能力边界**：ntm/cass/acfs 是整文件改写方，marker 守卫只保护「APG 的插入不搬移他人区域」；改写在 APG 之后发生时只有 `install.sh check` 能发现。P3=guard-prefix 在 strip 前拒绝「他人受管 marker 块位于前缀之上」（纯项目正文仍迁移）；`test-install.sh` 32 行词表（14 refuse/18 allow）钉住两方向。升版：改 PACKAGE_VERSION → 同步描述符 provider.release → `project reattest --target .` → `release manifest`。危险：br 向上找最近 `.git`/`.beads` 作根，在被管理仓子目录跑 `br agents --add` 会改外层仓的 AGENTS.md。",
       "created_at": "2026-09-19T08:43:25.861Z",
-      "updated_at": "2026-09-20T01:50:48.452Z",
+      "updated_at": "2026-09-20T03:03:05.186Z",
       "target": "memory",
       "importance": "normal"
     },
@@ -80,6 +80,13 @@
       "updated_at": "2026-09-20T01:50:52.994Z",
       "target": "memory",
       "importance": "normal"
+    },
+    {
+      "content": "方法教训（2026-09-20）：判定外部工具行为**必须跑它自己的发布产物**，源码≠产物。这 11 个写入方全都有官方预编译 linux/x86_64 发布件 ⇒ 不需要 Go/Rust/bun 工具链；缺工具链不是只能读源码的理由。",
+      "created_at": "2026-09-20T03:03:11.940Z",
+      "updated_at": "2026-09-20T03:03:11.940Z",
+      "target": "memory",
+      "importance": "critical"
     }
   ]
 }
