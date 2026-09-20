@@ -165,6 +165,21 @@ over-refusing.**
   different values under the same name, so comparing memory records against the
   former yields a wrong verdict. No distributed file was changed - `lib/memory.mjs`,
   the 18 records and `test-v2.mjs`'s sync obligation are all untouched.
+- Repository-side (not distributed): the minimal external subset's provenance list
+  already exists and was measured, which turns owner-queue rows 13 and 15 from
+  "build a manifest" into "commit it or not". All 11 writers come from
+  `github.com/Dicklesworthstone/`, and the nine released-artifact components each
+  carry repo, tag, asset id, archive sha256, binary sha256 and size, with 3-5
+  independently agreeing checksum sources per component; the two script-driven
+  components carry their HEAD commit. The compact list is **1,921 B** and it
+  replaces 554 MiB of staged binaries plus 2.9 GB of checkouts, while the component
+  bytes themselves stay out of the repository per the NOASSERTION red line. Two
+  facts that would otherwise misread the table are recorded next to it: `am` ships
+  two binaries and the list names the one the harness actually drives, and `cass`
+  publishes a bare binary so its archive and binary digests are legitimately equal.
+  Build provenance remains a stated gap for all nine - the agreeing checksums do
+  not cover it. No file was committed and nothing was deleted: adding a tracked
+  manifest is itself the decision awaiting the owner.
 
 ## 3.0.9
 
