@@ -11,6 +11,57 @@ they change.
 
 ## 3.0.10
 
+**Shared component store — one copy per machine, and the read-only contract now ships
+(ADR 0009, ADR 0010).**
+
+- Every project re-implementing the same combination of components multiplies bytes and
+  guarantees divergent versions - and a service that is already running gets deployed a
+  second time. The store answers that with one directory per machine,
+  `<platformHomes(env).data>/components`, a sibling of the `releases/` root
+  `thin-bootstrap` already uses. It is resolved by the existing
+  `AGENT_PROJECT_GUIDES_HOME` / XDG / Windows rules: no new environment variable.
+- Two entry kinds, and the difference is deliberate. A **package** entry lives at
+  `<components>/<id>/sha256-<hex>/` and covers that directory's bytes exactly, with a
+  canonical digest, a read-only `component-manifest.json` and a file set that must
+  match - an extra file, a missing file, one changed byte, a writable manifest or a
+  directory not named by its digest each fail verification. A **service** entry is
+  identity only, never bytes: endpoint, transport, expected revision, health path,
+  `singleton`. Its endpoint must be a literal IPv4/IPv6 address or `localhost`, so a
+  record cannot point the probe at an arbitrary destination, and its `delivery` can
+  only be `staged` because an already-running service cannot be downloaded.
+- Discovery has four states - `available`, `degraded`, `not-installed`, `conflict` -
+  and never guesses. "The port answers" is not evidence: an endpoint whose identity is
+  not the declared component is a `conflict`, an unpinned or mismatched revision is
+  `degraded`, and a singleton with two live instances is a `conflict` rather than a
+  choice. `apg components verify|probe` is read-only, an absent store is not an error,
+  and probing issues exactly one `GET` on the declared health path - never a
+  state-changing request, and never a DNS lookup. Starting, stopping or draining a
+  service stays Production/Operator work.
+- The verification and discovery contract is now on the distribution surface:
+  `lib/components.mjs` plus `schemas/component-entry.schema.json`, taking it from 83 to
+  85 files and the digest from `sha256:148974e8…` to `sha256:29395986…`. The command
+  group is named `components` and not `store` because the boundary gate rejects a group
+  name that denotes a mechanism; the name follows the product, and the group only
+  verifies one. Acquisition is deliberately *not* distributed: the store's population
+  path (`scripts/build-component-store.mjs`, non-distributed) reads the committed
+  acquisition record, verifies every staged byte against it, hard-links when the store
+  shares a filesystem with the source and reports which it used, and treats a
+  disagreement between record and disk as a hard failure instead of a repair.
+- The gate `scripts/test-component-store.mjs` (55 assertions, wired into
+  `scripts/test-release.sh`) now imports the shipped library rather than carrying its
+  own private validator, and additionally pins the schema against the fields the code
+  actually writes. A negative control was run and recorded: with the file-set
+  comparison disabled the gate fails, restored it passes.
+- The first real instance exists: nine packages staged on this machine were
+  materialised into the store by hard link (`am`, `br`, `bv`, `cass`, `ee`, `ft`,
+  `ntm`, `sbh`, `slb`), all nine verify as `available`, and a second run reports
+  `present: 9` and writes nothing. No service entry was written, because no component
+  running on this machine documents an identity and a read-only health endpoint that a
+  record could pin - inventing one is exactly what the four-state vocabulary exists to
+  prevent.
+- `PACKAGE_VERSION` stays `3.0.10` and tag `v3.0.10` remains authoritative for 3.0.10:
+  `main` now carries two distributed files more than the tag pins, so the next release
+  must bump the version first.
 **Root-block observation (ADR 0006 P6) — APG can now record the blocks it saw, and
 nothing else.**
 
@@ -55,6 +106,7 @@ nothing else.**
   the catalog (253 entries) and the manifest were regenerated, moving the digest from
   `sha256:6027df75…` to `sha256:148974e8…`. `PACKAGE_VERSION` stays `3.0.10` for the
   reason recorded above.
+
 
 **Bootstrap block — the v2 root instruction file is now the compact form v3
 consumers already receive.**

@@ -2267,3 +2267,59 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 - **`0002-other-suggestion-box-not-ignored.md`**：写信这个动作本身暴露的第二个问题，所以单独一封（一封信一个关注点）。`templates/SUGGESTION_BOX.md:3` 声明建议箱是 clone-local 状态，但 `git check-ignore` 对 `.agent-project-guides/local/...` **退出码 1（不忽略）**，`.gitignore` 里只有 `.agent-scratch/`。于是**按政策办事就会制造脏树**：本仓写信前 `git status` 干净，写完多出未跟踪目录，`git add -A` 会把它带进发布提交。提议 `.gitignore` 增一行 `.agent-project-guides/local/`（非分发文件，两个生成物都不受影响），或反过来改文档措辞——两者必须有一个改。
 
 两封都是 **report-only**：不改变路由、不授予权限、也不构成任何已批准的改动。本轮的提交不含 `.agent-project-guides/`（显式点名添加文件，不用 `git add -A`）。
+
+## 13.20 "都做"：储藏库契约上分发面 ＋ 第一个真实实例（2026-09-20）
+
+§13.19 收口后只剩两个开口，都是 ADR 0009 明确留给主人的：**decision 2**（把契约放上分发面）和**第一个真实实例**。主人只回了两个字：**都做**。这一节两件都落地，并且都留了可复核的实测证据——dry run 与实际运行的数字、第二次运行的幂等结果、以及一次把门禁打红的反证。
+
+### 13.20.1 契约上分发面（ADR 0010，改 ADR 0009 D7）
+
+| 落地物 | 性质 | 说明 |
+|---|---|---|
+| `lib/components.mjs` | **分发** | 校验＋发现＋探测的唯一实现；`storeRoot`/`entryDir`/`packageManifest`/`writePackageEntry`/`verifyEntry`/`validateEntry`/`readStoreEntryRecords`/`resolvePackage`/`probeService`/`resolveService` |
+| `schemas/component-entry.schema.json` | **分发** | `oneOf` package/service；package 必填 `[schema_version,kind,id,version,files,digest]`，service 必填 `[kind,id,endpoint,transport,health,singleton,delivery]`，`delivery: const "staged"`，endpoint 只允许字面量 |
+| `apg components verify\|probe` | **分发** | 只读；store 不存在不是错误（`present:false`）；`probe` 只发一条 `GET`（声明的 health 路径） |
+| `scripts/build-component-store.mjs` | **不分发** | 采集路径：读已入库的采集记录，把已就位的字节物化进 digest 命名目录。故意不上分发面 |
+
+三条决定性的**否决/更名**证据，都写进了 ADR 0010：
+
+1. **组名只能是 `components`，不能是 `store`**——`scripts/test-boundary.mjs:33` 的 `FORBIDDEN` 正则明确匹配 `store`，其判据是 ADR 0007 的"组名不得指称归执行栈的机制"。门禁在这一条上是对的：这个组只**核对产品**，不跑服务。
+2. **校验器搬进 `lib/` 之后，门禁才算在测真东西**——旧版门禁自带一份私有 `verify`/`validate`/`probe` 实现（`HEAD` 那份，41 条断言）；新版 import `lib/components.mjs`，断言从 41 条增到 55 条，并新增"schema 与代码字段互相对齐"（多一个字段、少一个字段都红）。
+3. **采集器不上分发面**——它会读采集记录、写机器级根目录；`lib/` 上的是"核对/发现"契约，采集是维护者程序，分开正是 ADR 0007 的分区。
+
+分发面因此从 83 → **85** 个文件，摘要链条继续前移：`148974e8…`（83）→ **`293959867428afd08fea66b5e878c81a1afde5d94c939eefaf71e656a40d344f`**（85）。`apg catalog build`＝253 条、`apg catalog check`＝`valid`、`apg release verify-source`＝`valid`、`apg project validate`＝`valid`。
+
+### 13.20.2 第一个真实实例：9 个包，全部 `link`，全部 `available`
+
+根目录就是默认根 `/home/lijq/.local/share/agent-project-guides/components`（`<data>/components`，`releases/` 的兄弟，沿用既有变量，**没有新变量**）。`--dry-run` 先跑一遍确认记录与字节一致，再真跑：
+
+| 组件 | 版本 | 字节 | 方式 |
+|---|---|---|---|
+| `am` | `am-0.3.36` | 61,488,784 | link |
+| `br` | `br-0.6.0` | 11,732,979 | link |
+| `bv` | `bv-0.25.0` | 14,536,865 | link |
+| `cass` | `cass-0.2.14` | 136,325,248 | link |
+| `ee` | `ee-0.15.2` | 30,947,660 | link |
+| `ft` | `ft-0.15.1` | 19,789,208 | link |
+| `ntm` | `ntm-1.35.1` | 18,206,430 | link |
+| `sbh` | `sbh-0.6.2` | 2,329,948 | link |
+| `slb` | `slb-0.4.1` | 6,100,785 | link |
+
+- dry run：`materialised 0, not_staged [], record_mismatch []`，9 条全 `planned`，**不写一个字节**。
+- 真跑：`materialised 9, present 0, not_staged [], record_mismatch []`，9 条全 `mode: link`——源与目标同一文件系统时硬链接，所以 287.5 MiB **没有复制第二份**；硬链接意味着通过任一路径改动都会被 digest 抓到，但两者共享 inode，"不是隔离副本"，这一点在 `build-component-store.mjs` 头部就写明。
+- 第二次运行：`materialised 0, present 9`——幂等，且每条都过了 `verifyEntry`（不是"目录在就算在"）。
+- `apg components verify`：`present:true`、`reusable` 9 个、`missing:[]`，每个包 `state: available` 并带 `version`。
+
+### 13.20.3 门禁与反证
+
+- `scripts/test-component-store.mjs`：55 条断言，11 组（兄弟根／两份引用一份拷贝／文件集必须精确——多一个、少一个、被改一个字节、manifest 可写、目录名不符 digest 各自红／缺失即 `not-installed`＋`action:none`／服务身份规则／schema 与代码对齐／储藏库遍历／采集器（含 `--dry-run` 不写、第二次幂等、记录与字节不符时 `record_mismatch` 且退出码 1）／CLI／四状态＋singleton 双实例＝`conflict`／探测只发 `GET` 到声明路径）。
+- **反证（先跑再记）**：把 `lib/components.mjs` 里的文件集比较那行注释掉，门禁**变红**（`operator: 'throws'` 的 assert 失败）；恢复后**变绿**。所以门禁是因为它声称的那条规则而红，不是顺带红。
+- `scripts/test-boundary.mjs`：`PASS: product boundary holds (10 command groups, 85 distributed files, ...)`。
+- `scripts/test-release.sh`：新增 `schemas/component-entry.schema.json` 的 JSON 解析行，并在 `test-observation-ledger.mjs` 之后接上本门禁。
+
+### 13.20.4 没做的，以及为什么
+
+- **没写任何服务条目。** 服务这一 kind 存在、也有真实 loopback 服务器覆盖，但这台机器上没有一个组件同时暴露"可核对的 identity"和"只读 health 端点"（`bridge_control status` 给的是 `onshape`/`taobao` 两个 id 与 generation，走的是它自己的协议，profile 里也没有 HTTP 端点或 health 路径）。硬写一条就是**编一个端点**，那正是四状态词表要防的事。第一条真实服务条目等一个自己声明身份的服务。
+- **没有铺开到消费者仓。** §13.19 的 #11 决定照旧：12 个真实消费者仓一个都没碰。ADR 0010 只是让能力可得，不等于采用。
+- **没有动版本号。** `main` 的分发面现在（85）超过标签 `v3.0.10` 钉的那份（83），而 `PACKAGE_VERSION` 仍是 `3.0.10`。`3.0.10` 的权威仍是**标签**；下一次发布必须先升 `PACKAGE_VERSION`（连带 `provider.release` 与记忆锚）。这条不擅自做。
+- **没有加删除/修复路径。** 储藏库不自愈：条目坏了就报 `component_corrupt`，删是人的动作。

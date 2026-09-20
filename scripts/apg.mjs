@@ -30,6 +30,7 @@ export { contextErrorRecord };
 import { composeRisk, parseEffectList } from '../lib/risk.mjs';
 import { projectDigest, promoteMemory, proposeMemory, purgeMemoryProposal, readMemoryInput, reviewMemory, supersedeMemory } from '../lib/memory.mjs';
 import { observeRootBlocks } from '../lib/observation-ledger.mjs';
+import { probeService, readStoreEntryRecords, resolvePackage, resolveService, storeRoot } from '../lib/components.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION = fs.readFileSync(path.join(packageRoot, 'PACKAGE_VERSION'), 'utf8').trim();
@@ -110,6 +111,7 @@ function helpText(scope) {
     '  risk                         Classify effects',
     '  memory                       Manage reviewed project memory',
     '  dsh                          [compat] DSH observation adapter (future: plugins/dsh-apg)',
+    '  components                   Verify or probe the shared component store',
     '',
     'Options:',
     '  -h, --help                    Show help',
@@ -355,6 +357,39 @@ function observeProject(options) {
   const projectRoot = targetRoot(options);
   const { descriptor } = readDescriptor(projectRoot);
   return observeRootBlocks(projectRoot, descriptor, { root: options.root });
+}
+
+// ADR 0009/0010. Read-only by construction: this group verifies what a human or an
+// operator already staged, and reports what is missing. It never downloads, installs,
+// starts or stops anything, which is why it belongs on the authority side of the
+// partition ADR 0007 draws - and why the boundary gate's FORBIDDEN list, which rejects
+// naming a mechanism such as `store`, still admits it.
+function verifyComponents(options) {
+  const root = storeRoot({ store: options.store });
+  if (!fs.statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
+    return { root, present: false, packages: [], services: [], reusable: [] };
+  }
+  const records = readStoreEntryRecords(root);
+  const packages = records.packages.map((entry) => resolvePackage(entry, root));
+  return {
+    root,
+    present: true,
+    packages,
+    services: records.services.map((entry) => ({ id: entry.id, endpoint: entry.endpoint, revision: entry.revision ?? null, delivery: entry.delivery })),
+    reusable: packages.filter((entry) => entry.reusable).map((entry) => entry.id),
+    missing: packages.filter((entry) => entry.state === 'not-installed').map((entry) => entry.id),
+  };
+}
+
+async function probeComponents(options) {
+  const root = storeRoot({ store: options.store });
+  if (!fs.statSync(root, { throwIfNoEntry: false })?.isDirectory()) {
+    return { root, present: false, services: [], reusable: [], action: 'none' };
+  }
+  const records = readStoreEntryRecords(root);
+  const services = [];
+  for (const entry of records.services) services.push(resolveService(entry, [await probeService(entry)]));
+  return { root, present: true, services, reusable: services.filter((entry) => entry.reusable).map((entry) => entry.id), action: 'none' };
 }
 
 function reattestProject(options) {
@@ -962,6 +997,11 @@ export async function main(argv = process.argv.slice(2)) {
       return supersedeMemory(projectRoot, descriptor, readMemoryInput(options.input), options.replaces);
     }
     if (action === 'purge') return purgeMemoryProposal(projectRoot, descriptor, options.id);
+  }
+  if (group === 'components') {
+    if (action === 'verify') return verifyComponents(options);
+    if (action === 'probe') return probeComponents(options);
+    return fail(`components requires an action: verify or probe`);
   }
   const observationAdapter = OBSERVATION_ADAPTERS[group];
   if (observationAdapter && action === 'report') return observationAdapter.report(options);

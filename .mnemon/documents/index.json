@@ -484,32 +484,34 @@
     },
     {
       "id": "9543cc82-9263-45f4-aee4-4b395f778869",
-      "title": "APG 入口化与组件复用：发现优先于部署（本机组件库契约草案）",
-      "description": "用户 2026-09-20 方向 + 已核实代码依据：APG 当入口（先住进去→别的东西进来，以 plugins/<harness>-apg/ 独立嵌套仓形态）、装配前先发现并复用本机已有的 HTTP/常驻服务（不部署第二遍）、用户自备本机组件库（文件包 + HTTP 服务器）并照 APG 自身部署方式组织。含五条部署方式、文件型/服务型两套判据、四态（新增 conflict）、宿主 vs 项目 scope 切分、只读优先与 Operator 权限分层、store 骨架、红线与三步落地顺序、两个待定问题。",
+      "title": "APG 入口化与组件复用：本机组件库上线（ADR 0009 + 0010）",
+      "description": "本机组件库契约的上线记录（ADR 0009 + 0010）：分发面 83→85、`apg components verify|probe`、第一个真实实例 9 件全 link、以及仍未做的消费者铺开与版本号",
       "status": "active",
       "filename": "apg-9543cc82.md",
       "relativePath": "documents/active/apg-9543cc82.md",
       "sourcePaths": [
+        "decisions/0009-local-component-store.md",
+        "decisions/0010-component-store-on-the-distribution-surface.md",
         "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
-        "scripts/apg.mjs",
-        "scripts/apg-launcher.mjs",
-        "lib/core.mjs",
-        "PACKAGE_MANIFEST.json",
+        "scripts/test-component-store.mjs",
+        "scripts/build-component-store.mjs",
         "scripts/external-components.json",
-        "profiles/mcp/WINDOWS_WSL_BRIDGE.md",
-        "routing/mcp-subtypes.jsonl",
-        "decisions/0007-authority-plane-and-execution-plane.md",
-        "decisions/0008-external-component-identifiers-and-observation.md"
+        "lib/components.mjs",
+        "schemas/component-entry.schema.json",
+        "scripts/test-boundary.mjs",
+        "scripts/test-release.sh"
       ],
       "sessionIds": [
-        "53cfb1d4-cff5-4417-ad50-a9f3efec0ca8"
+        "53cfb1d4-cff5-4417-ad50-a9f3efec0ca8",
+        "a4f04cdd-c719-432a-8518-1877960e77bb",
+        "9a13fd2d-07d7-42ff-b4e0-c53a75a3bbb7"
       ],
       "createdAt": "2026-09-20T08:17:00.548Z",
-      "updatedAt": "2026-09-20T08:17:00.548Z",
-      "lastAccessedAt": "2026-09-20T08:17:00.548Z",
-      "revision": 1,
-      "contentHash": "2d26cea28718e3753209ee821acaa53bb35a75a5f4ab99fc042a878df39a3c74",
-      "sizeBytes": 9157,
+      "updatedAt": "2026-09-20T08:56:14.682Z",
+      "lastAccessedAt": "2026-09-20T08:56:14.682Z",
+      "revision": 3,
+      "contentHash": "53a4d08c7295a863026f3290bc17d04d78ce4aaf12f2c6e731d3803adec2b29e",
+      "sizeBytes": 7323,
       "memoryBodyIds": []
     }
   ]
