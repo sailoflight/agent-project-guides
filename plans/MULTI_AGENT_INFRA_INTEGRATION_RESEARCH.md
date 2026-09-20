@@ -1524,6 +1524,9 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | 11 | 消费者仓是否升到 3.0.10 | 12 个真实消费者仓仍是 schema 2 / 固定 3.0.7，全部 `state: ready`（§13.13.1） | 是否发布（**按既有纪律，消费者仓的治理更新不自动 commit/push**） | 未触碰任何消费者仓 |
 | 12 | `.agent-scratch/` 外部试验区的去留 | `.agent-scratch/external-test/repos`（39 checkout，约 2.9 G）+ `external-verify`（普查原始证据，含 SHA256SUMS）已有生命周期标注（§13.13.8） | 是否点名删除（我保留原始证据以便复核） | 未删 |
 | 13 | 新 harness 的**长期证据**怎么保住 | `scripts/test-interop-writers.sh` 的输入是 gitignored 的 39 个 checkout，缺失时**干净 SKIP** ⇒ scratch 一删它就静默不跑了（§13.16.5） | 是否固定**最小子集**（`ultimate_bug_scanner` + `agentic_coding_flywheel_setup` + 已有 `br` 二进制）的获取方式：提交"从哪来/什么版本/sha256"清单，**不提交组件字节**（NOASSERTION 红线） | 未固定；harness 只写明了预期路径与 SKIP 行为 |
+| 14 | `frankenterm` 这一行是否值得换成"可观测" | 发布的 v0.15.1 根本没编进 agent 检测功能（二进制内 `ft-agent-config-`/`frankenterm:start` 出现 0 次，`robot agents configure` 返回 `feature_not_available`）；要测只能换构建（§13.17.3） | 是否批准装 Rust 工具链 + 大幅构建去测这一行；不批就让它**永久保持"未观测"标注** | 未构建；ADR 里已标成"未观测行，不得当作已测负例" |
+| 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） |
+| 16 | `APG_EXTERNAL_BIN` 是否纳入 `test-release.sh` 默认 | 现在默认**不带**，`test-release.sh` 保持无网、无大件也能跑；真实二进制断言要显式给环境变量（§13.17.4） | 是否让默认 runner 也驱动真实二进制（会让 CI 依赖 287.5 MiB 本地件） | 未改默认；section D 缺输入时只报 1 条 GAP |
 
 ---
 
@@ -1569,3 +1572,56 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 ### 13.16.5 本轮新增的一条待拍板项（并入 §13.15）
 
 新 harness 的输入是 `.agent-scratch/external-test/repos/` 的 39 个 checkout（**gitignored**）。checkout 缺失时它**干净 SKIP**——这意味着**它本身不构成长期证据**：scratch 一删，A/B/C 三段就静默不跑了。若要让这条证据长期活着，需要你定一件事：是否把**最小子集**（`ultimate_bug_scanner`、`agentic_coding_flywheel_setup`，加上已有 `br` 二进制）的获取方式固定下来（提交一份"从哪来、什么版本、sha256 是多少"的清单，而不是提交组件字节——后者违反 NOASSERTION 红线）。
+
+## 13.17 第三轮：用**真实预编译发布件**跑完 8 个写入方 + 安装安全性检查（2026-09-20）
+
+人工放行的口径是「装，并且看看 GitHub 有没有编好的，记得安全性检查」。结论先行：**GitHub 上九个组件全都有官方预编译的 linux/x86_64 发布件，所以 Go/Rust/bun 一个都不必装**——之前判定"需要工具链所以只能读源码"的八个写入方，这一轮全部用**它们自己的发布二进制**跑完了。
+
+### 13.17.1 安装与安全性检查（fail-closed，全程落证据）
+
+流水线按顺序、任一关不过就拒绝该组件并且**不落盘、不执行**：
+
+1. **按 asset id 下载**（认证 `gh`，5000/h；匿名 API 60/h 在第一轮探测时就被打满）。逐件比对 GitHub 公布的字节数。发布件走的是**带签名、有时效的 CDN 链接**，九个里有三个第一次就断在这里（TLS handshake timeout / CDN 报错）——**被正确拒绝**，加退避重试后才取到。
+2. **四路 SHA-256 必须一致**：`.sha256` 侧车、聚合 `checksums.txt`/`SHA256SUMS`、GitHub API 的 `digest` 字段、本地实算。实测一致源数 **3–5**（`cass` 只发侧车所以是 3，`bv`/`slb` 两个聚合文件都给所以是 5）。
+3. **离线 minisign 验证**（机器上没有 `minisign`）：`minisign_verify.py` 直接实现格式（Ed25519 用 `cryptography`，Blake2b-512 用标准库）。**先自证再用**：真 `br` 归档 VALID、翻转一字节 REJECTED、换错公钥 REJECTED。结果：`br` 用 `D0A0A51BD147B836`，`slb`/`sbh`/`am` **共用 `D018F78BB279BD1B`**，四件全部 VALID（`sbh` 签的是 manifest，非归档本身）。
+4. **解包前卫生扫描**：绝对路径 / `..` / 越界符号或硬链接 / setuid / 设备与 FIFO 成员——九件全清；解包用 `tarfile` 的 `filter="data"`（PEP 706）做第二道。
+5. **只在沙箱里执行**（`unshare -rmn` 无特权 user+mount+net 命名空间）：真实 home 被影子目录 bind 覆盖（**实测 `/home/lijq` 与影子目录 inode 相同 = 1069620**，且往 `$HOME` 写的探针文件在真实 home 里不存在）；网络命名空间里 DNS 不通，**沙箱在跑之前先自检，不自检不过就拒绝执行**；`HOME`/`TMPDIR`/`XDG_*`/cwd 全部改道。因为本仓就在真实 home 下，沙箱内**连仓库都看不见**——比只读更强。
+
+**如实报缺口**：`bv`/`ntm`/`ee`/`ft`/`cass` **一个签名都没有**；`slb`/`sbh`/`am` 共用一把钥匙（一把泄漏覆盖三个组件）；发布公钥与产物**同在作者自己的 GitHub 账号**上，账号被攻破则签名与校验和一起失效——签名挡的是 CDN 与构建机，不是账号；`gh` 是 2.45.0 没有 `attestation` 子命令，**本次没有做任何构建来源证明校验**（记为 GAP）；`ee` 的发布说明自述"在 GitHub Actions 之外构建、未签名、无 Sigstore"。
+
+总量 **287.5 MiB**（9 件），全量报告在 `.agent-scratch/external-test/SECURITY-REPORT.md`（由 `write-security-report.py` 从 `install-manifest.json` 生成，不手写数字）。
+
+### 13.17.2 沙箱本身的三次自我证伪（这里最花时间，也最值得记）
+
+- **第一次**：沙箱根放在仓里 → 影子 home 把**沙箱自己**盖住了，`cd` 失败、探针跑错目录。挪到 `/tmp` 并说明为什么必须挪。
+- **第二次**：`grep -v` 无匹配 → `pipefail` + `set -e` 让脚本在写 `result.json` 前退出，于是"全部 exit=1 无输出"。修掉，并把**原始事实**（全盘 mtime 扫描）与**归因**（对照窗口相减）拆成两步。
+- **第三次（最重要）**：全盘扫描**永远不干净**——它抓到的是我自己的 harness session 日志、编辑器日志、MCP bridge 的 sqlite。**单次扫描不能定罪**。所以每个案例都配一个**对照窗口**（同沙箱、空命令）做集合相减（`attribute-escapes.py`）；减完之后，**所有组件在沙箱外都没有不可解释的写入**。
+- 另有**负向对照**证明机制真的能抓：故意往 `$HOME/.config`、`$HOME/.local/share` 写文件 → `home_files` 立刻出现。所以"某组件无 HOME 写入"是真观察，不是盲区。
+
+### 13.17.3 实测结果：8 个写入方，其中两个**推翻**了普查
+
+`ntm quick` 根本不写 AGENTS.md（它写到 `~/ntm_Dev/<name>`），真正的写入方是 `ntm setup`（默认**跳过已存在**的文件）。用真实二进制逐条驱动后：
+
+| 写入方 | 真实观测（不是源码） |
+|---|---|
+| `br` | `agents --add -f` exit 0；生成 `AGENTS.md.bak`；写 v1 标记；只动根文件 |
+| `bv` | `--agents-add` exit 0；**写的是 v6**，而 checkouts 里源码写的是 v7；无备份；只动根文件 |
+| `slb` | `integrations cursor-rules --install` 写的是 **`.cursorrules`**；`AGENTS.md` **字节不变**——它根本不是 AGENTS.md 写入方 |
+| `ntm` | `setup --force` 把种子根文件（2140 B，含 APG 区块与手写正文）整份换成 2689 B 的 `<INSTRUCTIONS>` 模板，**无备份**；`quick` 不写 AGENTS.md |
+| `ee` | `export agentsmd --create` 写 `ee:agentsmd:begin generation=0 hash=blake3:4e31560a725ff7c0`；`AGENTS.md.ee-backup` **与写入前逐字节相同**；`ee init` 本身在已有 AGENTS.md 时**要求 `--force`**；不递归 |
+| `sbh` | `docs --render` 只重写已存在的标记区；`--check` 漂移时 exit 1 |
+| `am` | 正好一对 `<!-- am:blurb -->`/`<!-- am:blurb:end -->`；无备份；**默认扫到深度 3（4 个文件），深度 4 不动**，`--max-depth 10` 可够到——`max_depth = 3` 由实测确认 |
+| `cass` | 不给 `--force` 时 **exit 2 且文件不动**；给了之后根文件从 2140 B 缩到 261 B（APG 区块与手写正文全丢），无备份 |
+| `ft` | **发布的 v0.15.1 里根本没有这个功能**：二进制中 `ft-agent-config-`/`frankenterm:start`/模板模块**出现 0 次**，`robot agents configure` 返回 `robot.feature_not_available`。此行只能算"源码测量"，**不能算观测** |
+
+**两条真修正**（这就是"必须跑真货"的理由）：**① `bv` 的发布版是 v6，源码 HEAD 是 v7**——语法用 `v\d+` 所以不需要改代码，但任何把 v7 钉成"那就是版本"的测试，测的都是用户装不到的字符串；**② `slb` 行写错了**，它只写 `.cursorrules`。另有两条把"推测"升级成"实测"：`ntm` 的整文件**覆盖且无备份**、`cass` 的**先拒绝后覆盖**。`ft` 从"scan"降级为**明确缺口**（换一个构建才可能测，需要 Rust 工具链与大幅构建，属于待批）。
+
+### 13.17.4 并入仓内的可复现证据
+
+`scripts/test-interop-writers.sh` 新增 **section D**：驱动各组件的**发布二进制**并断言上表的观测事实（`APG_EXTERNAL_BIN` 指向解包目录，缺了就整段 SKIP 成一条 GAP，不影响其余）。实测 **65 通过 / 0 失败 / 1 缺口**（缺口即 `ft`）。section A/B/C 的 39 条在无二进制时照常跑（39 通过 / 0 失败 / 1 GAP）。ADR 0006 的普查表、修正块、Validation 与 Open items 已按实测改写。
+
+### 13.17.5 本轮新增待拍板项（并入 §13.15）
+
+- **`ft` 是否值得换构建再测**：需要 Rust 工具链 + 大幅构建，才能把这一行从"源码测量"变成"观测"。不做也行，但那一行必须保持"未观测"的标注。
+- **沙箱证据的长期存活**：`/tmp/apg-external-sandbox/`（`_bin` 暂存 + run 窗口）与 `.agent-scratch/external-test/`（287.5 MiB 归档 + 解包件）都是**临时物**。scratch 一删，section D 就只剩一条 GAP。与 §13.16.5 是同一个问题的两面：要么固定"从哪来、什么版本、sha256 多少"的清单，要么接受这些断言会静默退化为 SKIP。
+- **是否把 `APG_EXTERNAL_BIN` 纳入 `scripts/test-release.sh` 的默认路径**：现在默认 `test-release.sh` 不带它（保持 CI 无网、无大件可跑），要跑真实二进制得显式给环境变量。

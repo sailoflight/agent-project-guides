@@ -31,7 +31,10 @@ node scripts/test-genericity.mjs
 # re-checks the census literals against the real components and drives APG's guard
 # with the bytes the UBS installer actually appends. Both SKIP cleanly when their
 # third-party inputs are absent - the writers harness needs the checkouts listed in
-# decisions/0006, not a toolchain.
+# decisions/0006, not a toolchain. Its section D additionally drives the writers'
+# released binaries and asserts the observed facts from ADR 0006; set
+# APG_EXTERNAL_BIN to the extracted release payloads to run it, or it reports a
+# single GAP so this runner stays usable with no network and no large local files.
 node scripts/test-boundary.mjs
 ./scripts/test-interop-writers.sh
 node scripts/apg.mjs catalog check
