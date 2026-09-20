@@ -68,9 +68,10 @@ distributed surface is advertised without a tag behind it.
   because no component running on this machine documents an identity and a read-only
   health endpoint that a record could pin - inventing one is exactly what the four-state
   vocabulary exists to prevent.
-- The catalog (253 entries) and the manifest were regenerated with the contract change;
-  the surface stays at 85 files and the digest moves from `sha256:9791c583…` to
-  `sha256:3c935f4b…`. A negative control was run on the new requirement check: with the
+- The catalog (253 entries) and the manifest were regenerated twice in this release - for
+  the store contract and then for the routing vocabulary below - and the surface stays at
+  85 files throughout; the digest moves from `sha256:9791c583…` through
+  `sha256:3c935f4b…` to `sha256:f4d86ec0…`. A negative control was run on the new requirement check: with the
   downgrade in `applyRequirements` short-circuited the store gate fails on
   `expected: 'degraded'`, and it passes again once the library is restored - so the
   requirement reaches the command's verdict, not just a helper's branch.
@@ -123,6 +124,20 @@ distributed surface is advertised without a tag behind it.
   knows the intended digest, reports the residue as `stale` with the exact directory and
   deletes nothing. The three stale directories on this machine were removed by explicit
   name, and the store now holds one digest per id (ADR 0010 D11).
+- A task described with Chinese action *nouns* now routes instead of always asking. The
+  project's own suggestion letter 0001 measured a real session in which
+  `落地主人裁定的13项并收口owner queue` matched no lexical rule and had to be routed by
+  hand. The letter's proposal was one level too shallow - role ranking reads
+  `roles[].patterns` in `routing/context-classifier.json`, while the delivery lists only
+  feed the mixed-intent and negation rules - so the nouns reach both: the maintainer gains
+  `收口`, `收尾`, `补齐`, `整理` and `清理`, the reviewer `复核` and `清单`, the developer
+  `新增` and `新命令`, and the delivery list gains those plus `落地`. `落地` deliberately
+  does **not** join the maintainer's role patterns: it prefixes the developer's own
+  `落地修复方案`, so handing the maintainer the bare noun would pull "land the fix plan"
+  away from the developer, and a gate assertion now guards exactly that. The reported task
+  resolves `ready`/`maintainer`/`code`, seven previously-working routing fixtures are
+  unchanged, three assertions were added to `scripts/test-v2.mjs`, and a negative control
+  (removing the nouns) turns that gate red. Both letters in the box are now processed.
 - The suggestion box is excluded in the source-worktree repository itself:
   `.gitignore` gains `.agent-project-guides/local/`, adopting letter
   `0002-other-suggestion-box-not-ignored.md`. The exclusion existed only in the
