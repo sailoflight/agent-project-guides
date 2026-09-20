@@ -81,6 +81,17 @@ over-refusing.**
   sentinel, byte-identical passthrough for anything that is not the expected
   shape, and idempotence. The filter is opt-in: a clone without it behaves
   exactly as before.
+- Repository-side (not distributed): the writers harness no longer degrades its
+  isolation silently. `scripts/test-interop-writers.sh` runs each component in an
+  unprivileged user+mount+network namespace when the kernel allows it and falls
+  back to a fake HOME alone when it does not - but the fallback printed nothing,
+  so a run without the network namespace reported the same `0 failed` as an
+  isolated one. A `WARN` line and a closing `section D isolation:` line now say
+  which one happened. The cause is worth recording because it is easy to
+  misdiagnose: `unshare -U` succeeds while `unshare -r` fails with EACCES on
+  `/proc/self/uid_map` when a file sandbox restricts writes outside the worktree
+  - the user namespace is permitted, the identity mapping is not. Assertions and
+  counts are unchanged.
 
 ## 3.0.9
 

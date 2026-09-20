@@ -1724,9 +1724,11 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 | 1 | `-j 16` | 23 GB 内存只剩 1 GB 可用，swap 吃掉 5–7 GB，两个 rustc 各 7.7 GB，load 17.3 | 直接威胁同机其他 agent，**不可接受** |
 | 2 | `-j 1` + `nice -n 19` | 单 rustc（`asupersync`）仍爬到 **6.5 GB 且还在涨**，可用内存每 20 秒掉约 200 MB | 并行度不是唯一变量 |
 | 3 | 同上 + `OPENSSL_NO_VENDOR=1` | 不再从源码编 OpenSSL（原本在跑 `make build_libs`） | 去掉一整块纯构建开销 |
-| 4 | 再 + `CARGO_PROFILE_DEV_DEBUG=0` + `RUSTFLAGS=-Zthreads=1` | 同一个 `asupersync` 降到 **4.05 GB**，可用内存稳定在 13–18 GB | **收敛配置** |
+| 4 | 再 + `CARGO_PROFILE_DEV_DEBUG=0` + `RUSTFLAGS=-Zthreads=1` | 同一个 `asupersync` 的**中途快照**读到 4.05 GB，随后**同一进程实测涨到 7.42 GB** | 方向对，但幅度远小于中途快照给人的印象 |
 
-真正吃内存的是 **codegen 并行度与调试信息**，不是 `-j` 本身——dev profile 默认带完整 DWARF，而我们要的只是一个能跑的二进制，调试信息是纯浪费。另外两条：`nice -n 19` + 内存看门狗（`MemAvailable` 低于阈值即中止）把"应该会轻一点"变成**强制上限**；以及 **cargo 被中断后下一轮会从头重编**（三次中断都观察到了，本轮的 `Compiling` 计数每次都从 0 重新开始），所以限流构建不能靠反复打断来"省资源"——打断反而是最费资源的操作。
+> **一条自己的教训（必须留）**：我在本节初稿里写「降到 4.05 GB，可用内存稳定在 13–18 GB」，依据是**一次 `ps` 快照**。几分钟后同一个 rustc 就涨到 7.42 GB，那句话被自己的后续观测推翻。**单次快照不能支撑「降到 X」这类结论**——已改成峰值采样器（每 10 秒记录 rustc RSS 高水位与 `MemAvailable` 低水位），本节最终数字以采样器的高水位为准，不再用瞬时读数。
+
+真正吃内存的是 **codegen 与调试信息**，不是 `-j` 本身——dev profile 默认带完整 DWARF，而我们要的只是一个能跑的二进制，调试信息是纯浪费。另外两条：`nice -n 19` + 内存看门狗（`MemAvailable` 低于阈值即中止）把"应该会轻一点"变成**强制上限**；以及 **cargo 被中断后下一轮会从头重编**（三次中断都观察到了，本轮的 `Compiling` 计数每次都从 0 重新开始），所以限流构建不能靠反复打断来"省资源"——打断反而是最费资源的操作。
 
 ### 13.18.5 顺带做的 runner 完整性审计（结论：无缺陷）
 
@@ -1740,3 +1742,41 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 | runner 里除 `test-*` 之外还调了什么 | 枚举 `node|sh|bash|./|python3` 开头的行 | `scripts/validate-routing.mjs`、`apg catalog check`、`apg project validate`、`apg release verify-source`、两个内联 `node -e` 探针、以及可选的真实 pilot（`APG_RUN_REAL_PILOTS=1` 才跑） |
 
 也就是说：**`scripts/test-release.sh` 是唯一入口，且它引用的东西全部存在**。这条不是新发现，是把「runner 是否完整」从"看着像完整"变成"逐项验过"。
+
+### 13.18.6 写入方证据的三档（把「observed」再分细一次）
+
+§13.17 写的是「8 个写入方用**发布二进制**驱动」。读者会立刻问：普查有 11 行，为什么只驱动 8 个？这里有**三档**证据，不是两档，差别是实质性的：
+
+| 档 | 写入方 | 怎么观测的 | 为什么不是"发布二进制" |
+|---|---|---|---|
+| **① 发布二进制真跑** | `br`、`bv`、`slb`、`ntm`、`am`、`cass`、`ee`、`sbh`（8 个） | 按 asset id 下载官方预编译件 → 四路 SHA-256 → 沙箱内驱动 | ——（这就是最理想的形态） |
+| **② 组件自己的脚本真跑** | `ubs`、`acfs` | 从 checkout 里**执行它自己的脚本**：`install.sh --dry-run --easy-mode`（断言零写入、无 `.backup`）、`generate-root-agents-md.sh --output`（断言整份替换、无备份）、`deploy --project`（断言拒绝并留 `.acfs-new` 合并候选） | 这**两个组件的写入方本来就是安装脚本，不是 CLI 二进制**——`ubs` 的 marker 字面里就写着 `written by install.sh; removed by install.sh --uninstall`。跑二进制根本碰不到写入路径，所以"驱动二进制"对它们是错的方法，不是遗漏 |
+| **③ 仅源码** | `frankenterm`（`ft`） | 尚未真跑（见 §13.18.4） | 唯一发布件把 `agent-detection` 编掉了，换构建是唯一路径 |
+
+所以 ADR 0006 每行的 `Evidence` 列写「scan + real run」时，**real run 指的是哪一档**必须能对上号：①②都是真跑，但只有①是"用户装到的东西"。这条对得上 §13.17.4 的 65 条断言：其中 `D/*` 是①，`B/*` 是②。
+
+### 13.18.7 沙箱隔离的**静默降级**（本轮真正意外抓到的一个缺陷，已修）
+
+准备 ft 实测前先做沙箱自检（不想等构建完才发现跑不起来），结果沙箱**拒绝启动**。这本身是 fail-closed 的正确行为，但顺着查下去发现了一个更值得修的东西。
+
+**诊断链**（每一步都是实跑，不是推断）：
+
+| 测试 | 结果 | 说明 |
+|---|---|---|
+| `unshare -U true` | **rc=0** | 创建 user namespace 本身**允许**——所以不是"内核禁了 userns" |
+| `unshare -r true` | `打不开 /proc/self/uid_map: 权限不够`（EACCES） | 卡在**写 uid_map**这一步 |
+| `unshare -m true` / `unshare -n true`（不带 userns） | EPERM | **正常现象**，不是证据——无 userns 就没有 `CAP_SYS_ADMIN`，这正是要用 `-rmn` 组合的原因 |
+| `/proc/self/status` | `Seccomp: 2`，`Seccomp_filters: 1` | 会话沙箱在给子进程下 seccomp |
+| 会话文件策略 | 本会话为 **workspace-write**（此前那轮是 danger-full-access） | 与 111 次历史沙箱运行的环境差异就在这里 |
+| 同命令换 `danger-full-access` 重试 | `unshare -rmn OK` | **确证**根因是文件沙箱（Landlock）拒绝了 `/proc/self/uid_map` 的写入 |
+
+**两个后果，一个是正确的，一个是缺陷**：
+
+1. `sandbox-run.sh` 在真正跑之前先自检 `unshare -rmn true`，不过就 **REFUSED** 退出——**正确**，它宁可不跑也不降级。所以上一轮那 111 次带 escape 计数的沙箱运行，是在更宽的文件策略下完成的（记录在 `/tmp/apg-external-sandbox/run/`）。
+2. `scripts/test-interop-writers.sh` 的 section D 只写了 `if unshare -rn true 2>/dev/null; then NET="unshare -rmn"; fi`——**失败了就静默把隔离降成空**，然后照常打印 `0 failed`。也就是说：**今天跑的两次门禁（各 65 passed / 0 failed / 1 gap）其实是在没有网络隔离的条件下得到的**，而输出里一个字都没提。这违反了本仓自己反复强调的原则（"断言退化为 SKIP 必须看得见"，§13.16.5）。数字本身仍然成立（断言确实都跑了），但**它们不是在该 harness 声称的收容条件下取得的**。
+
+**修法**（只加可见性，不改断言、不改计数）：新增 `note_warn`，隔离拿不到时打印一条 `WARN` 并说明原因；收尾多打一行 `section D isolation: …`。`65 passed / 0 failed / 1 gaps` 的格式**故意不动**，这样此前各处引用过的数字继续有效。
+
+**为什么是 WARN 而不是 GAP**：断言全部跑到了，只是条件更弱；`GAP` 语义是"这条断言做不了"。两者都不该静默，但不是一个东西。
+
+**两条分支都验过**（不用申请权限就能验）：真环境下跑 → 出现 `WARN`，收尾显示 `NOT network-isolated`；把一个**空操作 `unshare`** 放进 PATH 再跑 → 无 `WARN`，收尾显示 `network-isolated`。两次都是 `65 passed, 0 failed, 1 gaps`。

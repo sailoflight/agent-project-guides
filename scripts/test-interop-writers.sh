@@ -59,6 +59,10 @@ pass=0; fail=0; gap=0
 ok()   { printf '  PASS  %s\n' "$1"; pass=$((pass+1)); }
 no()   { printf '  FAIL  %s\n' "$1"; fail=$((fail+1)); }
 note_gap() { printf '  GAP   %s\n' "$1"; gap=$((gap+1)); }
+# A warning is neither a failure nor a gap: every assertion still ran, but it ran
+# under weaker conditions than this harness intends. Saying so is the whole point -
+# a silently weaker run prints the same "0 failed" as a properly isolated one.
+note_warn(){ printf '  WARN  %s\n' "$1"; }
 check(){ if [ "$2" = "$3" ]; then ok "$1 ($2)"; else no "$1 (got '$2', want '$3')"; fi; }
 
 rm -rf "$WORK"; mkdir -p "$WORK/home" "$WORK/tmp" "$WORK/cwd"
@@ -246,6 +250,7 @@ echo "== D. the writers' OWN RELEASED BINARIES, driven for real =="
 # .agent-scratch/external-test/SECURITY-REPORT.md). One sub-block per component,
 # each independent, so a missing binary costs one GAP and not the whole section.
 EXT="${APG_EXTERNAL_BIN:-$ROOT/.agent-scratch/external-test/bin}"
+ISO="section D skipped, so its isolation level does not apply"
 if [ ! -d "$EXT" ]; then
   note_gap "D/*: no APG_EXTERNAL_BIN at $EXT, so no released binary could be driven"
 else
@@ -253,7 +258,19 @@ else
   # is used when the kernel allows it, so the component cannot reach the network;
   # the fake HOME is what the zero-write claims are measured against either way.
   NET=""
-  if unshare -rn true 2>/dev/null; then NET="unshare -rmn"; fi
+  ISO="network-isolated (unprivileged user+mount+net namespace)"
+  if unshare -rn true 2>/dev/null; then
+    NET="unshare -rmn"
+  else
+    # Degradation must be visible. Without the namespace the components still run
+    # against a fake HOME and a throwaway cwd, but they can reach the network and
+    # nothing stops them from writing to an absolute path outside the throwaway
+    # tree. Measured cause in one real environment: a file sandbox that denies the
+    # /proc/self/uid_map write makes `unshare -r` fail with EACCES, which is easy
+    # to mistake for "the kernel does not allow namespaces at all".
+    ISO="NOT network-isolated: unshare is unavailable, so these components could reach the network"
+    note_warn "D: $ISO"
+  fi
   ext_run() { # <name> <cmd...>   (cwd = $WORK/d/<name>/cwd, HOME = .../home)
     local name="$1"; shift
     local dir="$WORK/d/$name"
@@ -467,6 +484,7 @@ fi
 
 # ---------------------------------------------------------------------------
 printf '\n== writers result: %s passed, %s failed, %s gaps ==\n' "$pass" "$fail" "$gap"
+printf '   section D isolation: %s\n' "$ISO"
 printf '   work directory: %s (delete by name when the evidence is no longer needed)\n' "$WORK"
 [ "$fail" -eq 0 ] || exit 1
 exit 0
