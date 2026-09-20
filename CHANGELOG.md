@@ -11,6 +11,42 @@ they change.
 
 ## 3.0.10
 
+**Memory provenance — the anchor is split, so promoted memory is replaceable again.**
+
+- `lib/memory.mjs` used the current descriptor digest for two different jobs: as the
+  concurrency CAS guard on short-lived proposals, and as the provenance check on
+  historical `promoted` records. The second use made supersession unsatisfiable after
+  the first descriptor change, and since the descriptor carries the release, a
+  self-hosting project hit that on every release. Measured before the fix: 18/18
+  records `promoted`, **0** matching the current anchor (`sha256:e4ca3608…`), and the
+  18 anchors are exactly **two** descriptor epochs - 16 at the 3.0.3 commit
+  `fefd4923` (`sha256:770fb1d4…`) and 2 at the 3.0.8 commit `48a4c5a701`
+  (`sha256:ffd693a0…`).
+- The anchor is now historical provenance: required, and required to be well formed,
+  but deliberately not compared with the current digest. Proposals still carry the
+  current digest, so concurrency stays guarded where it belongs. No record was
+  refreshed - rewriting the 18 anchors was priced as laundering, not fixing.
+- `scripts/test-v2.mjs` pinned the old semantics: a promoted record whose anchor was
+  changed to zeros had to be refused. That assertion now splits in two - a malformed
+  anchor is still refused, and a well-formed anchor from an earlier descriptor is
+  accepted, which is the regression. Re-imposing the equality check fails it.
+- `docs/V2_CONTRACT.md` (distributed) said "fully validated current-project
+  supersession provenance"; it now states that the recorded digest names the
+  producing epoch and must be well formed rather than equal to the current digest.
+- Corrected here: an earlier bullet in this section claimed `apg project validate`'s
+  `project_digest` and the memory anchor are "different values under the same name",
+  and gave `sha256:8ffb102c…` for the anchor. That was wrong. Both are
+  `projectDigest(descriptor)`, and at 3.0.10 both are `sha256:e4ca3608…`; `8ffb102c…`
+  reproduces from no committed descriptor state and no plausible derivation. The
+  two-jobs charge stands, and the two-epoch mapping is stronger evidence than the
+  original "0 of 18 match".
+- Note for the next release: because `lib/memory.mjs` and `docs/V2_CONTRACT.md` are
+  distributed, `catalog/catalog.jsonl` and `PACKAGE_MANIFEST.json` were regenerated,
+  so the manifest digest moved from `sha256:9c768b73…` to `sha256:0b5f6149…` while
+  `PACKAGE_VERSION` stays `3.0.10`. Until that bump, `main` and tag `v3.0.10` differ
+  on the distribution surface and the tag remains the authority for 3.0.10; raising
+  the version here would advertise a release with no tag behind it.
+
 **Root-block guard — the marker grammar now covers the measured field, and stops
 over-refusing.**
 
@@ -154,32 +190,48 @@ over-refusing.**
 - Repository-side (not distributed): the stale `docs/memory` anchor was quantified
   and turned out not to be 18 independent rot: all 18 records are `promoted` and
   none matches the current anchor, but there are only **two** distinct historical
-  values (16 from one release era, 2 from a later one). The mechanism is recorded
-  in-repo already - the same anchor (the current descriptor digest) is used both as
-  a concurrency CAS guard for short-lived proposals and as the provenance check for
-  historical records, so once the descriptor moves **no promoted record can ever be
-  superseded again**, which a self-hosting project hits on every release. Three
-  priced options are recorded, with in-place digest refreshing called out as
-  laundering rather than fixing. A separate naming trap was found while measuring:
-  `apg project validate`'s `project_digest` and the memory subsystem's anchor are
-  different values under the same name, so comparing memory records against the
-  former yields a wrong verdict. No distributed file was changed - `lib/memory.mjs`,
-  the 18 records and `test-v2.mjs`'s sync obligation are all untouched.
+  values (16 from one release era, 2 from a later one), and re-checking them against
+  descriptor history showed they are exactly two epochs: 16 at the 3.0.3 commit, 2 at
+  the 3.0.8 commit. The mechanism is recorded in-repo already - the same anchor (the
+  current descriptor digest) is used both as a concurrency CAS guard for short-lived
+  proposals and as the provenance check for historical records, so once the descriptor
+  moves **no promoted record can ever be superseded again**, which a self-hosting
+  project hits on every release. Three priced options are recorded, with in-place
+  digest refreshing called out as laundering rather than fixing. **Corrected while
+  landing the fix:** this bullet previously reported a "naming trap" - that
+  `apg project validate`'s `project_digest` and the memory anchor were different
+  values under the same name - and gave `sha256:8ffb102c…` for the anchor. Both claims
+  were wrong; see the memory-provenance entry above. No distributed file was changed
+  at that point, and the 18 records are still untouched now.
 - Repository-side (not distributed): the minimal external subset's provenance list
   already exists and was measured, which turns owner-queue rows 13 and 15 from
   "build a manifest" into "commit it or not". All 11 writers come from
   `github.com/Dicklesworthstone/`, and the nine released-artifact components each
   carry repo, tag, asset id, archive sha256, binary sha256 and size, with 3-5
   independently agreeing checksum sources per component; the two script-driven
-  components carry their HEAD commit. The compact list is **1,921 B** and it
-  replaces 554 MiB of staged binaries plus 2.9 GB of checkouts, while the component
-  bytes themselves stay out of the repository per the NOASSERTION red line. Two
+  components carry their HEAD commit. The compact list is **7,330 B** on disk
+  (**2,015 B** of six-tuple payload; the 1,921 B quoted earlier was the theoretical
+  lower bound, a different unit of account) and it replaces 554 MiB of staged
+  binaries plus 2.9 GB of checkouts, while the component bytes themselves stay out of
+  the repository per the NOASSERTION red line. Two
   facts that would otherwise misread the table are recorded next to it: `am` ships
   two binaries and the list names the one the harness actually drives, and `cass`
   publishes a bare binary so its archive and binary digests are legitimately equal.
   Build provenance remains a stated gap for all nine - the agreeing checksums do
-  not cover it. No file was committed and nothing was deleted: adding a tracked
-  manifest is itself the decision awaiting the owner.
+  not cover it. That decision is now closed: the list is committed as
+  `scripts/external-components.json`, behind `scripts/test-external-provenance.mjs`
+  and its six assertion classes with executable negative controls, and nothing was
+  deleted.
+- Repository-side: the seven missing release tags are pushed - `v3.0.4` … `v3.0.10`,
+  annotated. The convention was recovered by measurement rather than assumed: every
+  existing tag points at the commit that bumps `PACKAGE_VERSION` to that version (4
+  of 4), and the digest in the tag message is `PACKAGE_MANIFEST.json`'s own `digest`
+  at that commit. Each new tag was verified three ways - the tagged commit, the
+  recomputed digest matching the message, and all 78-81 file blobs plus the manifest's
+  file set matching that tree - with `v3.0.3` as a control. The label drifted from
+  "Runtime digest" (v3.0.0-v3.0.2) to "Release digest" (v3.0.3 on) over the same
+  field; the tags follow the newer form. This file's earlier "1,921 B" note is
+  corrected above.
 
 ## 3.0.9
 
