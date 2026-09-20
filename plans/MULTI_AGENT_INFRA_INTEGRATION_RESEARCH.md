@@ -1036,8 +1036,8 @@ writes_project: false, stages_or_commits: false
 | 4 | `docs/memory` 收录不一致 | **(a)** 让 catalog 也按**目录**跳过（与 `lib/core.mjs:184` 一致） | 已定，待实施 |
 | 5 | 根块层级假设 | **需先解释含义**；影响面已查清（6 处 + 一处测试断言，见 13.3） | 待定 |
 | 6 | 互斥 / claim 租约 | 语义改为 **downgrade / 未安装**，而非"不支持"（见 13.4） | 已定方向 |
-| 7 | 命名空间命名 | 与 2 一起——**测试就位后再大改** | 推迟 |
-| 8 | EE trust 映射 | 与 2 一起——**测试再说** | 推迟 |
+| 7 | 命名空间命名 | 实测完成，建议 `agent-project-guides:external:<command-name>`（版本作字段 / 完整性作三元组 / 词法定界，见 13.12） | **建议已出，待签字** |
+| 8 | EE trust 映射 | 实测完成，结论：**只做注意力排序、永不作为权威**；4 档 → `intended`，`peer_human_attested` 只映射"声明"层（见 13.12） | **建议已出，待签字** |
 | 9 | `.agent-scratch` 前 3 项（19.1 MB） | **删除**——已逐个点名执行 | **已完成** |
 | 10 | 报告 | **提交** | 执行中 |
 | 11 | 其余 5 项缺口 | 可做，但**必须排在外部实测之后**（顺序见 13.5） | 待排期 |
@@ -1112,7 +1112,7 @@ writes_project: false, stages_or_commits: false
 | **第 1 步** | `decisions/0006` AGENTS.md 块所有权协议 | 唯一每轮付费面 + 3 个写入者；与测试无依赖 |
 | **第 2 步** | 组织原则 ADR（§10.4 + §11 三条决定） | 落地后记忆可缩成指针——**token 净省点** |
 | **第 3 步** | 修 `docs/memory` 收录一致性（决策 4） | 小改动，但需跑回归；放在 ADR 后更稳 |
-| **第 4 步** | 试验区实测：EE trust 映射 / CASS 检索 / 互斥与租约的真实形态 | 决策 7、8 的前置 |
+| **第 4 步** | 试验区实测：EE trust 映射 / CASS 检索 / 互斥与租约的真实形态 | 决策 7、8 的前置——**已完成，见 13.12** |
 | **第 5 步** | 按实测结果定能力状态词表（决策 6 的落地） | 依赖第 4 步的观测 |
 | **第 6 步** | 其余 5 项缺口（主体权威合成 / policy 可复现身份 / 证据验收合同 / 观测分级 / 跨 harness 契约） | 依赖第 2 步的边界与第 4 步的观测 |
 | **贯穿** | 决策 5 的根块拓扑中立（范围确认后随时可做，**越早越便宜**） | 现在零成本，一旦有仓使用该模板就要走发布 |
@@ -1286,3 +1286,80 @@ exit=1
 **P9 没有闭合那条 finding**——它管的是 `install.sh` 写进消费者根的 `routing:start|end` 块，不是 `inspectBootstrap` 检查的 `v2:start|end` 块。但 P9 给出了**已经测过的机制**：把 `stamp`/`verify` 用到 `V2_START`/`V2_END` 上、让 `inspectBootstrap` 比对记录的 hash，现在是一个小改动而不是设计问题。这是一条明确的后续项。
 
 **ADR 0006 中仍未闭合的**：P6（观测账本未实现）、P7（APG 自身块仍 1,706 B，消费者用的是 731–758 B）。P3 已按上述收窄口径闭合。
+
+### 13.12 决策 7 / 8：实测完成，给出签字建议
+
+试验区 39 个 checkout（`repos.txt` 里的 `jeffreysprompts` 上游不存在）已全部拉取完毕，决策 7、8 的前置条件满足。以下每条结论都标了可复核的落点。
+
+#### 决策 8：EE trust 阶梯 → APG 观测层级的映射
+
+**阶梯本体**（`eidetic_engine_cli/src/models/trust.rs:92-101`，`TrustClass::initial_confidence()`，固定 `const fn` 先验表，不是评分函数）：
+
+| TrustClass | 先验 | EE 自己的 posture（`src/models/query.rs:1440-1447`） | 建议映射到 APG |
+|---|---|---|---|
+| `human_explicit` | 0.85 | `authoritative` | `intended` |
+| `peer_human_attested` | 0.75 | `authoritative` | 见下（仅"声明"可映射） |
+| `agent_validated` | 0.65 | `authoritative` | `intended` |
+| `agent_assertion` | 0.50 | `advisory` | `intended` |
+| `cass_evidence` | 0.45 | `advisory` | `intended` |
+| `legacy_import` | 0.30 | `legacy_evidence` | `intended` |
+
+**为什么这个阶梯不能当权威输入**（每一条都是读源码得到的，不是推断）：
+
+1. 最高档是 `ee remember` 的**默认值**。`src/core/memory.rs:1519-1532` 的 `trust_class` 只在「attempt-family 写入且已有注册 agent 身份」时才降到 `agent_assertion`，其余一律以 `human_explicit` 落库——没有 flag、没有 TTY 检查、没有签名。
+2. 同一条路可以走 MCP：`ee remember` 的 MCP 工具默认 dry-run，但 `allowWrite=true` 即持久化（`src/mcp.rs:394`，`requires_allow_write_when_dry_run_false` 在 `:205-264` 逐工具声明）。
+3. 也可以走"提升"到达：`human_explicit` 是**调用方自填**的 `--source-type`（`src/core/outcome.rs:360-368` 的 `ALLOWED_SOURCE_TYPES`），走 outcome 路径提升的准入条件是「非空 `actor` + 非空 `reason`」（`src/core/outcome.rs:1019-1026`）——即**调用方自称加一句理由**，不是身份认证。
+4. 严格校验器 `validate_trust_promotion_evidence`（`src/policy/mod.rs:1365`）**不在 outcome 路径上**：它的调用点只有 `src/curate/mod.rs:7522`、`src/core/backup.rs:7247`、`src/core/learn.rs:3039/6090`。
+5. 唯一有真正认证入口的等级是 `peer_human_attested`（`src/mesh/team.rs:2567/2595/5662/6267`），而它被排除在写入白名单之外。
+6. 能把等级翻译成权威的那个构造**零生产调用点**：`TrustClass::requires_local_signature_for_validated_procedural`（`src/models/trust.rs:119-124`）在自己的文件之外没有任何调用者，`evaluate_local_signing_key_policy`（`:264-272`）的调用者也全在本文件的 `#[cfg(test)]` 里。
+7. `cass_evidence` 由外部导入的 header **自报**。
+
+**结论**：EE 的 trust 数字只能作为**注意力排序（attention ranking）**，永远不能作为 authority 输入。EE 自己已经用 `posture_for_trust_class` 标了 `agent_assertion`/`cass_evidence` 是 `advisory`，但把 `human_explicit` 标成 `authoritative`——而正是这一档可以不被认证地拿到。这个错配就是"排序可用、权威不可用"的全部理由。
+
+**建议映射（在 APG 侧的表达）**：
+
+- `agent_validated` / `agent_assertion` / `cass_evidence` / `legacy_import` → **`intended`**。它们是 EE 自报的先验，没有进入 APG 的观测管线。
+- `peer_human_attested` → 只有当**"EE 声明了该等级"这件事本身被宿主记录下来**时才映射为 `host-observed`；映射对象是那句声明，不是等级为真。
+- 建议在能力/观测词表里新增 **`declaration-observed`**：在宿主上真实观测到"某外部系统声明了 X"，但 X 本身未验证。这是为了不让"观测到声明"被读成"观测到事实"——与 §6 的 `intended`/`host-observed` 纪律一致。**该词进入正式词汇表需要主人签字。**
+
+**附带发现（必须记录）**：EE 内部**至少 4 套互不兼容的数值阶梯**，同一个数字在不同子系统里含义不同——
+`initial_confidence` 0.85…0.30（`src/models/trust.rs:92-101`）；ask 的 trust tilt 1.00 / 0.92 / 0.85 / 0.70 / 0.55 / 0.40（`src/core/ask.rs:458-468`）；pack rank 6000…1000（`src/pack/mod.rs:2132-2141`）；hotset 1000…300（`src/cache/hotset.rs:835-844`）。
+所以 APG 一旦引用 EE 的等级，**必须同时写明 scale 名**（例如 `ee.trust.initial_confidence`），否则该数字不可解释。
+
+#### 决策 7：外部组件命名空间
+
+**建议约定**：`agent-project-guides:external:<command-name>`
+
+| 规则 | 内容 | 实测依据 |
+|---|---|---|
+| `<command-name>` | 二进制的**调用名**，不是仓库目录名 | `ee`（`eidetic_engine_cli/Cargo.toml` 的 `[[bin]] name = "ee"`）、`cass`（`coding_agent_session_search/Cargo.toml:243`）、`sbh`（`storage_ballast_helper/Cargo.toml:14`）、`cm`（`cass_memory_system/package.json` 的 `bin.cm`）与仓库名全都不一致 |
+| 版本**不进**命名空间段 | 版本是字段 | 实测一个工具跨三个标记版本：`beads_viewer` 代码发 `v7`（`pkg/agents/blurb.go:14/19/21`）、它自己的 `README.md` 是 `v7`、它自己的 `AGENTS.md` 却是 `v5`；而 39 个 checkout 里 **31 个**的 `AGENTS.md` 仍是 `bv-agent-instructions-v1` |
+| 命名空间按**词法定界**匹配 | `...:external:br` 不得匹配 `brx` | `br`（`beads_rust`）与 `bv`（`beads_viewer`）都是**前缀匹配自己的名字**来识别已安装块 |
+| 完整性写成三元组 | `{state, algo, digest, scope}`，不是裸 hex | 各写入方的完整性/备份约定互不相同：`br` 用 `.md.bak`、`ee` 用 `.ee-backup`、`ubs` 用 `.backup`、`bv` **没有备份** |
+
+**被否掉的方案**（都因为上面的实测）：
+
+- 用仓库目录名 → `mcp_agent_mail_rust` / `coding_agent_session_search` 这类名字既长又与调用名不一致。
+- 用版本号做命名空间段 → 上游一升版就换命名空间；`bv` 有 3 个标记版本同时在路上。
+- 用 dot-dir 名 → **`.cass/` 已被两个互不相关的组件同时占用**：`cass_memory_system` 用 `.cass/playbook.yaml`、`.cass/blocked.log`、`.cass/config.yaml`、`.cass/traumas.jsonl`；`coding_agent_session_search` 用 `.cass/proofs/proof-manifest.jsonl`（`src/lib.rs:9916`）。它们的命令名分别是 `cm` 和 `cass`。
+
+项目本地 dot-dir 实测清单（供后续命名参考）：`.beads .bv .ee .cass .slb .ntm .ms .ft .dcg .pi .rch .sbh .caam .mcp-agent-mail .acfs`。
+
+#### 对 ADR 0006 的两处修正 + 写入方普查从 3 个扩到 5 个
+
+实测推翻了 ADR 0006 的两处先行记录：
+
+- `bv` **不做备份**就改写 `AGENTS.md`（`pkg/agents/file_lock_unix.go:195` 的原子 `os.Rename`；`--rollback` 是它**自升级**的路径，不是文件回滚）。
+- `ntm` 写 `AGENTS.md` **完全不带标记**（整文件模板，且只在文件不存在时写）。
+
+ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两个都是这次普查才看到的：
+
+- **`am`（`mcp_agent_mail_rust`）——风险最高**：标记 `<!-- am:blurb -->` / `<!-- am:blurb:end -->`，**没有版本 token**，裸 `std::fs::write`（`crates/mcp-agent-mail-cli/src/lib.rs:89815`、`:89838`），**没有备份**；对**任何 `.md`**，只要见着孤儿 start 标记就填内容；对**没有标记的 `AGENTS.md`/`CLAUDE.md`** 直接追加整块；并且**递归**（默认 `max_depth = 3`，`:89638`）——即根目录往下三层的每个 `AGENTS.md` 都会被改。
+- **`ubs`（`ultimate_bug_scanner`）**：标记 `<!-- >>> Ultimate Bug Scanner quick reference (written by install.sh; removed by install.sh --uninstall) -->` / `<!-- <<< End Ultimate Bug Scanner quick reference -->`，按内容 grep 识别（`install.sh:2378`、`:3989-4010`），写前 `cp` 出 `.backup`。
+
+**这直接影响 P3 的实现完整性**：`guard-prefix` 的 marker 文法必须覆盖 `am:blurb` 和 `ubs` 的 `>>>`/`<<<` 形式，否则这两个写入方落在 APG 前缀之上的块**仍会被静默搬移**——那正是 P3 要防的事。这是一条已经定位到行的后续修正项，不是设计问题。
+
+#### 两项的拍板建议（各一句）
+
+- **决策 8**：EE trust 阶梯只做注意力排序，映射到 APG 时 4 档 → `intended`，`peer_human_attested` 只映射"声明"这一层并建议新增 `declaration-observed`；引用时必须写明 scale 名。
+- **决策 7**：命名约定 `agent-project-guides:external:<command-name>`，版本作字段、完整性作三元组、命名空间按词法定界。

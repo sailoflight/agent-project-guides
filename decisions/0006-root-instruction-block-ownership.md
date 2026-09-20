@@ -49,6 +49,21 @@ Source: `src/core/agentsmd.rs` plus that repository's own `docs/adr/0065-workspa
 
 Three independently developed tools arrived at the **same** protocol from the same pressure: one marker-delimited managed region per writer, never touch bytes outside it, refuse rather than guess, be idempotent, and detect hand edits of your own region. The differences are equally informative: **both external writers back up before mutating** (`br` writes `<file>.md.bak`, `ee` writes `<file>.ee-backup`) and **only `ee` carries integrity data inside its marker** — APG did neither, which made the root instruction file the one guarded surface in this toolchain with no recovery point and no hand-edit detection. P8 and P9 close both gaps.
 
+### Writer survey corrected: 3 writers → 5 (second-pass measurement, 2026-09-19)
+
+A wider census over the 39 external checkouts in `.agent-scratch/external-test/repos/` found **two more root-instruction writers**, and corrected two prior records. The survey above is *not* wrong about `br` and `ee`; it is incomplete about the field.
+
+| Writer | Markers | Backup before mutating | Notes |
+|---|---|---|---|
+| `am` (`mcp_agent_mail_rust`) | `<!-- am:blurb -->` / `<!-- am:blurb:end -->`, **no version token** | **no** — raw `std::fs::write` (`crates/mcp-agent-mail-cli/src/lib.rs:89815`, `:89838`) | Appends a full block to any marker-less `AGENTS.md`/`CLAUDE.md`, fills any orphaned `am:blurb` start marker in *any* `.md`, and **recurses three levels** (`max_depth = 3`, `:89638`). Highest-risk writer observed. |
+| `ubs` (`ultimate_bug_scanner`) | `<!-- >>> Ultimate Bug Scanner quick reference (written by install.sh; removed by install.sh --uninstall) -->` / `<!-- <<< End Ultimate Bug Scanner quick reference -->` | **yes** — `cp "$agents_file" "${agents_file}.backup"` (`install.sh:4009`) | Detected by content grep, not by a namespaced marker (`install.sh:2378`). Only writes when `AGENTS.md` already exists (`:3989-4001`). |
+| `bv` (`beads_viewer`) | `<!-- bv-agent-instructions-v{n} -->` / `<!-- end-bv-agent-instructions -->`, code emits **v7** (`pkg/agents/blurb.go:14-21`) | **no** — atomic `os.Rename` replace (`pkg/agents/file_lock_unix.go:195`) | **Corrects the prior**: `--rollback` is its *self-upgrade* path, not a file rollback. Legacy namespace, still live: 31 of 39 checkouts carry `v1`, `beads_viewer`'s own `AGENTS.md` carries `v5` while its `README.md` and its code carry `v7`. |
+| `ntm` | **none** | n/a | Writes a whole-file `AGENTS.md` template, and only when the file does not exist. Marker-based ownership cannot see it at all. |
+
+So "both external writers back up" holds for `br` and `ee` only. Across the five known writers, three distinct backup conventions coexist (`.md.bak`, `.ee-backup`, `.backup`), two writers keep none, and two use no namespaced version token at all.
+
+**Consequence for P3**: `guard-prefix` recognizes a foreign managed block by a marker grammar. The first implementation covered the namespaced `…:start|…:begin|…-agent-instructions-v{n}` forms — that is, `br`, `bv`, `ee`, `slb`, `sbh`, `frankenterm` — but **not** `am:blurb` or the `ubs` `>>>`/`<<<` form, so a block from either of those writers sitting above APG's regions would still have been silently relocated. The grammar was extended for exactly those two shapes (see "P3: implemented and measured").
+
 ### P5: measured against the real binary
 
 `scripts/test-interop-br.sh` (committed; it SKIPs when no binary is present) runs `br` v0.6.0 (SHA256 verified against the upstream release asset) in a target with its own `.git`, captures its real 2,086-byte blurb, and then composes the root file exactly the way `rebuild_root_prefix` does, calling the same `guard-prefix` primitive `install.sh` calls. Result on 2026-09-19, before P8/P9: **13 checks passed, 0 failed, 2 gaps confirmed.** After P8 and P9 landed: **18 passed, 0 failed, 1 open gap.** After P3 landed: **19 passed, 0 failed, 0 open gaps.**
@@ -149,6 +164,10 @@ Landed with the narrowed scope above; the full evidence is in the commit that in
 | The install-level test is not vacuous | neutralising the `guard-prefix` call makes the suite fail with `FAIL: P3: merge relocated a foreign block above the prefix instead of refusing`; restoring it passes |
 | The guard does not over-refuse | the legacy tail-position migration in `scripts/test-install.sh` (project prose above the routing block) still succeeds and still preserves the original bytes as the suffix, and `test-interop-br.sh` case B2 asserts the same |
 | Only foreign namespaces are recognised | probe: `br-agent-instructions-v1`, legacy `bv-agent-instructions-v2` and `ee:agentsmd:begin …` refuse; APG's own `v2:start`, plain prose, a leading blank line, a foreign block below the regions, and a root with no regions at all all proceed |
+| The grammar covers the whole measured writer vocabulary, not a subset | `scripts/test-install.sh` drives a 15-row table through the shipped `guard-prefix`: 10 marker forms from the five writers (`br`, `bv`, `ee`, `slb`, `sbh`, `frankenterm`, `am` incl. its `:blurb` end form, `ubs` incl. its `<<<` end form) must refuse; 5 benign lines (project prose, APG's own integrity line, markdownlint's `<!-- end list -->`, `<!-- TODO: end -->`, a copyright comment) must proceed |
+| That table is not vacuous | reverting `FOREIGN_MARKER` to the first-pass grammar (no `:blurb`, no `>>>`/`<<<`) makes the suite fail with `FAIL: P3: guard did not recognise the am foreign marker block`; restoring it passes |
+
+**Why the grammar needed a second pass.** The first implementation was written from `br`/`bv`/`ee` and matched `…:start`, `…:begin`, and `…-agent-instructions-v{n}`. The wider census (see "Writer survey corrected" above) found two writers outside that shape, so their blocks above APG's regions would still have been relocated — precisely the failure P3 exists to prevent. `am` is the sharpest case: it recurses three levels deep and takes no backup, so a relocated `am` block would be the least recoverable of the five.
 
 ### Open items this ADR does not close
 
