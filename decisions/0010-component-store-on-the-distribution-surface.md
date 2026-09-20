@@ -1,6 +1,6 @@
 # 0010: The component store contract on the distribution surface
 
-Status: accepted — implemented and measured: `lib/components.mjs` and `schemas/component-entry.schema.json` ship, the read-only `components` CLI group verifies and probes, and the first real store instance exists on this machine
+Status: accepted — implemented and measured: `lib/components.mjs` and `schemas/component-entry.schema.json` ship, the read-only `components` CLI group verifies and probes, and the first real store instance exists on this machine; the version moved to `4.0.0` in the same release
 Date: 2026-09-20
 Scope: opening decision 2 of ADR 0009 — what of the component store ships to consumers, what stays a maintainer procedure, and what the first real instance contains
 Deciders/owner: the owner, verbatim 「都做」, after delegating both open choices (「你来决定吧 我希望各个项目都尽量使用现成的 别到处都是」)
@@ -77,7 +77,7 @@ The evidence this record rests on:
 - **Positive:** the schema and the code are pinned to each other by the gate, so a manifest field the schema omits — or a schema field the code never writes — fails the gate instead of shipping as a declaration.
 - **Negative/risk:** `lib/components.mjs` is the only distributed module that opens an outbound HTTP connection. It is bounded (literal IPv4/IPv6 or `localhost`, one `GET` on the declared health path, no redirects followed, no DNS) and gate-pinned, but it is a real network reach and belongs in any future review of the authority plane.
 - **Negative/risk:** the reference implementation lives on the surface while the builder that populates the store does not, so a consumer can verify and discover but cannot create. That asymmetry is deliberate, and it is the thing a future record should revisit if consumers need to stage their own components.
-- **Release accounting:** `main`'s distribution surface now exceeds tag `v3.0.10` (85 files versus 83) while `PACKAGE_VERSION` still reads `3.0.10`. The tag remains authoritative for `3.0.10`; the next release must bump the version. This is recorded, not acted on — the version is not bumped unilaterally here.
+- **Release accounting:** this contract carried `main`'s distribution surface past tag `v3.0.10` (85 files versus 83) while `PACKAGE_VERSION` still read `3.0.10`. The owner then authorised the bump, and 4.0.0 moves the version file, the self-hosted descriptor's `provider.release`, the root block's integrity line, the catalog and the manifest together, so no distributed surface is advertised without a tag behind it. The tag is cut after the internal capability test, not before.
 
 ## Validation and reversal
 
@@ -95,7 +95,7 @@ Reversal: delete `lib/components.mjs`, `schemas/component-entry.schema.json` and
 
 ## Follow-up
 
-- **Maintainer, next release:** bump `PACKAGE_VERSION` when the next release is cut; `main` is ahead of tag `v3.0.10` by two distributed files.
+- **Maintainer, next release:** done — `PACKAGE_VERSION` and `provider.release` read `4.0.0`; the `v4.0.0` tag is cut once the internal capability test and the rollout dry run pass.
 - **Maintainer, first service entry:** record one when a component running locally documents an identity and a read-only health endpoint. Until then the kind is covered by synthetic loopback servers only.
 - **Owner, consumer rollout:** deliberately not started. No consumer repository was touched; ADR 0010 makes the capability available, it does not adopt it.
 - **Maintainer, store lifecycle:** nothing prunes or repairs the store. A stale entry is verified, fails its digest if the bytes changed underneath it, and is otherwise left alone; removal is a human action.

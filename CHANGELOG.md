@@ -9,7 +9,13 @@ APG is a harness-neutral governance core: it decides *what* a project commits to
 runtime and it never executes a model. Entries below are grouped by the surface
 they change.
 
-## 3.0.10
+## 4.0.0
+
+This is the version bump the 3.0.10 entries deferred. They recorded that `main`'s
+distribution surface had outgrown tag `v3.0.10` while `PACKAGE_VERSION` still read
+`3.0.10`. Here the version file, the self-hosted descriptor's `provider.release`, the
+root block's integrity line, the catalog and the manifest move together, so no
+distributed surface is advertised without a tag behind it.
 
 **Shared component store — one copy per machine, and the read-only contract now ships
 (ADR 0009, ADR 0010).**
@@ -59,9 +65,9 @@ they change.
   running on this machine documents an identity and a read-only health endpoint that a
   record could pin - inventing one is exactly what the four-state vocabulary exists to
   prevent.
-- `PACKAGE_VERSION` stays `3.0.10` and tag `v3.0.10` remains authoritative for 3.0.10:
-  `main` now carries two distributed files more than the tag pins, so the next release
-  must bump the version first.
+- `PACKAGE_VERSION` moved to `4.0.0` in the same release that shipped this contract:
+  `main` had carried two distributed files more than tag `v3.0.10` pins, and the bump
+  is what closes that gap.
 **Root-block observation (ADR 0006 P6) — APG can now record the blocks it saw, and
 nothing else.**
 
@@ -104,8 +110,8 @@ nothing else.**
   approximation for sizing the per-turn surface rather than a tokenizer measurement.
 - Two new distributed libraries take the distribution surface from 81 to 83 files;
   the catalog (253 entries) and the manifest were regenerated, moving the digest from
-  `sha256:6027df75…` to `sha256:148974e8…`. `PACKAGE_VERSION` stays `3.0.10` for the
-  reason recorded above.
+  `sha256:6027df75…` to `sha256:148974e8…`. The version stayed `3.0.10` at that point,
+  with the tag as its authority; `4.0.0` is the bump that follows.
 
 
 **Bootstrap block — the v2 root instruction file is now the compact form v3
@@ -165,16 +171,18 @@ consumers already receive.**
   reproduces from no committed descriptor state and no plausible derivation. The
   two-jobs charge stands, and the two-epoch mapping is stronger evidence than the
   original "0 of 18 match".
-- Note for the next release: because `lib/memory.mjs`, `docs/V2_CONTRACT.md` and
+- Recorded then and closed here: because `lib/memory.mjs`, `docs/V2_CONTRACT.md` and
   `bootstrap/AGENTS.v2-block.md` are all distributed, `catalog/catalog.jsonl` and
   `PACKAGE_MANIFEST.json` were regenerated, so the manifest digest moved from
   `sha256:9c768b73…` to `sha256:6027df75…` (via `0b5f6149…` after the memory change
-  alone) while `PACKAGE_VERSION` stays `3.0.10`. Until that bump, `main` and tag
-  `v3.0.10` differ on the distribution surface and the tag remains the authority for
-  3.0.10; raising the version here would advertise a release with no tag behind it.
+  alone) while `PACKAGE_VERSION` still read `3.0.10`, so `main` and tag `v3.0.10` differed on
+  the distribution surface and raising the version there would have advertised a
+  release with no tag behind it. `4.0.0` is that bump.
   Refreshing the self-hosted block also moved the memory anchor twice
   (`sha256:e4ca3608…` to `sha256:c1c0de9b…`) without touching a single record, which
   is why the anchor split had to land first.
+
+## 3.0.10
 
 **Root-block guard — the marker grammar now covers the measured field, and stops
 over-refusing.**
@@ -200,167 +208,6 @@ over-refusing.**
   writer emits**, so the narrow scope is pinned in both directions.
 - The census measured four real grammar gaps and one over-refusal; reverting to
   the previous grammar makes exactly those five rows fail.
-- Repository-side (not distributed): `scripts/test-release.sh` now invokes
-  `test-genericity.mjs` and `test-interop-br.sh`. ADR 0005's genericity gate had
-  existed since 3.0.7 with no runner calling it, so the cross-harness contract had
-  a covering test that nothing invoked.
-- Repository-side (not distributed): two more declared validations became
-  executable. `scripts/test-boundary.mjs` pins ADR 0007's boundary - the exact
-  top-level command set, the absence of any retrieval/scheduling/execution/store
-  mechanism, the manifest equalling the packer allowlist, and no third-party
-  component path in the distribution surface. `scripts/test-interop-writers.sh`
-  re-checks ADR 0006's census against the real components: all 20 recorded marker
-  literals, the two safe real write paths (`ubs --dry-run` zero writes; `acfs
-  --output`/`deploy`), and the UBS block extracted verbatim from its own heredoc
-  driven through the shipped `guard-prefix`. Both SKIP when their third-party
-  inputs are absent; both have measured negative proofs.
-- Repository-side (not distributed): the census's eight source-only rows were
-  driven with the writers' **own released binaries**. Every component publishes a
-  prebuilt linux/x86_64 release artifact, so no Go/Rust/bun toolchain was needed;
-  each was fetched by GitHub asset id and admitted only after four agreeing
-  SHA-256 sources, an offline minisign check where a public key exists, an
-  archive hygiene scan, and execution restricted to an unprivileged
-  user+mount+network namespace with a shadowed home. Two rows changed as a
-  result: `bv`'s **shipped** binary emits `bv-agent-instructions-v6` while its
-  source at HEAD declares `v7`, and `slb` writes `.cursorrules`, not `AGENTS.md`.
-  `frankenterm`'s released v0.15.1 was built without the agent-config feature at
-  all, so that row could not be exercised from the artifact. `scripts/test-interop-writers.sh`
-  gained section D asserting the observed facts against those binaries. Section D
-  is driven by default - it falls back to `.agent-scratch/external-test/bin` when
-  `APG_EXTERNAL_BIN` is unset. Inside it each component is an independent
-  sub-block, so one absent binary costs one GAP rather than the whole section
-  (measured with the payloads staged: 65 passed, 0 failed, 1 gap); and when the
-  staged directory itself is absent the section still reports a GAP instead of
-  passing silently. Record and security posture:
-  `.agent-scratch/external-test/SECURITY-REPORT.md`.
-- Repository-side (not distributed): the project-memory index stops churning on
-  reads. `.mnemon/documents/index.json` records `lastAccessedAt` for every
-  document, so merely recalling a document dirtied the working tree. A
-  `.gitattributes` rule plus a per-clone opt-in clean filter
-  (`scripts/git-filter-mnemon-index.mjs`, registered by
-  `scripts/setup-git-filters.sh`) rewrites that one field to the record's own
-  `updatedAt` on the way into git, leaving the on-disk file untouched and the
-  field still a string - the runtime silently drops any document whose
-  `lastAccessedAt` is not a string, so the field is normalized rather than
-  removed. `scripts/test-mnemon-index-filter.mjs` pins the rewrite, the fallback
-  sentinel, byte-identical passthrough for anything that is not the expected
-  shape, and idempotence. The filter is opt-in: a clone without it behaves
-  exactly as before.
-- Repository-side (not distributed): the writers harness no longer degrades its
-  isolation silently. `scripts/test-interop-writers.sh` runs each component in an
-  unprivileged user+mount+network namespace when the kernel allows it and falls
-  back to a fake HOME alone when it does not - but the fallback printed nothing,
-  so a run without the network namespace reported the same `0 failed` as an
-  isolated one. A `WARN` line and a closing `section D isolation:` line now say
-  which one happened. The cause is worth recording because it is easy to
-  misdiagnose: `unshare -U` succeeds while `unshare -r` fails with EACCES on
-  `/proc/self/uid_map` when a file sandbox restricts writes outside the worktree
-  - the user namespace is permitted, the identity mapping is not. Assertions and
-  counts are unchanged.
-- Repository-side (not distributed): the census's last unmeasured row is now
-  measured, from source. `frankenterm` publishes exactly one linux/amd64 asset
-  (v0.15.1) and it is built with the `agent-detection` cargo feature off, so every
-  released binary answers `robot.feature_not_available` and its root-file writer is
-  unreachable; no second build variant exists. Building `0.15.6-rc.40` from source
-  made the writer observable, and it turned out to be the mildest writer in the
-  census: with the default `--scope project` it rewrites only `./AGENTS.md` (four
-  byte-identical copies at depth 1-4 are untouched, so it does **not** recurse),
-  it **appends** rather than rewrites - every pre-existing byte survives as an
-  exact prefix and its region lands *below* APG's - a stale region of its own is
-  replaced in place with APG's region left byte-identical, and a repeat run is a
-  byte-level no-op that never produces a second marker pair. What it does leave
-  behind is **six** root entries per run: `.backup`, `.candidate`, `.claim.json`,
-  `.ack.json`, an empty `.ft-atomic-transition.lock`, and a `.ft/` directory.
-  `scripts/test-interop-writers.sh` now drives ft from `APG_FT_SOURCE_BIN` and adds
-  12 assertions there (77 passed, 0 failed, 0 gaps with the build supplied). The
-  default run, which has only the released binary, stays at the previously cited
-  **65 passed, 0 failed, 1 gap**, and the row is labelled source-built-RC evidence
-  rather than released-artifact evidence.
-- Repository-side (not distributed): three vacuous assertions were caught in that
-  harness before they shipped, and the fix is the point rather than the bug. Each
-  was a "the file did not change" claim that a binary doing nothing at all would
-  satisfy - a superset test, an idempotence check, and a region-preservation
-  comparison - and one of them hashed a `sed` extraction from a file that did not
-  exist, so two empty strings compared equal. They are now gated on the write
-  actually having happened, and `APG_FT_SOURCE_BIN=/bin/true` is kept as an
-  executable negative control that must produce 9 failures. A silently no-op
-  implementation or a feature that was never compiled in is the common case, not a
-  corner case.
-- Repository-side (not distributed): the writer census is now fully observed, so
-  `decisions/0006` gains the table it existed for - each of the 11 writers mapped
-  to the defence that actually fires, measured rather than projected. Three tiers
-  fall out of the observations, and they are not "markers vs no markers": six
-  writers are marker-scoped and coexist by construction (`br`, `bv`, `ee`, `sbh`,
-  `frankenterm`, `am`); `ubs` appends but its recovery point is destroyed by a
-  re-run; and three rewrite the whole file (`cass`, `ntm`, `acfs`), where no
-  grammar can help and only after-the-fact detection plus P8 remain. The P8
-  recovery path stops being an inference here: the whole-file tier's only way back
-  is the sibling `<root>.agent-project-guides.bak`, and "no writer shares that
-  name" was an argument from naming. Section D now seeds that exact sibling, runs
-  the clobber, and asserts the copy is still **byte-identical** - passing for
-  `ntm setup --force` and `cass project --force` (2,094 B to 261 B, APG's region
-  gone, backup intact). `acfs` is labelled inferred rather than measured, because
-  two of three is not three of three. The census's earlier "four writers keep no
-  recovery point" is corrected to three stable, one unstable, six none, recorded
-  next to the original number rather than quietly replacing it.
-- Repository-side (not distributed): the P7 block-size comparison was measuring
-  two different templates. `decisions/0006` compared APG's own **v2** block
-  (2,063 B installed: a descriptor line plus 7 doctrine rules, 1,758 B of rules)
-  against the 731-758 B its consumers use - which is the **v3 CLI** shape, a 647 B
-  template carrying one 383 B paragraph. So the target shape is not hypothetical;
-  this repository already ships it, and every v2 rule is either covered by that
-  paragraph or enforced by the toolchain rather than by prose. A per-rule byte
-  budget is recorded (R3 alone is 24% and bundles four instructions, one of them a
-  file-writing procedure whose template already ships in the package), together
-  with three priced options. No distributed file was touched: the template,
-  `bootstrap.bytes`, the `integrity` hash and `test-install.sh`'s pinned values
-  are all unchanged, because porting the text is a public-contract change that
-  needs the owner's signature.
-- Repository-side (not distributed): the stale `docs/memory` anchor was quantified
-  and turned out not to be 18 independent rot: all 18 records are `promoted` and
-  none matches the current anchor, but there are only **two** distinct historical
-  values (16 from one release era, 2 from a later one), and re-checking them against
-  descriptor history showed they are exactly two epochs: 16 at the 3.0.3 commit, 2 at
-  the 3.0.8 commit. The mechanism is recorded in-repo already - the same anchor (the
-  current descriptor digest) is used both as a concurrency CAS guard for short-lived
-  proposals and as the provenance check for historical records, so once the descriptor
-  moves **no promoted record can ever be superseded again**, which a self-hosting
-  project hits on every release. Three priced options are recorded, with in-place
-  digest refreshing called out as laundering rather than fixing. **Corrected while
-  landing the fix:** this bullet previously reported a "naming trap" - that
-  `apg project validate`'s `project_digest` and the memory anchor were different
-  values under the same name - and gave `sha256:8ffb102c…` for the anchor. Both claims
-  were wrong; see the memory-provenance entry above. No distributed file was changed
-  at that point, and the 18 records are still untouched now.
-- Repository-side (not distributed): the minimal external subset's provenance list
-  already exists and was measured, which turns owner-queue rows 13 and 15 from
-  "build a manifest" into "commit it or not". All 11 writers come from
-  `github.com/Dicklesworthstone/`, and the nine released-artifact components each
-  carry repo, tag, asset id, archive sha256, binary sha256 and size, with 3-5
-  independently agreeing checksum sources per component; the two script-driven
-  components carry their HEAD commit. The compact list is **7,330 B** on disk
-  (**2,015 B** of six-tuple payload; the 1,921 B quoted earlier was the theoretical
-  lower bound, a different unit of account) and it replaces 554 MiB of staged
-  binaries plus 2.9 GB of checkouts, while the component bytes themselves stay out of
-  the repository per the NOASSERTION red line. Two
-  facts that would otherwise misread the table are recorded next to it: `am` ships
-  two binaries and the list names the one the harness actually drives, and `cass`
-  publishes a bare binary so its archive and binary digests are legitimately equal.
-  Build provenance remains a stated gap for all nine - the agreeing checksums do
-  not cover it. That decision is now closed: the list is committed as
-  `scripts/external-components.json`, behind `scripts/test-external-provenance.mjs`
-  and its six assertion classes with executable negative controls, and nothing was
-  deleted.
-- Repository-side: the seven missing release tags are pushed - `v3.0.4` … `v3.0.10`,
-  annotated. The convention was recovered by measurement rather than assumed: every
-  existing tag points at the commit that bumps `PACKAGE_VERSION` to that version (4
-  of 4), and the digest in the tag message is `PACKAGE_MANIFEST.json`'s own `digest`
-  at that commit. Each new tag was verified three ways - the tagged commit, the
-  recomputed digest matching the message, and all 78-81 file blobs plus the manifest's
-  file set matching that tree - with `v3.0.3` as a control. The label drifted from
-  "Runtime digest" (v3.0.0-v3.0.2) to "Release digest" (v3.0.3 on) over the same
-  field; the tags follow the newer form. This file's earlier "1,921 B" note is
-  corrected above.
 
 ## 3.0.9
 

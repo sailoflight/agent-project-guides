@@ -2323,3 +2323,35 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 - **没有铺开到消费者仓。** §13.19 的 #11 决定照旧：12 个真实消费者仓一个都没碰。ADR 0010 只是让能力可得，不等于采用。
 - **没有动版本号。** `main` 的分发面现在（85）超过标签 `v3.0.10` 钉的那份（83），而 `PACKAGE_VERSION` 仍是 `3.0.10`。`3.0.10` 的权威仍是**标签**；下一次发布必须先升 `PACKAGE_VERSION`（连带 `provider.release` 与记忆锚）。这条不擅自做。
 - **没有加删除/修复路径。** 储藏库不自愈：条目坏了就报 `component_corrupt`，删是人的动作。
+
+## 13.21 版本抬到 4.0.0，以及推广前对外部能力的内部实测（2026-09-20）
+
+主人先给了一句「新的版本可以变成 4.0 开头了」，随后把推广前的动作定死为**对外部能力做实测**（不是评审）。
+
+### 13.21.1 4.0.0 的版本抬升
+
+上一节记下的后果在这一节被清掉：`main` 的分发面（85）曾超过标签 `v3.0.10` 钉的（83），而 `PACKAGE_VERSION` 仍是 `3.0.10`。现在四处**一起**动，不留「宣告了一个没有标签的版本」的缝：
+
+| 落点 | 变化 |
+|---|---|
+| `PACKAGE_VERSION` | `3.0.10` → **`4.0.0`** |
+| `.agent-project-guides.json` `provider.release` | `3.0.10` → **`4.0.0`**（`lib/descriptor.mjs:56-64` 强制它与 `PACKAGE_VERSION` 相等） |
+| 根块 `AGENTS.md` | `apg project reattest` 重盖章：`release: 4.0.0`，integrity `430f646f…` → **`24366bf1…`**，块 1,117 → 1,116 B |
+| `PACKAGE_MANIFEST.json` | `package_version` → `4.0.0`，摘要 `29395986…` → **`156b8c66d504b3764d6bb205ae8a8028b70aedf63125e865f529cea87b147b63`**（仍是 85 文件） |
+| `CHANGELOG.md` | 新增 `## 4.0.0` 段；`## 3.0.10` 段**逐字节还原为标签 v3.0.10 所钉的内容**（原先被误加在 3.0.10 名下的四个块——组件库、P6 账本、v2 块瘦身、记忆锚拆分——按其真实归属移入 4.0.0） |
+
+实测（全绿）：`./scripts/test-release.sh` → **EXIT=0**；`test-boundary.mjs` → `PASS: product boundary holds (10 command groups, 85 distributed files, …)`；`catalog check` / `release verify-source` / `project validate` 全 `valid`（253 条 catalog）；writers `69 passed / 0 failed / 1 gaps`；`project_digest` 随档案前移到 `sha256:e3b9ac87…`（`docs/memory` 里那 18 条历史锚因此再度变旧——这正是记忆锚拆分所接受的语义，本轮**一条记录都没重写**）。
+
+**标签 `v4.0.0` 故意还没打。** 版本号是给消费者看的宣告，标签才是权威；按主人「先内部实测、再正式推广」的顺序，标签要等 §13.21.2 的实测与之后的推广空跑都通过再打——打早了万一实测要改分发面，就又把 `main` 和标签拆开了。打标签本身是一条命令（`git tag -a v4.0.0` + `git push origin v4.0.0`），随时可做。
+
+### 13.21.2 对外部能力的内部实测（三个 agent，只读优先）
+
+做法：开一个 AgentTeams 团队 `apg-4.0.0-external-capability-test`，三个成员分头**用真命令去用**这些能力并交证据（命令 → 退出码 → 原始输出），产出写进 `.agent-scratch/capability-test-4.0.0/`（该目录被 `.gitignore` 忽略）：
+
+| 成员 | 角色 | 被测能力 | 边界 |
+|---|---|---|---|
+| `cli-probe` | verifier | `br` `bv` `ntm` `slb` `sbh` `cass`：字节与采集记录比对 + 自报（`--version`/`--help`），只跑「帮助里明确只读」的子命令 | 不安装、不联网、不 sudo、不碰消费者仓 |
+| `service-probe` | operator | `am` `ee` `ft`：能否以服务形态在 127.0.0.1 起来、起来后回什么、跑完是否收干净；并回答「谁够格成为一条真实 `service` 条目」 | 只绑回环、只在自己 scratch 目录内、跑完 kill 并用 `pgrep` 证明无残留 |
+| `mcp-probe` | verifier | Bridge 控制面背后的 `onshape` / `taobao` 服务现状（只读 `bridge_control status` + `bridge_diagnostics`），以及本会话真实可达的产品面 | 策略明令：不改模型、不购物车/结算/付款、不发卖家消息、不处理验证码、不导出私有数据 |
+
+**这次不写成「评审」**：没有一条任务是去读 APG 的源码挑毛病，任务全是「拿命令去用外部能力，看它到底能不能用、缺什么」。这也顺带把 §13.20 的 store 契约束在实战里过一遍：实测结论出来后，能构成真实 `service` 条目的组件才会被写成条目（ADR 0010 D6 留的那个缺口）。
