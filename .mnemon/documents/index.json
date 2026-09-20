@@ -387,7 +387,7 @@
     {
       "id": "7a28fea8-d0eb-48db-ba12-7980060573b4",
       "title": "外部根指令写入方普查（11 个）与 APG 根块守卫覆盖 —— 3.0.10",
-      "description": "39 个外部 checkout 的根指令写入方普查结论、守卫文法闭合与能力边界",
+      "description": "39 个外部 checkout 的根指令写入方普查（11 个，3→5→11）、守卫文法闭合（3.0.10）与能力边界；含可复现实测落点：scripts/test-interop-writers.sh（20 条字面量漂移 + ubs/acfs 安全真跑 + ubs 真实字节过 guard-prefix）与 scripts/test-boundary.mjs（ADR 0007 的命令面/分发面门禁），二者均已挂进 scripts/test-release.sh。",
       "status": "active",
       "filename": "11-apg-3-0-10-7a28fea8.md",
       "relativePath": "documents/active/11-apg-3-0-10-7a28fea8.md",
@@ -402,11 +402,11 @@
         "da7ee9c9-65bf-4a2b-8483-5ccd599e73ae"
       ],
       "createdAt": "2026-09-20T01:46:24.204Z",
-      "updatedAt": "2026-09-20T01:46:24.204Z",
-      "lastAccessedAt": "2026-09-20T01:46:24.204Z",
-      "revision": 1,
+      "updatedAt": "2026-09-20T02:01:27.836Z",
+      "lastAccessedAt": "2026-09-20T02:01:27.836Z",
+      "revision": 2,
       "contentHash": "613bbdb858209ac10c25acc40b9a4da263918bbdd571f3c423a0533add875d1f",
-      "sizeBytes": 6380,
+      "sizeBytes": 6678,
       "memoryBodyIds": []
     }
   ]
