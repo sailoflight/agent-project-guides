@@ -151,6 +151,20 @@ over-refusing.**
   `bootstrap.bytes`, the `integrity` hash and `test-install.sh`'s pinned values
   are all unchanged, because porting the text is a public-contract change that
   needs the owner's signature.
+- Repository-side (not distributed): the stale `docs/memory` anchor was quantified
+  and turned out not to be 18 independent rot: all 18 records are `promoted` and
+  none matches the current anchor, but there are only **two** distinct historical
+  values (16 from one release era, 2 from a later one). The mechanism is recorded
+  in-repo already - the same anchor (the current descriptor digest) is used both as
+  a concurrency CAS guard for short-lived proposals and as the provenance check for
+  historical records, so once the descriptor moves **no promoted record can ever be
+  superseded again**, which a self-hosting project hits on every release. Three
+  priced options are recorded, with in-place digest refreshing called out as
+  laundering rather than fixing. A separate naming trap was found while measuring:
+  `apg project validate`'s `project_digest` and the memory subsystem's anchor are
+  different values under the same name, so comparing memory records against the
+  former yields a wrong verdict. No distributed file was changed - `lib/memory.mjs`,
+  the 18 records and `test-v2.mjs`'s sync obligation are all untouched.
 
 ## 3.0.9
 
