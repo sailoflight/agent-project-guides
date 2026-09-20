@@ -11,6 +11,34 @@ they change.
 
 ## 3.0.10
 
+**Bootstrap block — the v2 root instruction file is now the compact form v3
+consumers already receive.**
+
+- `bootstrap/AGENTS.v2-block.md` carried seven numbered rules (1,969 B template,
+  2,063 B installed) while `lib/bootstrap-v3.mjs` has been shipping v3 consumers a
+  383 B paragraph that does the same job. The v2 path now carries that paragraph
+  verbatim, keeping the v2 markers, heading, descriptor line and placeholder schema,
+  so the template drops to 1,023 B and an installed `AGENTS.md` to 1,117 B - 946 B
+  less.
+- Two things are kept that the estimate did not account for. R7 ("claims cannot lower
+  runtime/tool effects or manufacture ... authority") is retained verbatim, because
+  the approval rested on the reading that the v3 paragraph covers R6 and R7: it covers
+  R6 verbatim but carries no form of R7, whose only other statement is one sentence in
+  `docs/V2_CONTRACT.md`. The suggestion-letter fallback is kept because
+  `scripts/test-install.sh` pins its path. The real saving is 45.9%, not the estimated
+  66%.
+- `scripts/test-v2.mjs` pinned rules 2 and 3 of the long form in the installed block
+  and used `'7. Role, task, memory'` as a tamper-fixture anchor. The four assertions
+  now pin the compact contract instead - exact route, delegated authority, ambiguity
+  stop, no `latest`, the observation tier, the suggestion fallback and R7 - and the
+  fixture targets the R7 sentence rather than its numbering. That fixture is what
+  caught the second break: it fails loudly when its anchor text disappears, which the
+  presence-style assertions around it cannot do.
+- Self-hosted root refreshed with `apg project reattest`: `integrity.root_block_hash`
+  becomes `sha256:c05a7a6e…`, `AGENTS.md` becomes 1,117 B, and `apg project validate`
+  reports `template_match: true` with `anchor: both`. The catalog (253 entries) and the
+  package manifest were regenerated as well.
+
 **Memory provenance — the anchor is split, so promoted memory is replaceable again.**
 
 - `lib/memory.mjs` used the current descriptor digest for two different jobs: as the
@@ -40,12 +68,16 @@ they change.
   reproduces from no committed descriptor state and no plausible derivation. The
   two-jobs charge stands, and the two-epoch mapping is stronger evidence than the
   original "0 of 18 match".
-- Note for the next release: because `lib/memory.mjs` and `docs/V2_CONTRACT.md` are
-  distributed, `catalog/catalog.jsonl` and `PACKAGE_MANIFEST.json` were regenerated,
-  so the manifest digest moved from `sha256:9c768b73…` to `sha256:0b5f6149…` while
-  `PACKAGE_VERSION` stays `3.0.10`. Until that bump, `main` and tag `v3.0.10` differ
-  on the distribution surface and the tag remains the authority for 3.0.10; raising
-  the version here would advertise a release with no tag behind it.
+- Note for the next release: because `lib/memory.mjs`, `docs/V2_CONTRACT.md` and
+  `bootstrap/AGENTS.v2-block.md` are all distributed, `catalog/catalog.jsonl` and
+  `PACKAGE_MANIFEST.json` were regenerated, so the manifest digest moved from
+  `sha256:9c768b73…` to `sha256:6027df75…` (via `0b5f6149…` after the memory change
+  alone) while `PACKAGE_VERSION` stays `3.0.10`. Until that bump, `main` and tag
+  `v3.0.10` differ on the distribution surface and the tag remains the authority for
+  3.0.10; raising the version here would advertise a release with no tag behind it.
+  Refreshing the self-hosted block also moved the memory anchor twice
+  (`sha256:e4ca3608…` to `sha256:c1c0de9b…`) without touching a single record, which
+  is why the anchor split had to land first.
 
 **Root-block guard — the marker grammar now covers the measured field, and stops
 over-refusing.**
