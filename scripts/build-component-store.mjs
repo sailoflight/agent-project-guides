@@ -13,12 +13,33 @@
 // Usage:
 //   node scripts/build-component-store.mjs [--record <record.json>]
 //        [--source <staged dir>] [--store <root>] [--dry-run] [--require-all]
+//   node scripts/build-component-store.mjs --help
 //
 // --dry-run plans every entry and writes nothing. Without --link/--copy the tool hard
 // links when the store shares a filesystem with the source and copies otherwise, and
 // reports which it used, because a hard-linked entry shares its inode with the staged
 // copy: tampering through either path is still detected by digest, but it is not
 // isolated.
+//
+// Staging a machine, in the order that makes each step checkable (ADR 0010 D4: only
+// step 3 onward exists in this repository, because acquisition is deliberately not a
+// distributed capability - the shipped CLI verifies and discovers, it never fetches):
+//
+//   1. Fetch each released artifact at the tag pinned in `scripts/external-components.json`
+//      and check its sha256 against the record. This is the step this repository does not
+//      do for you: no download, no signature check, no network.
+//   2. Put the verified bytes in one staging directory, keeping each `asset.name` from the
+//      record. One file per artifact, same names.
+//   3. `--dry-run` and read the plan. `record_mismatch` must be empty; anything listed
+//      there disagrees with the record and stops a real run with exit 1.
+//   4. Run it for real, then `apg components verify --store <root>`. `missing_packages`
+//      must be empty. A package in `degraded_packages` is staged and complete - what is
+//      absent is a prerequisite it declared, which is a fact about this machine, not a
+//      store defect. `conflicted_packages` means two digests sit under one id: the `stale`
+//      output names the directory to remove, and this tool never removes it.
+//   5. `apg components probe --store <root>` for the service entries. A declared service
+//      that is not running is never `available`, and one recorded with
+//      `asserted_identity: true` can never be `available` even when it answers.
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -27,6 +48,22 @@ import { canonicalJson, sha256 } from '../lib/core.mjs';
 import { COMPONENT_MANIFEST, entryDir, packageManifest, storeRoot, verifyEntry } from '../lib/components.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+const HELP = `build-component-store: materialise staged component bytes into the digest-named store.
+
+Usage:
+  node scripts/build-component-store.mjs [--record <record.json>]
+       [--source <staged dir>] [--store <root>] [--dry-run] [--require-all]
+
+Recipe for a new machine (ADR 0010 D4):
+  1. fetch each artifact at the tag pinned in the record and check its sha256
+  2. keep the verified bytes in one directory under their asset.name
+  3. --dry-run: record_mismatch must be empty
+  4. run it, then 'apg components verify': missing_packages must be empty, and
+     degraded_packages names packages whose declared prerequisite is absent here
+  5. 'apg components probe' for service entries; neither an absent service nor one
+     recorded with asserted_identity can ever be available
+`;
 
 function parse(argv) {
   const options = { record: path.join(packageRoot, 'scripts', 'external-components.json'), source: path.join(packageRoot, '.agent-scratch', 'external-test', 'bin'), mode: null };
@@ -58,6 +95,10 @@ function materialise(target, source, mode) {
 }
 
 function main() {
+  if (process.argv.includes('--help')) {
+    process.stdout.write(HELP);
+    return;
+  }
   const options = parse(process.argv.slice(2));
   const record = JSON.parse(fs.readFileSync(options.record, 'utf8'));
   const root = storeRoot({ store: options.store });
