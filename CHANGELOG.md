@@ -53,18 +53,27 @@ distributed surface is advertised without a tag behind it.
   acquisition record, verifies every staged byte against it, hard-links when the store
   shares a filesystem with the source and reports which it used, and treats a
   disagreement between record and disk as a hard failure instead of a repair.
-- The gate `scripts/test-component-store.mjs` (64 assertions, wired into
+- The gate `scripts/test-component-store.mjs` (103 assertions, wired into
   `scripts/test-release.sh`) now imports the shipped library rather than carrying its
   own private validator, and additionally pins the schema against the fields the code
   actually writes. A negative control was run and recorded: with the file-set
   comparison disabled the gate fails, restored it passes.
 - The first real instance exists: nine packages staged on this machine were
   materialised into the store by hard link (`am`, `br`, `bv`, `cass`, `ee`, `ft`,
-  `ntm`, `sbh`, `slb`), all nine verify as `available`, and a second run reports
-  `present: 9` and writes nothing. No service entry was written, because no component
-  running on this machine documents an identity and a read-only health endpoint that a
-  record could pin - inventing one is exactly what the four-state vocabulary exists to
-  prevent.
+  `ntm`, `sbh`, `slb`), and a second run reports `present: 9` and writes nothing. With
+  the recorded requirements below in place, `apg components verify` reports
+  `packages_total: 9`, seven reusable (`am`, `br`, `bv`, `ee`, `ntm`, `sbh`, `slb`) and
+  two degraded for measured reasons (`cass`, whose own diagnostic reports its companion
+  CLI unavailable, and `ft`, which needs the WezTerm mux). No service entry was written,
+  because no component running on this machine documents an identity and a read-only
+  health endpoint that a record could pin - inventing one is exactly what the four-state
+  vocabulary exists to prevent.
+- The catalog (253 entries) and the manifest were regenerated with the contract change;
+  the surface stays at 85 files and the digest moves from `sha256:9791c583…` to
+  `sha256:3c935f4b…`. A negative control was run on the new requirement check: with the
+  downgrade in `applyRequirements` short-circuited the store gate fails on
+  `expected: 'degraded'`, and it passes again once the library is restored - so the
+  requirement reaches the command's verdict, not just a helper's branch.
 - `PACKAGE_VERSION` moved to `4.0.0` in the same release that shipped this contract:
   `main` had carried two distributed files more than tag `v3.0.10` pins, and the bump
   is what closes that gap.
@@ -81,6 +90,46 @@ distributed surface is advertised without a tag behind it.
   capability test hit this on a real server whose health endpoint returns only
   `{status, version}` - liveness masquerading as identity, which is exactly the reuse
   the four-state vocabulary exists to prevent.
+- A service record can now say which fields carry its identity. `probeService` read
+  `id` and `revision` and nothing else, so a server whose health JSON answers
+  `{service, rev}` - the shape the capability test actually observed on a real
+  component - could never be recorded honestly. The service entry carries an optional
+  `identity` mapping (`{id_field, revision_field}`, defaulting to the old names), and an
+  entry marked `asserted_identity: true` records that nobody can check who answers: it
+  may be reachable, but it is always `degraded`, never `available`, because "present, and
+  I cannot verify it" is what that state means. `stop: signal | sigkill` records a
+  deterministic stop, which the capability test found necessary after `ft`'s watcher
+  ignored SIGTERM (ADR 0010 D9).
+- A component can now declare what it needs. Both entry kinds accept `requires`, a list
+  of single-key requirements over the three things the store can actually check -
+  `{component: <id>}` for another entry, `{bin: <name>}` for an executable on `PATH`, and
+  `{env: <NAME>}` for a variable that must exist (presence only: the store never reads,
+  records or returns its value). Any unmet requirement makes the entry `degraded` with
+  the unmet list attached, never `available`. Inside a package the list lives in the
+  manifest, so it is covered by the digest: a requirement cannot be added to or removed
+  from staged bytes without the digest changing. Only measured prerequisites are
+  declared - `ntm` drives sessions through `tmux`, `ft` needs the WezTerm mux,
+  `cass-memory`'s own diagnostic reports its companion `cass` CLI unavailable - and
+  prerequisites that are not a component, an executable or a variable (a `.beads`
+  directory for `br`/`bv`, project initialisation for `slb`, a daemon plus root for
+  `sbh`, an API key whose variable name is not evidenced) are deliberately not guessed;
+  `scripts/external-components.json` carries a `requires_note` saying so (ADR 0010 D10).
+- Two digests under one id are now a conflict rather than a choice. The rebuild that
+  carried those requirements moved three digests and left the previous directories
+  behind, and `verify` went on reporting the id as reusable through the stale copy while
+  the summary listed it twice. A duplicated id now resolves to `conflict` with both
+  digests named, appears in neither `reusable_packages` nor `degraded_packages`, and does
+  not satisfy a requirement that names it; the builder, which is the only place that
+  knows the intended digest, reports the residue as `stale` with the exact directory and
+  deletes nothing. The three stale directories on this machine were removed by explicit
+  name, and the store now holds one digest per id (ADR 0010 D11).
+- The suggestion box is excluded in the source-worktree repository itself:
+  `.gitignore` gains `.agent-project-guides/local/`, adopting letter
+  `0002-other-suggestion-box-not-ignored.md`. The exclusion existed only in the
+  materializer's output tree, which a `source-worktree` clone never runs, so following
+  the policy and writing a letter dirtied the tree it was written about. `.agent-teams/`
+  joins it: team state is per-machine runtime, not source.
+
 **Root-block observation (ADR 0006 P6) — APG can now record the blocks it saw, and
 nothing else.**
 

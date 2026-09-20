@@ -2404,3 +2404,62 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 这两处都不是「评审」找出来的：是三个 agent 真去启动服务、真去看返回体，才撞出来的。
 
 **还没做的（明确留给主人/下一步）**：`probeService` 目前只认健康响应里的 `id`/`revision` 两个字段，记录里**没有办法声明别的形状**——所以一个「自己用别的字段名声明身份」的第三方服务永远到不了 `available`。要不要让 service 条目声明 identity 映射（字段名/路径），是一个契约决定，ADR 0010 D8 只写了判据、**没有**替主人选实现。当前 store 仍然只有 9 个包、`services/` 目录不存在，`components probe` 的 `probed: 0` 就是它的诚实结论。
+
+### 13.21.5 「都修复一下」：把实测暴露的三处缺口补进契约，并让依赖检查真的生效（2026-09-20）
+
+主人指令是「都修复一下 然后把服务依赖的服务也加入APG要求检查的东西 随后进一步处理 比较敏感的root API 我自己来」。
+本节记录前半段落地了什么，以及后半段还剩什么。**版本仍是 4.0.0（未打标签）**：PACKAGE_VERSION、descriptor 的
+`provider.release`、根块 integrity 行、catalog、manifest 五者同步移动，标签由主人单独打。
+
+**A. 三处缺口，全部按「可声明＋不猜」补进 ADR 0010（D9/D10/D11）。**
+
+1. **身份映射（D9）**。13.21.4 末尾那条「还没做的」就是它：`probeService` 只认 `id`/`revision`，而实测到的真实
+   第三方服务用 `{service, rev}` 自报身份，于是它**永远到不了 `available`**。service 条目现在可以带
+   `identity: {id_field, revision_field}`（缺省即旧名），探针只读它声明的那两个字段；`asserted_identity: true`
+   是「没人能核对是谁在应答」的诚实写法——**可以可达，但永远 `degraded`**，因为「在场且我无法核对」正是这个词的
+   意思；`stop: signal|sigkill` 记录确定性停止（`ft watch` 收 SIGTERM 不退出，是实测撞出来的）。
+2. **依赖声明（D10）**，即「服务依赖的服务」这一条：包与服务**都**可以带 `requires`，只允许三种单键要求——
+   `{component: <id>}`（本 store 里的另一个条目）、`{bin: <name>}`（`PATH` 上且可执行）、`{env: <NAME>}`
+   （只判存在，**从不读取/记录/返回其值**）。任何一条不满足 ⇒ 该条目 `degraded` 并附上未满足清单，**永远不会
+   `available`**。包的要求写在 manifest 里，因此**被 digest 覆盖**：往已暂存的字节上增删一条要求，digest 必变。
+   `{component: X}` 在 `verify` 里要求 X 真的验证通过，在 `probe` 里只要求 X 存在（probe 不该为了答服务的问题去
+   哈希每一个包）。
+3. **同一 id 两个 digest = `conflict`（D11）**，以及 builder 报 `stale`。**这一条是真实 store 撞出来的**：新要求
+   进了 manifest，`cass`/`ft`/`ntm` 的 digest 随之改变，旧 digest 目录留了下来，于是 `apg components verify`
+   一边报 `cass` 可复用、一边在摘要里把它列了两次——**一份陈旧拷贝就能替组件回答问题**。现在这种 id 判 `conflict`
+   并点名两个 digest，既不进 `reusable_packages` 也不进 `degraded_packages`（歧义本身就是结论），引用它的
+   requirement 不算满足；builder 只在它唯一知道「本来该是哪个 digest」的地方把残留报成 `stale` 并给出**确切目录**，
+   **自己不删**——删目录是人的决定，不是修复路径的动作。
+
+**B. 只声明实测到的依赖，剩下的一律不猜（写进 `scripts/external-components.json` 的 `requires_note`）。**
+
+- 声明：`ntm` → `{bin: tmux}`（本机有 ⇒ 满足）；`ft` → `{bin: wezterm}`（其自身 status 明说
+  "WezTerm bridge CLI not found in PATH"）；`cass` → `{bin: cass}`（cass-memory 自身诊断报告配套 `cass` CLI 不可用）。
+- **故意不声明**（不是 component/bin/env 三者之一，或变量名无实测证据）：`br`/`bv` 需要 `.beads` 目录、`slb` 需要
+  项目初始化、`sbh` 的回收需要 daemon + root、`cass` 的 API key 变量名无证据；`ee` 的 `EE_SERVE_TOKEN` 是它
+  **serve 模式**的要求，属于将来的 service 条目，不属于包。
+
+**C. 真实实例的结论（可复现）。** builder 重跑：`materialised 3 / present 6 / stale [] / record_mismatch []`
+（`cass`/`ft`/`ntm` 因 manifest 变化换了 digest，其余 6 个目录按原 digest 复用）。`apg components verify`：
+`packages_total: 9`、`reusable_packages: [am, br, bv, ee, ntm, sbh, slb]`、`degraded_packages: [cass, ft]`、
+`missing_packages: []`、`conflicted_packages: []`；`cass` 与 `ft` 各自带着**点名的**未满足要求
+（`bin:cass` / `bin:wezterm`）。三个旧 digest 目录已**按显式名字**删除（绝不通配符），删后 store 每 id 恰一个
+digest，`conflicted_packages: []`。硬链接仍在：`cass` 条目 `links=2`、136,325,248 B 未复制。
+
+**D. 顺手把建议箱的两封信收口。**
+
+- `0002-other-suggestion-box-not-ignored.md`：**采纳方案①**——根 `.gitignore` 增 `.agent-project-guides/local/`。
+  排除机制本来只由 materializer 写进**输出树**（`lib/materializer.mjs:138`，`local/`），而本仓是
+  `source-worktree` 模式、从不经过 materializer，于是「照政策写信」这件事本身就把工作树弄脏。另加
+  `.agent-teams/`（团队状态是每机运行时，不是源码）。两者都**不在分发面**（`.gitignore` 不在 `DIST_FILES`/
+  `DIST_DIRS`），所以 85 文件不变、digest 不受影响。该信按 Triage 约定移入 `processed/`，附一行结论。
+- `0001-routing-gap-chinese-task-nouns.md`：**仍未处理，故意留在箱子里**（中文动作名词 `收口`/`清单`/`复核`/`补齐`
+  等仍不命中，信里的提议是「只加词、不动状态机」）。它改的是 `routing/context-classifier.json`，**属于分发面**——
+  移进 `processed/` 会让「还需要一次改动」这个信号消失，所以留在原地，等真正改词表时再收口。
+
+**E. 门禁与证据纪律。** `scripts/test-component-store.mjs` 的断言从 **64 条增到 103 条**（静态计数，与 ADR 0010
+验证行一致），新增覆盖：身份映射三段（映射到达 `available`、`asserted_identity` 永不 `available`、`stop` 只收
+确定性信号）、要求三段（三种单键校验、缺可执行文件降级、要求随 manifest 进 digest）、冲突两段（同一 id 两个
+digest 判 `conflict` 且 builder 只报不删、显式删掉陈旧目录后冲突消失且原判决保留）。反证按老规矩跑：把 `applyRequirements` 的降级分支临时短路
+（`if (!checked?.unmet?.length) return verdict;` 后直接 `return verdict;`），门禁立刻红在
+`expected: 'degraded'`，库恢复后立即绿——**证明「要求真的走到了 CLI 的判决里」，而不只是库函数里有个分支**。全程唯一跑法是 `scripts/test-release.sh`，逐个门禁不替代它。

@@ -14,3 +14,11 @@ TESTWORKTREE/
 
 # Harness plugins are independent nested repositories, not APG source/gitlinks.
 /plugins/*/
+
+# Suggestion box and other clone-local APG state (adopted letter 0002): in source-worktree
+# mode the materializer's inner `local/` exclusion never runs, so the source repository
+# ignores the same path itself. Only clone-local state lives here — no distributed file does.
+.agent-project-guides/local/
+
+# AgentTeams runtime state (team file, tasks, mailboxes) is per-machine runtime, not source.
+.agent-teams/
