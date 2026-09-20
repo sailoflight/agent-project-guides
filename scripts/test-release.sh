@@ -25,6 +25,15 @@ node scripts/test-context-choice.mjs
 # cleanly when the `br` binary is absent (it needs no network and no toolchain).
 node scripts/test-genericity.mjs
 ./scripts/test-interop-br.sh
+# ADR 0007 and ADR 0006 both declare their own validation in prose. These two make
+# it executable: the boundary gate pins the CLI surface and the distribution
+# manifest against the authority/execution partition, and the writers harness
+# re-checks the census literals against the real components and drives APG's guard
+# with the bytes the UBS installer actually appends. Both SKIP cleanly when their
+# third-party inputs are absent - the writers harness needs the checkouts listed in
+# decisions/0006, not a toolchain.
+node scripts/test-boundary.mjs
+./scripts/test-interop-writers.sh
 node scripts/apg.mjs catalog check
 node scripts/apg.mjs project validate --target .
 node scripts/apg.mjs release verify-source
