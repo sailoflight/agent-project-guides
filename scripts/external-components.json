@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "title": "Minimal external component subset: provenance for the writers harness",
+  "purpose": "Reproducibility record for scripts/test-interop-writers.sh. The harness asserts per-component facts against real third-party binaries; those binaries are NOT committed (NOASSERTION licence, ADR 0004/0007). This file records where each one came from and what to expect, so the assertions can be re-established after the gitignored staging area is deleted, without committing any component bytes.",
+  "not_distributed": "This file is not part of the distribution surface: it is listed by neither DIST_DIRS nor DIST_FILES in lib/materializer.mjs, and scripts/test-boundary.mjs asserts that no distributed path names a third-party component.",
+  "verification": {
+    "checksums": "Every release asset was admitted only after the archive SHA-256 agreed across 3-5 independent sources; the counts are per component below.",
+    "signatures": "minisign was verified offline where the component publishes a public key. br, bv, ntm, ee, ft and cass publish none.",
+    "build_provenance": "NOT PERFORMED - this is a known gap for all nine components. Agreeing checksums establish that the download matches what upstream published; they do not establish who built it or from what source. Do not read the counts below as provenance."
+  },
+  "released_artifacts": [
+    {
+      "id": "am",
+      "repo": "https://github.com/Dicklesworthstone/mcp_agent_mail_rust.git",
+      "tag": "v0.3.36",
+      "version_reported": "am-0.3.36",
+      "asset": {
+        "id": "567702786",
+        "name": "mcp-agent-mail-x86_64-unknown-linux-musl.tar.xz",
+        "bytes": 61488784,
+        "sha256": "6b1cfa177894a12bd69675d837cb08756f52028cdeddc6f9412c14f04f01bf18"
+      },
+      "binary": {
+        "sha256": "e6cf98a365fae0d569d865e3f43e1068153191bb18641d663fbf4803705e77a7",
+        "bytes": 108625408,
+        "binaries_in_archive": 2
+      },
+      "checksum_sources_agreeing": 4
+    },
+    {
+      "id": "br",
+      "repo": "https://github.com/Dicklesworthstone/beads_rust.git",
+      "tag": "v0.6.0",
+      "version_reported": "br-0.6.0",
+      "asset": {
+        "id": "558566073",
+        "name": "br-0.6.0-linux_amd64.tar.gz",
+        "bytes": 11732979,
+        "sha256": "f6f9a1663bae31e94d2dcfec62163f15b17f822711c486e860183a654784829b"
+      },
+      "binary": {
+        "sha256": "21b967c1ae68df1a2e8eb2256d13b8e57d293d89e331933919076104832ddbc0",
+        "bytes": 27772512,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 4
+    },
+    {
+      "id": "bv",
+      "repo": "https://github.com/Dicklesworthstone/beads_viewer.git",
+      "tag": "v0.25.0",
+      "version_reported": "bv-0.25.0",
+      "asset": {
+        "id": "559836215",
+        "name": "bv_0.25.0_linux_amd64.tar.gz",
+        "bytes": 14536865,
+        "sha256": "ea756bfadd165b66368b512cf3d7e036e5757df5d7c8f8e2b43a12e0a51b6429"
+      },
+      "binary": {
+        "sha256": "9b994d14f0027ed0c7e5b3a0e9bfea262a85cb1c198ec0e38256aebb4bd68249",
+        "bytes": 44675234,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 5
+    },
+    {
+      "id": "cass",
+      "repo": "https://github.com/Dicklesworthstone/cass_memory_system.git",
+      "tag": "v0.2.14",
+      "version_reported": "cass-0.2.14",
+      "asset": {
+        "id": "528595802",
+        "name": "cass-memory-linux-x64",
+        "bytes": 136325248,
+        "sha256": "6c24c455921e4dba8a6aa298c24a5065d3717e0a44e6fbab28922b87a324c100"
+      },
+      "binary": {
+        "sha256": "6c24c455921e4dba8a6aa298c24a5065d3717e0a44e6fbab28922b87a324c100",
+        "bytes": 136325248,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 3
+    },
+    {
+      "id": "ee",
+      "repo": "https://github.com/Dicklesworthstone/eidetic_engine_cli.git",
+      "tag": "v0.15.2",
+      "version_reported": "ee-0.15.2",
+      "asset": {
+        "id": "559768412",
+        "name": "ee-x86_64-unknown-linux-gnu.tar.xz",
+        "bytes": 30947660,
+        "sha256": "b70c2deaed56b3154e204de6d16c473c50e82fd2d1aa636ecf92d22da0bde46c"
+      },
+      "binary": {
+        "sha256": "a8a89f62d2b764c85b3d53c70a1413bbc967ac1f6bf0b040979e912c10097438",
+        "bytes": 129261472,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 4
+    },
+    {
+      "id": "ft",
+      "repo": "https://github.com/Dicklesworthstone/frankenterm.git",
+      "tag": "v0.15.1",
+      "version_reported": "ft-0.15.1",
+      "asset": {
+        "id": "524396067",
+        "name": "ft-linux-amd64.tar.xz",
+        "bytes": 19789208,
+        "sha256": "f063460275836799fa887a2765616c87109b410b9ebef1febbfee106376de12f"
+      },
+      "binary": {
+        "sha256": "f8b04bfd3bcd144889d2e0f1a6ec21823857734be507a477928a6fed460e2bea",
+        "bytes": 60556280,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 4
+    },
+    {
+      "id": "ntm",
+      "repo": "https://github.com/Dicklesworthstone/ntm.git",
+      "tag": "v1.35.1",
+      "version_reported": "ntm-1.35.1",
+      "asset": {
+        "id": "564088481",
+        "name": "ntm_1.35.1_linux_amd64.tar.gz",
+        "bytes": 18206430,
+        "sha256": "910712dff11770d2f0858e168a73d43228ec625b7f68d4ea9be61685c0c8ed44"
+      },
+      "binary": {
+        "sha256": "7907cc6b0ad8e0826c5699fc01120db3c52992c120a9ee26c530a60da78941e8",
+        "bytes": 52564130,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 4
+    },
+    {
+      "id": "sbh",
+      "repo": "https://github.com/Dicklesworthstone/storage_ballast_helper.git",
+      "tag": "v0.6.2",
+      "version_reported": "sbh-0.6.2",
+      "asset": {
+        "id": "554680556",
+        "name": "sbh-v0.6.2-x86_64-unknown-linux-gnu.tar.xz",
+        "bytes": 2329948,
+        "sha256": "f8dc4a9fb0c5ab4cce94827c7b30d3dc06b285b76197ea2d8da073807a6d7be9"
+      },
+      "binary": {
+        "sha256": "357098c4fdf0584eceb4723d643f127df412c2b84adfab1794a2257fe8d0babc",
+        "bytes": 6534632,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 4
+    },
+    {
+      "id": "slb",
+      "repo": "https://github.com/Dicklesworthstone/slb.git",
+      "tag": "v0.4.1",
+      "version_reported": "slb-0.4.1",
+      "asset": {
+        "id": "548265196",
+        "name": "slb_0.4.1_linux_amd64.tar.gz",
+        "bytes": 6100785,
+        "sha256": "9c398fb7f8d3bdaca8ad4e70497e84451609993eb5ba4e9b7cea52a8a7247972"
+      },
+      "binary": {
+        "sha256": "3781e330a06ca15ba137551b375eb2a93795cc5077d7d14ea2dd87be042651c9",
+        "bytes": 14934178,
+        "binaries_in_archive": 1
+      },
+      "checksum_sources_agreeing": 5
+    }
+  ],
+  "script_driven_checkouts": [
+    {
+      "id": "ubs",
+      "repo": "https://github.com/Dicklesworthstone/ultimate_bug_scanner.git",
+      "commit": "862357b201f60b859caa271c56bd1894dd7d5fd2",
+      "driven_by": "its own install/generator script"
+    },
+    {
+      "id": "acfs",
+      "repo": "https://github.com/Dicklesworthstone/agentic_coding_flywheel_setup.git",
+      "commit": "b042ffba3b6f874db0608c8171a42c577bdc2f1f",
+      "driven_by": "its own install/generator script"
+    }
+  ],
+  "excluded_from_this_file": [
+    "component bytes",
+    "extracted binaries",
+    "per-platform archives not used"
+  ]
+}

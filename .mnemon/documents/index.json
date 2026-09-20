@@ -458,6 +458,32 @@
       "contentHash": "ec80d7a57e7c2eb50deb73957e3a839e21260a55b5daa43be5e2018f4fdde3e0",
       "sizeBytes": 7239,
       "memoryBodyIds": []
+    },
+    {
+      "id": "2bbb79c3-4a71-40c5-8308-58d8355717ea",
+      "title": "第三方写入方门禁的验证设计与实测纪律（APG 3.0.10）",
+      "description": "APG 3.0.10 收口外部写入方普查过程中沉淀的**验证方法论**，不是普查本身：证据分四档（发布件 / 组件自己的脚本 / 仅源码（当前空置）/ 源构建）与 11/11 全观测；覆盖判定的分档依据是\"marker 守卫能不能救\"而非\"有没有 marker\"；P8 生存从命名推断升级为两条实测（acfs 明标为推断）；**空洞 PASS 的四种形态**及其修法（绑前置条件 + 可执行负控制 /bin/true 必须产生 9 个 FAIL）；测量纪律陷阱（同名不同值摘要、单次快照不能支撑\"降到 X\"、命名推断≠实测、对照窗口不能独立归属）；可复现性纪律（/tmp 按年龄清理⇒配方必须落仓、保留产物丢构建中间件、1,921 B 清单替代 554 MiB）。多篇既有文档讲\"测了什么\"，本文讲\"怎么测才不算骗自己\"。",
+      "status": "active",
+      "filename": "apg-3-0-10-2bbb79c3.md",
+      "relativePath": "documents/active/apg-3-0-10-2bbb79c3.md",
+      "sourcePaths": [
+        "decisions/0006-root-instruction-block-ownership.md",
+        "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
+        "scripts/test-interop-writers.sh",
+        "scripts/test-release.sh",
+        "scripts/install.sh",
+        "CHANGELOG.md"
+      ],
+      "sessionIds": [
+        "69c41c75-3c25-4af4-b478-32028883befc"
+      ],
+      "createdAt": "2026-09-20T06:43:47.854Z",
+      "updatedAt": "2026-09-20T06:43:47.854Z",
+      "lastAccessedAt": "2026-09-20T06:43:47.854Z",
+      "revision": 1,
+      "contentHash": "41ee96b90da36d028278d1b7f057f1f32d1905aabb6076d68a89bdaa936fbbd8",
+      "sizeBytes": 11798,
+      "memoryBodyIds": []
     }
   ]
 }

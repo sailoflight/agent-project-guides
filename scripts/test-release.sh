@@ -41,6 +41,12 @@ node scripts/test-genericity.mjs
 # silently. Either way this runner stays usable with no network and no large
 # local files.
 node scripts/test-boundary.mjs
+# The provenance record behind the external writers harness. It has no external
+# inputs, so unlike section D it runs everywhere: it pins that the record stays off
+# the distribution surface, that it has not drifted from the harness it describes,
+# and that its build-provenance caveat is still present (agreeing checksums are not
+# provenance, and the counts read like a security result if the caveat is dropped).
+node scripts/test-external-provenance.mjs
 # Project memory is tracked in git, and the index that makes it searchable
 # rewrites an access timestamp on every read, so the file went dirty after almost
 # any session. This gate pins the clean filter that removes the churn without
