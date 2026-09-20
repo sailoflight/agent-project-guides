@@ -33,16 +33,16 @@
       "importance": "normal"
     },
     {
-      "content": "APG 控制面扩展（用户 2026-09-19 决定）：① 用 APG 控制外部组件装配——只做声明+校验（依赖 manifest、pin 版本、sha256、漂移检测），不做包管理器、不代下载；只发 manifest 不发组件字节（规避 NOASSERTION 许可）。② 用 APG 控制 AGENTS.md——已有 scripts/install.sh（merge/check）+ scripts/manage-root-blocks.mjs（marker 级 strip/replace，块须始于 byte 0）+ bootstrap/AGENTS.routing-block.md；需扩为多写入者分区所有权 + 漂移审计（另两个写入者：br agents --add、EE export agentsmd）。AGENTS.md 是唯一每轮付费注入面。详见报告第 11.8 节。",
+      "content": "APG 控制面扩展（用户 2026-09-19 决定）：① 用 APG 控制外部组件装配——只做声明+校验（依赖 manifest、pin 版本、sha256、漂移检测），不做包管理器、不代下载；只发 manifest 不发组件字节（规避 NOASSERTION 许可）；**至今未实施**。② AGENTS.md 多写入者分区所有权 + 漂移审计——已按写入方普查落地，见下一条（外部写入者不是 2 个，实测 11 个）。AGENTS.md 是唯一每轮付费注入面。详见报告第 11.8 节。",
       "created_at": "2026-09-19T05:00:22.113Z",
-      "updated_at": "2026-09-19T05:06:16.860Z",
+      "updated_at": "2026-09-20T01:50:34.087Z",
       "target": "memory",
       "importance": "critical"
     },
     {
-      "content": "AGENTS.md 块所有权协议（decisions/0006-root-instruction-block-ownership.md；状态=P1–P5/P8/P9 已实施验证，schema-1 引导块残余已闭合，P6/P7 未做）。**写入方实测 5 个（原记 3 个）**：APG 占字节 0（install.sh:324 断言）；br 追加 `br-agent-instructions-v1`，写前备份 `.md.bak`；ee 用 `ee:agentsmd:begin generation=N hash=H`，写 `.ee-backup`；**am**（mcp_agent_mail_rust）标记 `<!-- am:blurb -->` 无版本 token、裸 fs::write、**无备份**、对无标记 AGENTS.md/CLAUDE.md 追加且默认递归 3 层；**ubs** 的 `<!-- >>> Ultimate Bug Scanner quick reference … -->` 按内容 grep 识别、写前 `.backup`。修正两处旧记录：`bv` **不备份**（原子 rename），`ntm` 写**无标记**整文件模板。P8 备份后缀 `.agent-project-guides.bak`（刻意区别 br/ee）。P9 完整性=块内第 2 行 `<!-- agent-project-guides:integrity sha256=… -->` + manage-root-blocks.mjs 的 `stamp`/`verify`/`replace`，逃生开关 `AGENT_PROJECT_GUIDES_FORCE_MANAGED_BLOCK=1`。P3 已闭合（口径经主人收窄：只有「其他写入方的受管 marker 块」在前缀之上才拒绝，纯项目正文仍迁移），guard-prefix 文法覆盖 10 种实测形态（含 am 的 `:blurb`、ubs 的 `>>>`/`<<<`）；test-interop-br.sh 19 通过/0 失败/0 缺口。**schema-1 引导块残余已闭合**：inspectBootstrap 除块内 hash 外还比对描述符侧锚 `integrity.root_block_hash`（schema 1 新字段；`project init` 记录、`project reattest` 刷新），两锚皆无的块以 `bootstrap_unverifiable` 拒绝、不再当 legacy 放过；project validate 报 bootstrap.anchor。升版流程：改 PACKAGE_VERSION → 同步描述符 provider.release（source-worktree 强制相等）→ `project reattest --target .` → `release manifest`；**勿手改描述符或根块**。危险经验：br 向上找最近 `.git`/`.beads`/`_beads` 作项目根，**在被管理仓库内的子目录跑 `br agents --add` 会改外层仓库的 AGENTS.md**（本仓库实测踩过，已恢复）。",
+      "content": "AGENTS.md 块所有权协议（decisions/0006；P1–P9 已实施，P6/P7 未做）。**写入方实测 11 个**（39 个 checkout 普查，3→5→11）：br（`br-agent-instructions-v1`/`.md.bak`）、bv（`…-v{1,5,7}`，版本号是数据，不备份）、ee（`ee:agentsmd:begin`/`.ee-backup`）、slb、sbh（`sbh-docs:begin`）、frankenterm、am（`<!-- am:blurb -->` 无版本 token、裸 fs::write、**无备份**、递归 3 层）、ubs（`<!-- >>> … -->` 内容 grep 识别、写前 `.backup`，但**幂等重跑会覆盖该备份**）、cass（`<!-- Auto-generated rules from cass-memory playbook -->` + `<project_rules>`，整文件重写）、ntm（**无 HTML 注释**，边界 `<INSTRUCTIONS>`，整文件模板）、acfs（复用 br 标记 + 无标记生成器）。**能力边界**：ntm/acfs/cass 属整文件改写方，marker 守卫只保护「APG 的插入不搬移他人区域」，改写在 APG 之后发生时只有 `install.sh check` 能发现。P3=guard-prefix 在 strip 前拒绝「其他写入方的受管 marker 块位于前缀之上」（纯项目正文仍迁移）；3.0.10 文法=命名空间注释 + 区分大小写的裸容器 tag（`<INSTRUCTIONS>`/`<project_rules>`）+ `>>>`/`<<<` 需箭头后有文本；`test-install.sh` 32 行词表（14 refuse/18 allow）钉住两个方向。schema-1 引导块锚=`integrity.root_block_hash`（init 记录 / `project reattest` 刷新；两锚皆无 → `bootstrap_unverifiable`）。升版：改 PACKAGE_VERSION → 同步描述符 provider.release（source-worktree 强制相等）→ `project reattest --target .` → `release manifest`；勿手改描述符或根块。危险：br 向上找最近 `.git`/`.beads` 作根，在被管理仓的子目录跑 `br agents --add` 会改外层仓的 AGENTS.md。",
       "created_at": "2026-09-19T08:43:25.861Z",
-      "updated_at": "2026-09-20T01:17:58.266Z",
+      "updated_at": "2026-09-20T01:50:48.452Z",
       "target": "memory",
       "importance": "normal"
     },
@@ -71,6 +71,13 @@
       "content": "agent-project-guides 的 README.md 受硬性字节上限约束：scripts/test-install.sh:165 要求 ≤12000 字节，超出即 FAIL。往 README 加长内容前先 `wc -c`，或把长文移入仓库内其他文档。",
       "created_at": "2026-09-19T13:55:00.489Z",
       "updated_at": "2026-09-19T13:55:00.489Z",
+      "target": "memory",
+      "importance": "normal"
+    },
+    {
+      "content": "合同承重判据（2026-09-20 教训）：「有覆盖测试」与「覆盖测试会被跑」是两件事——一个声明式合同只有在**声明点 + 强制点 + 被某个 runner 调用的测试**三者同时成立时才算承重。`scripts/test-release.sh` 是仓内唯一枚举 gate 的入口（`scripts/test-genericity.mjs` 自 3.0.7 就存在、文档也写着「每次改动后均跑」，却从未被任何 runner 调用，3.0.10 才补挂）。",
+      "created_at": "2026-09-20T01:50:52.994Z",
+      "updated_at": "2026-09-20T01:50:52.994Z",
       "target": "memory",
       "importance": "normal"
     }
