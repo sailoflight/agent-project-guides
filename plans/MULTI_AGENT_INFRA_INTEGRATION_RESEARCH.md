@@ -2312,7 +2312,7 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 
 ### 13.20.3 门禁与反证
 
-- `scripts/test-component-store.mjs`：55 条断言，11 组（兄弟根／两份引用一份拷贝／文件集必须精确——多一个、少一个、被改一个字节、manifest 可写、目录名不符 digest 各自红／缺失即 `not-installed`＋`action:none`／服务身份规则／schema 与代码对齐／储藏库遍历／采集器（含 `--dry-run` 不写、第二次幂等、记录与字节不符时 `record_mismatch` 且退出码 1）／CLI／四状态＋singleton 双实例＝`conflict`／探测只发 `GET` 到声明路径）。
+- `scripts/test-component-store.mjs`：55 条断言，11 组（兄弟根／两份引用一份拷贝／文件集必须精确——多一个、少一个、被改一个字节、manifest 可写、目录名不符 digest 各自红／缺失即 `not-installed`＋`action:none`／服务身份规则／schema 与代码对齐／储藏库遍历／采集器（含 `--dry-run` 不写、第二次幂等、记录与字节不符时 `record_mismatch` 且退出码 1）／CLI／四状态＋singleton 双实例＝`conflict`／探测只发 `GET` 到声明路径）。（这是该节当时的条数：55 条 / 11 组；§13.21.4 之后为 **64 条 / 12 组**——新增「两个命令各报自己的域」与「liveness 不是 identity」两组。）
 - **反证（先跑再记）**：把 `lib/components.mjs` 里的文件集比较那行注释掉，门禁**变红**（`operator: 'throws'` 的 assert 失败）；恢复后**变绿**。所以门禁是因为它声称的那条规则而红，不是顺带红。
 - `scripts/test-boundary.mjs`：`PASS: product boundary holds (10 command groups, 85 distributed files, ...)`。
 - `scripts/test-release.sh`：新增 `schemas/component-entry.schema.json` 的 JSON 解析行，并在 `test-observation-ledger.mjs` 之后接上本门禁。
@@ -2355,3 +2355,52 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 | `mcp-probe` | verifier | Bridge 控制面背后的 `onshape` / `taobao` 服务现状（只读 `bridge_control status` + `bridge_diagnostics`），以及本会话真实可达的产品面 | 策略明令：不改模型、不购物车/结算/付款、不发卖家消息、不处理验证码、不导出私有数据 |
 
 **这次不写成「评审」**：没有一条任务是去读 APG 的源码挑毛病，任务全是「拿命令去用外部能力，看它到底能不能用、缺什么」。这也顺带把 §13.20 的 store 契约束在实战里过一遍：实测结论出来后，能构成真实 `service` 条目的组件才会被写成条目（ADR 0010 D6 留的那个缺口）。
+
+### 13.21.3 实测结果（三个 agent，全部只读优先、无残留、无越界）
+
+三份证据全文在 `.agent-scratch/capability-test-4.0.0/`（`.gitignore` 已忽略）：`cli-probe.md`（+`raw/cli/` 12 条探针与 6 份 `--help` 全文）、`service-probe.md`（247 行，+`logs/` 原始日志）、`mcp-probe.md`（25 KB，原始调用与原始 JSON）。captain 复核：`pgrep -x am/ee/ft` 与 `pgrep -af external-test/bin` 均无匹配，端口 18765/18766/18767 全 free，工作树无新增改动。
+
+**A. CLI 类：6/6 本机可执行，字节与采集记录逐位一致。**
+
+| 组件 | 版本 | 字节 vs 记录 | 自报 | 要用起来还缺什么 |
+|---|---|---|---|---|
+| `br` | 0.6.0 | ✅ | `capabilities` RC0；`list` RC2 | 需 `br init` 建 `.beads`（写盘） |
+| `bv` | 0.25.0 | ✅ | `--robot-capabilities` RC0（22,976 B JSON / 41 命令，仅 2 条标 `mutates_state`）；`--robot-triage` RC1 | 需 `.beads`；裸跑是 TUI 要终端 |
+| `ntm` | 1.35.1 | ✅ | `version`/`list` RC0 | 需 tmux（本机 `/usr/bin/tmux` 已有） |
+| `slb` | 0.4.1 | ✅ | `version`/`check`/`pending` RC0（`--version` 不认，上游设计） | 需项目初始化 |
+| `sbh` | 0.6.2 | ✅ | `status`/`stats` RC0 | 真回收需 daemon + root；**核心功能完全未验证** |
+| `cass` | 0.2.14 | ✅（该件 asset 即 binary） | `0.2.14`/`--info`/`ls` RC0 | 缺 `cass` 外部 CLI、无 API key、需 `cm init` |
+
+两条**对集成有影响的实测副作用**（不是推测）：`slb check` **不是纯只读**——它在 cwd 建了 `.slb/state.db`（要当探测用必须 `--db`/`-C` 指到临时目录）；`cm ls` 会自动创建一个空 playbook（输出里自报 doing）。
+
+**B. 服务类：「不用部署第二遍」在真机成立，但只有 `am` 干净。**
+
+| 组件 | 服务形态 | 127.0.0.1 能起 | 起来回什么 | 够格做 service 条目? |
+|---|---|---|---|---|
+| `am` 0.3.36 | ✅ `serve-http`（MCP over streamable HTTP） | ✅ `:18765`（`STORAGE_ROOT` 重定向到 scratch） | `/healthz`→200 `{"status":"alive"}`；`/health`→200 `{"status":"ready","version":"0.3.36"}`；`POST /mcp/` initialize→200 `serverInfo{mcp-agent-mail,0.3.36}` | ❌ 按 D8：GET 拿不到 identity（只有 liveness/版本），identity 只在 MCP 握手里 |
+| `ee` 0.15.2 | ⚠️ stdio MCP 本构建 `mcp_feature_disabled`；`ee serve` 是真只读适配器 | ✅ 但必须 `--foreground` + `EE_SERVE_TOKEN`≥256bit，否则 `policy_denied` 拒 bind | `/v1/status` `/v1/doctor` `/v1/search` `/v1/context`（`mutable:false`，但 `authRequired:true`） | ❌ 需凭据 ⇒ 无法免密核对 identity |
+| `ft` 0.15.1 | ✅ `ft watch` 守护进程 + 可选 Prometheus | ⚠️ 能起但 **degraded**（缺 WezTerm mux） | `/metrics`→200（4,947 B 合法 Prometheus）；`ft status`→RC1 | ❌ metrics≠identity；且 SIGTERM 后不退出 |
+
+三条**必须传下去的坑**（都实测到）：
+1. **回环探测要 `curl --noproxy '*'`**：环境有 `http_proxy=127.0.0.1:10808`，`no_proxy` 里的 `127.*` 不被 curl 当匹配，不加会走代理——杀进程后仍返回 503 而不是连接拒绝，**会把死服务判成活的**。（这条只影响人/agent 用 curl 探测；APG 自己 `lib/components.mjs` 走 `node:http`，不经环境代理。）
+2. **`ft watch` 收 SIGTERM 后打印 "initiating graceful shutdown" 但永不退出**，且它持有的 `.ft/watch.lock` 会让第二个实例直接拒启动（"Another watcher is already running"），最终只能 `kill -9`。
+3. **唯一越出 scratch 的写入来自组件自身**：`ft` 首次启动自动往 `~/.local/share/fonts` 装 4 个 Pragmasevka Nerd Font 并跑 `fc-cache`。所以「跑一下外部组件」本身就可能改宿主；实测规程里要把这一点当已知风险写清，而不是假定 scratch 能关住一切。
+
+**C. MCP/控制面：控制面活着，产品面在本会话不可达。**
+
+- 本会话真实存在的 MCP 工具**只有 2 个**，全属 `win-wsl-bridge-control`（`bridge_control`、`bridge_diagnostics`）；**没有**任何 `mcp__onshape__*` / `mcp__taobao__*`，策略里提到的 `mcp_tool_catalog` / `mcp_tool_view` 也不存在。
+- `bridge_control status`：`onshape` 与 `taobao` 均 `registered:true`、`mode:"shared"`、`state:"running"`、`drain:false`，`ownedGeneration` 分别 12 / 2，`activeClients` 各 2。
+- `bridge_diagnostics limit=20`：`peer:"connected"`、`activeStreams:4`、窗口内无 error，但 recent 只有 10 对 onshape 条目、**没有 taobao**，且 `generation` 全为 null。
+- 判定：`ownedGeneration`/`activeClients` 只是「已登记的服务在跑、并被 >1 个客户端共用同一份实例」的**弱证据**；它**不能**证明产品面可用，**不能**替代 store 的 identity+HTTP health 探针（status 里没有 endpoint/health/revision，走 Bridge 自有协议，四状态一条都判不了），也**不能**排除 registry 之外的第二份实例。
+- needs-human（已按策略原文标注）：淘宝扫码登录/验证码、Onshape 的 `ask_before_install`。
+
+### 13.21.4 这次实测改掉的两处真东西
+
+实测不只是「报告」——它抓出两处**真缺陷**，都在 4.0.0 打标签之前修掉，并各配一条门禁断言（门禁从 55 条增到 64 条）：
+
+1. **`verify` 与 `probe` 各自发了一个同名的裸 `reusable`，指的是两个域。** `cli-probe` 与 `probe` 的读者会把 `probe` 的 `reusable: []`（只可能来自服务条目）读成「没有任何可复用组件」，而同一 store 下 `verify` 报 9 个包全 `available`。现在两个命令各报自己的域：`verify` → `packages`/`packages_total`/`reusable_packages`/`missing_packages`；`probe` → `probed`/`services`/`reusable_services`；`probe` 聚合里那个**恒为 `'none'` 的 `action`** 也删了（它从不携带信息）。门禁新增断言：两个命令都**不得**再发布裸 `reusable`。
+2. **「200 但没有身份」被报成 `the endpoint belongs to undefined`。** 这是关于代码而不是关于组件的句子。`lib/components.mjs` 现在把这种情况判成 `conflict`，理由写明缺的是什么（`the health response carries no component identity (expected a field named "id")`）——**liveness 不是 identity**，这正是四状态词表要防的那类误复用。门禁新增一台只回 `{status, version}` 的 loopback 服务器，断言它必须被判 `conflict` 且理由必须点名缺什么；**反证已跑**：把那行改回原样，门禁立刻红在 `actual: 'the endpoint belongs to undefined'`。
+
+这两处都不是「评审」找出来的：是三个 agent 真去启动服务、真去看返回体，才撞出来的。
+
+**还没做的（明确留给主人/下一步）**：`probeService` 目前只认健康响应里的 `id`/`revision` 两个字段，记录里**没有办法声明别的形状**——所以一个「自己用别的字段名声明身份」的第三方服务永远到不了 `available`。要不要让 service 条目声明 identity 映射（字段名/路径），是一个契约决定，ADR 0010 D8 只写了判据、**没有**替主人选实现。当前 store 仍然只有 9 个包、`services/` 目录不存在，`components probe` 的 `probed: 0` 就是它的诚实结论。

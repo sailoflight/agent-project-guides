@@ -41,12 +41,12 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-components-test-'));
 process.on('exit', () => fs.rmSync(temporary, { recursive: true, force: true }));
 
-function startService(id, revision) {
+function startServer(payload) {
   const requests = [];
   const server = http.createServer((request, response) => {
     requests.push({ method: request.method, url: request.url });
     response.writeHead(200, { 'content-type': 'application/json' });
-    response.end(JSON.stringify({ id, revision }));
+    response.end(JSON.stringify(payload));
   });
   return new Promise((resolve) => server.listen(0, '127.0.0.1', () => resolve({
     port: server.address().port,
@@ -182,23 +182,36 @@ const cli = spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'apg.
 assert.equal(cli.status, 0, `apg components verify failed: ${cli.stderr}`);
 const verified = JSON.parse(cli.stdout);
 assert.equal(verified.present, true);
-assert.ok(verified.reusable.includes('tool'), 'the CLI must report the verified package as reusable');
+assert.ok(verified.reusable_packages.includes('tool'), 'the CLI must report the verified package as reusable');
+assert.deepEqual(verified.missing_packages, []);
+assert.ok(verified.packages_total >= 2, 'the package count must cover every digest directory in the store, not only the reusable ones');
+assert.ok(!('reusable' in verified), 'the package command must not publish a bare `reusable` key: the service command used to publish one over a different domain, and reading `reusable: []` from the wrong command is how "nine packages available" gets read as "nothing is reusable"');
 assert.ok(verified.services.some((item) => item.id === 'mail'), 'the CLI must list the declared service');
 const missingStore = spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'apg.mjs'), 'components', 'verify', '--store', path.join(temporary, 'nowhere')], { encoding: 'utf8' });
 assert.equal(missingStore.status, 0, 'an absent store is not an error');
 assert.equal(JSON.parse(missingStore.stdout).present, false);
+const probeCli = spawnSync(process.execPath, [path.join(packageRoot, 'scripts', 'apg.mjs'), 'components', 'probe', '--store', root], { encoding: 'utf8' });
+assert.equal(probeCli.status, 0, `apg components probe failed: ${probeCli.stderr}`);
+const probed = JSON.parse(probeCli.stdout);
+assert.ok(probed.services.some((item) => item.id === 'mail'), 'the probe must report the declared service');
+assert.deepEqual(probed.reusable_services, [], 'a service whose port is dead must not be reported reusable');
+assert.ok(!('reusable' in probed) && !('action' in probed), 'the probe must name its own domain and must not publish a constant action');
 
 // 10. The four discovery states, against real servers on loopback. "The port answers" is
 // not evidence, so a foreign identity is a conflict and a revision mismatch is degraded
 // - never a silent reuse.
-const mail = await startService('mail', '0.1.0');
-const foreign = await startService('somethingelse', '9.9.9');
+const mail = await startServer({ id: 'mail', revision: '0.1.0' });
+const foreign = await startServer({ id: 'somethingelse', revision: '9.9.9' });
+const anonymous = await startServer({ status: 'ready', version: '0.1.0' });
 const live = { ...service, endpoint: `127.0.0.1:${mail.port}` };
 assert.deepEqual(await probeService(live), { id: 'mail', state: 'available', reusable: true });
 assert.equal((await probeService({ ...live, revision: '0.2.0' })).state, 'degraded', 'a revision mismatch must not be reused silently');
 assert.equal((await probeService({ ...live, revision: undefined })).state, 'degraded', 'an unpinned revision cannot be verified');
 assert.equal((await probeService({ ...service, endpoint: `127.0.0.1:${foreign.port}` })).state, 'conflict', 'a foreign identity on the declared port is a conflict');
-const closing = await startService('closed', '0.1.0');
+const anonymousVerdict = await probeService({ ...service, endpoint: `127.0.0.1:${anonymous.port}` });
+assert.equal(anonymousVerdict.state, 'conflict', 'liveness is not identity: a 200 that names no component is a conflict, not a reuse');
+assert.match(anonymousVerdict.reason, /no component identity/, 'the refusal must name what was missing rather than reporting the owner as undefined');
+const closing = await startServer({ id: 'closed', revision: '0.1.0' });
 const closedPort = closing.port;
 await closing.close();
 assert.deepEqual(await probeService({ ...service, endpoint: `127.0.0.1:${closedPort}` }), { id: 'mail', state: 'not-installed', reusable: false, action: 'none' });
@@ -209,11 +222,12 @@ assert.deepEqual(await resolveService(service, [{ state: 'not-installed', reusab
 // 11. Discovery is read-only. The servers above recorded every request they received; a
 // probe that restarted, posted, or warmed the service would show up here.
 assert.ok(mail.requests.length >= 2, 'the probe must actually have reached the service');
-for (const request of [...mail.requests, ...foreign.requests]) {
+for (const request of [...mail.requests, ...foreign.requests, ...anonymous.requests]) {
   assert.equal(request.method, 'GET', `discovery must not issue a state-changing request: ${request.method} ${request.url}`);
   assert.equal(request.url, '/health', `discovery must only touch the declared health path: ${request.url}`);
 }
 await mail.close();
 await foreign.close();
+await anonymous.close();
 
-console.log('PASS: the component store is a sibling of the release store under the existing variable, holds one verified copy per machine, rejects an inexact file set, matches its shipped schema, never fetches, never names a location, resolves all four discovery states from real loopback probes without a state-changing request, and refuses to disagree with the acquisition record');
+console.log('PASS: the component store is a sibling of the release store under the existing variable, holds one verified copy per machine, rejects an inexact file set, matches its shipped schema, never fetches, never names a location, resolves all four discovery states from real loopback probes without a state-changing request, refuses liveness that names no component, names packages and services apart so the two outputs cannot be read for each other, and refuses to disagree with the acquisition record');
