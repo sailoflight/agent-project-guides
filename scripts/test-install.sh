@@ -272,28 +272,48 @@ grep -qF "sits above APG's regions" "$TMP/p3.err" \
 cmp "$TMP/p3-root-before.md" "$PROJECT_P3/AGENTS.md" >/dev/null \
   || fail 'P3: the refused merge still modified the root file'
 
-# P3 marker vocabulary (decisions/0006 "Writer survey corrected"). The guard
-# recognises a foreign managed block by its marker grammar, so the grammar must
-# cover every writer measured in the field - including `am`, which suffixes
-# `:blurb` instead of `:start`/`:begin`, and `ubs`, which writes no namespaced
-# marker at all. It must equally not fire on project prose or APG's own region.
+# P3 marker vocabulary (decisions/0006 "Writer survey"). The guard recognises a
+# foreign managed block by its marker grammar, so the grammar must cover every
+# writer measured in the field - including `am`, which suffixes `:blurb` instead
+# of `:start`/`:begin`, `ubs`, which writes no namespaced marker at all, and the
+# two writers that delimit their region without an HTML comment (`cass` writes a
+# spaced sentence marker plus a snake_case tag, `ntm` an upper-case tag). It must
+# equally not fire on project prose, on APG's own region, or on marker-shaped text
+# that no writer emits - the `allow` rows below are literals from the field scan.
 P3_VOCAB="$TMP/p3-vocab.txt"
 cat > "$P3_VOCAB" <<'VOCAB'
 refuse|br|<!-- br-agent-instructions-v1 -->
 refuse|bv|<!-- bv-agent-instructions-v5 -->
+refuse|bv-versioned|<!-- bv-agent-instructions-v7 -->
 refuse|ee|<!-- ee:agentsmd:begin generation=3 hash=abc -->
 refuse|slb|<!-- slb:cursor-rules:start -->
-refuse|sbh|<!-- sbh-census:begin -->
+refuse|sbh|<!-- sbh-docs:begin constants -->
 refuse|frankenterm|<!-- frankenterm:start -->
 refuse|am|<!-- am:blurb -->
 refuse|am-end|<!-- am:blurb:end -->
 refuse|ubs|<!-- >>> Ultimate Bug Scanner quick reference (written by install.sh; removed by install.sh --uninstall) -->
 refuse|ubs-end|<!-- <<< End Ultimate Bug Scanner quick reference -->
+refuse|cass-rules|<!-- Auto-generated rules from cass-memory playbook -->
+refuse|cass-tag|<project_rules>
+refuse|ntm-tag|<INSTRUCTIONS>
 allow|prose|Project prose above the prefix stays migratable.
 allow|apg|<!-- agent-project-guides:integrity sha256=0000000000000000000000000000000000000000000000000000000000000000 -->
+allow|apg-start|<!-- agent-project-guides:v2:start -->
 allow|mdlint|<!-- end list -->
 allow|todo|<!-- TODO: end -->
 allow|copyright|<!-- Copyright 2026 Example Corp -->
+allow|casr-doc-section|<!-- casr-machine-readable-v1 -->
+allow|dcg-doc-section|<!-- dcg-machine-readable-v1 -->
+allow|codex-begin|<!-- BEGIN REOLINK_RAG_WSL_TOOL -->
+allow|codex-end|<!-- END REOLINK_RAG_WSL_TOOL -->
+allow|bv-end-orphan|<!-- end-bv-agent-instructions -->
+allow|sbh-docs-end|<!-- sbh-docs:end -->
+allow|empty-arrows|<!-- >>> -->
+allow|inline-count|<!--count:vendored_members-->47<!--/count-->
+allow|html-br|<br>
+allow|html-div|<div>
+allow|autolink|<https://example.com>
+allow|markdown-filename|<AGENTS.md>
 VOCAB
 while IFS='|' read -r p3_expect p3_label p3_line; do
   [ -n "${p3_expect:-}" ] || continue
