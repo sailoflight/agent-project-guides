@@ -35,8 +35,11 @@ node scripts/test-genericity.mjs
 # released binaries and asserts the observed facts from ADR 0006. Section D is
 # driven BY DEFAULT, not on request: the harness already defaults APG_EXTERNAL_BIN
 # to .agent-scratch/external-test/bin, so installing the verified payloads there
-# is all it takes. Each component that is absent costs exactly one GAP, so this
-# runner stays usable with no network and no large local files.
+# is all it takes. Inside it each component is an independent sub-block, so an
+# absent binary costs one GAP rather than the whole section; if the staged
+# directory itself is missing, the section reports one GAP instead of passing
+# silently. Either way this runner stays usable with no network and no large
+# local files.
 node scripts/test-boundary.mjs
 # Project memory is tracked in git, and the index that makes it searchable
 # rewrites an access timestamp on every read, so the file went dirty after almost

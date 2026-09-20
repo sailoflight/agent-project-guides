@@ -1652,6 +1652,16 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 
 **验证链**：暂存 blob 与「过滤器作用于工作树文件」的输出**逐字节同哈希**（`ad317d40…8f84b`）；`git status` 对 index.json 显示 `M `（已暂存、工作树无差异），即真实访问时间留在盘上、进库的是归一化值。
 
+**新鲜 clone 五步实测**（把一个 `git clone` 到 `/tmp` 的副本当真 clone 用，opt-in 设计的正反两面都验；副本已按显式名删除）：
+
+| 步 | 动作 | 观测 |
+|---|---|---|
+| 1 | 克隆本仓 | `git config --get filter.apg-mnemon-index.clean` **为空** ⇒ 过滤配置确实不随 clone 走 |
+| 2 | 未装过滤器时把 `lastAccessedAt` 全改成 2099 哨兵值 | `git status` → `M .mnemon/documents/index.json`（**脏**）⇒ 不装 = 旧行为，没改变任何已有 clone 的现状 |
+| 3 | 跑 `sh scripts/setup-git-filters.sh` | 注册成功（脚本会打印校验命令） |
+| 4 | 装好后再改成另一个哨兵值 | `git status` → **无输出**（干净）⇒ 在真 clone 里生效，不只是本仓 |
+| 5 | 在该 clone 跑 `node scripts/test-mnemon-index-filter.mjs` | PASS |
+
 **不破坏可复现性**：`.gitattributes` 不在分发面（`DIST_DIRS`/`DIST_FILES` 都不含它）；`test-boundary.mjs` 仍报 81 个分发文件 / 9 个命令组 PASS。
 
 **门禁**：新增 `scripts/test-mnemon-index-filter.mjs`，并挂进 `scripts/test-release.sh`（`test-boundary.mjs` 与 `test-interop-writers.sh` 之间）。断言：attribute 恰好一条且指向本过滤器；`lastAccessedAt`→`updatedAt` 的改写；`updatedAt` 缺失时的哨兵；输出中每条 `lastAccessedAt` 仍是字符串（插件硬要求）；其余字段不变；**幂等**；`''`、`'not json at all\n'`、`'{"version":1,"documents":{}}'`、`'[]'` 四种非目标输入逐字节透传；当 `.mnemon/documents/index.json` 存在时每条记录的 `lastAccessedAt` 必须是字符串。
@@ -1664,15 +1674,34 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 
 口径是「默认驱动」。核验后：`test-release.sh` **本来就**默认驱动 section D——`scripts/test-interop-writers.sh` 内 `EXT="${APG_EXTERNAL_BIN:-$ROOT/.agent-scratch/external-test/bin}"`，环境变量缺省时回落到仓内已暂存的解包目录。§13.15 第 16 行原来那句「现在默认不带」以及 `test-release.sh` 里的对应注释都是**写反了的旧认知**，本轮按实际行为改正。
 
-同时把「缺件」语义写准：section D 里每个组件若二进制不存在，记**一条** GAP（`note_gap`），不是整段 SKIP。所以没有暂存二进制的 checkout 会报多条 GAP，而不是静默跳过——这正是「断言退化为 SKIP 必须看得见」的要求（§13.16.5）。
+同时把「缺件」语义写准。section D 的结构是 `if [ ! -d "$EXT" ]` 提前退出，因此有**两种**缺件形态，不能混为一谈：
 
-实测：`sh scripts/test-release.sh` → exit 0，`== writers result: 65 passed, 0 failed, 1 gaps ==`（那 1 条 GAP 就是第 14 行的 ft）。
+| 缺什么 | 记多少 GAP | 后果 |
+|---|---|---|
+| 暂存目录 `$EXT` 本身不存在 | **一条** section 级 GAP（`D/*: no APG_EXTERNAL_BIN at …`） | 逐组件断言**全部不跑** |
+| `$EXT` 在、但某个组件的二进制缺 | 该组件**一条** GAP，其余照跑 | 每组件是独立子块，互相不牵连 |
+
+所以准确说法是「**目录在、单件缺** → 一件一条 GAP」，而不是「缺几件就报几条」。两种形态都**不会静默跳过**，这正是「断言退化为 SKIP 必须看得见」的要求（§13.16.5）。本节初稿曾把两种形态写成一句，是过度概括，已按源码改正。
+
+**两次实测**（不是推理）：
+
+| 运行 | 结果 | 说明 |
+|---|---|---|
+| `sh scripts/test-release.sh`（暂存件在） | exit 0，`== writers result: 65 passed, 0 failed, 1 gaps ==` | 那 1 条 GAP 就是第 14 行的 ft |
+| `APG_EXTERNAL_BIN=/tmp/apg-nonexistent-dir sh scripts/test-interop-writers.sh` | exit 0，`== writers result: 39 passed, 0 failed, 1 gaps ==` | A/B/C 的 39 条照跑，D 只留 1 条 section 级 GAP |
 
 ### 13.18.3 第 15 行：暂存副本保留（已裁定）
 
-口径是「副本留着等系统自己删吧」。因此 `.agent-scratch/external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`.agent-scratch/external-test/repos/`、`/tmp/apg-external-sandbox/` 与 `/tmp/apg-ft-build/` **都不点名清理**：`/tmp` 下的交给操作系统按自己的策略回收，仓内 `.agent-scratch/` 的保持原样以便复核。获取与校验流程已脚本化（`probe-releases.py` / `install-components.py` / `minisign_verify.py` / `sandbox-run.sh`），真删了也能再生。
+口径是「副本留着等系统自己删吧」。因此 `.agent-scratch/external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`.agent-scratch/external-test/repos/`（39 个 checkout）、`/tmp/apg-external-sandbox/` 与 `/tmp/apg-ft-build/` **都不点名清理**。获取与校验流程已脚本化（`probe-releases.py` / `install-components.py` / `minisign_verify.py` / `sandbox-run.sh`），真删了也能再生。
 
-代价照旧记账：这些目录一旦被系统清掉，section D 的相应断言就会变成 GAP（见 §13.16.5 与第 13 行）。这是被接受的取舍，不是遗漏。
+**一个必须说清的区别**（否则「等系统自己删」会被误读成两处都会自动消失）：
+
+| 位置 | 会不会被自动回收 | 因此 |
+|---|---|---|
+| `/tmp/apg-external-sandbox/`、`/tmp/apg-ft-build/` | **会**——本机有清理规则 `/usr/lib/tmpfiles.d/tmp.conf:11` = `D /tmp 1777 root root 30d`，即 `systemd-tmpfiles` 定期清掉**30 天未被访问/修改**的内容 | 不需要任何后续动作（约 30 天无活动后自然消失） |
+| `.agent-scratch/`（仓内、已 gitignore） | **不会**——它在工作区里，不在 `/tmp`，没有任何机制会动它 | 保留是**无限期**的；将来若要清，仍是一次显式的点名删除（并入第 12 行） |
+
+代价照旧记账：这些目录一旦消失，section D 的相应断言就会变成 GAP（见 §13.16.5 与第 13 行）。这是被接受的取舍，不是遗漏。
 
 ### 13.18.4 第 14 行：ft 换构建（进行中）
 
@@ -1688,4 +1717,26 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 
 源码侧已确认的事实（供实测对照，仍属 scan 而非 observed）：marker 常量 `<!-- frankenterm:start -->` / `<!-- frankenterm:end -->`；`codex`/`gemini`/`cline`/`windsurf`/`opencode` → `AGENTS.md`，`claude` → `CLAUDE.md`，`cursor` → `.cursorrules`，`aider` → `CONVENTIONS.md`，`github_copilot` → `.github/copilot-instructions.md`；备份族前缀 `.ft-agent-config-`、后缀 `.backup`，并带 claim/ack 事务协议；`--scope` 默认 `Project`；`--agent` 省略时解析为**全部** inventory slug。
 
-**构建的资源教训（值得留在仓内）**：首次用 `-j 16` 跑，把 23 GB 内存吃到只剩 1 GB 可用、swap 被吃掉 5–7 GB、两个 rustc 各占 7.7 GB（load 17.3），而本机还常驻其他 agent。改为 `-j 1` + `nice -n 19` + 内存看门狗（`MemAvailable < 4 GB` 即中止）后，可用内存稳定在 ~17 GB。另记一条：**cargo 被中断后下一轮会从头重编**（两次中断都观察到了），所以限流构建不能靠反复打断来"省资源"。
+**构建的资源教训（值得留在仓内）**：这不是"加个 `-j` 就行"的问题，四轮才收敛。
+
+| 轮次 | 配置 | 观测 | 结论 |
+|---|---|---|---|
+| 1 | `-j 16` | 23 GB 内存只剩 1 GB 可用，swap 吃掉 5–7 GB，两个 rustc 各 7.7 GB，load 17.3 | 直接威胁同机其他 agent，**不可接受** |
+| 2 | `-j 1` + `nice -n 19` | 单 rustc（`asupersync`）仍爬到 **6.5 GB 且还在涨**，可用内存每 20 秒掉约 200 MB | 并行度不是唯一变量 |
+| 3 | 同上 + `OPENSSL_NO_VENDOR=1` | 不再从源码编 OpenSSL（原本在跑 `make build_libs`） | 去掉一整块纯构建开销 |
+| 4 | 再 + `CARGO_PROFILE_DEV_DEBUG=0` + `RUSTFLAGS=-Zthreads=1` | 同一个 `asupersync` 降到 **4.05 GB**，可用内存稳定在 13–18 GB | **收敛配置** |
+
+真正吃内存的是 **codegen 并行度与调试信息**，不是 `-j` 本身——dev profile 默认带完整 DWARF，而我们要的只是一个能跑的二进制，调试信息是纯浪费。另外两条：`nice -n 19` + 内存看门狗（`MemAvailable` 低于阈值即中止）把"应该会轻一点"变成**强制上限**；以及 **cargo 被中断后下一轮会从头重编**（三次中断都观察到了，本轮的 `Compiling` 计数每次都从 0 重新开始），所以限流构建不能靠反复打断来"省资源"——打断反而是最费资源的操作。
+
+### 13.18.5 顺带做的 runner 完整性审计（结论：无缺陷）
+
+等编译时做的一次只读审计，回答「仓里还有没有第二个 `test-genericity.mjs`」（即**已写好、文档也说要跑、但没有任何 runner 调用**的测试）。这个问题在 3.0.10 才第一次被问，当时抓出一个摆设了三个版本的门。
+
+| 检查 | 方法 | 结果 |
+|---|---|---|
+| 有没有孤儿门禁 | `ls scripts/test-*` 与 `test-release.sh` 里实际调用的脚本做集合差 | **0 个孤儿**（差集里只剩 `test-release.sh` 自己，那是 runner 不是门禁） |
+| 会不会引用了不存在的门禁 | 把 runner 里出现的每个文件名逐个 `test -f` | **12/12 全部存在** |
+| 有没有绕过 `test-release.sh` 的第二个入口 | 查 `.github/`、`Makefile`、`package.json`、`.gitlab-ci.yml`、`justfile`、`Taskfile.yml` | **一个都没有**（本仓无 CI 配置） |
+| runner 里除 `test-*` 之外还调了什么 | 枚举 `node|sh|bash|./|python3` 开头的行 | `scripts/validate-routing.mjs`、`apg catalog check`、`apg project validate`、`apg release verify-source`、两个内联 `node -e` 探针、以及可选的真实 pilot（`APG_RUN_REAL_PILOTS=1` 才跑） |
+
+也就是说：**`scripts/test-release.sh` 是唯一入口，且它引用的东西全部存在**。这条不是新发现，是把「runner 是否完整」从"看着像完整"变成"逐项验过"。
