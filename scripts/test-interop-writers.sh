@@ -37,7 +37,13 @@
 #
 # Environment:
 #   APG_EXTERNAL_REPOS   default .agent-scratch/external-test/repos
+#   APG_EXTERNAL_BIN     default .agent-scratch/external-test/bin (staged components)
 #   APG_INTEROP_WORK     default .agent-scratch/external-test/writers
+#   APG_FT_SOURCE_BIN    optional path to a FrankenTerm built from source. Upstream's
+#                        only linux/amd64 asset is built without the agent-detection
+#                        feature, so its AGENTS.md writer is unreachable in every
+#                        released artifact; without this variable ft contributes a
+#                        GAP and its writer is never exercised.
 
 set -uo pipefail
 
@@ -464,9 +470,127 @@ else
     note_gap "D/sbh: released binary absent"
   fi
 
-  # --- ft: the released build cannot write agent config at all -------------
+  # --- ft: only a SOURCE build can reach the writer ------------------------
+  # Upstream publishes exactly one linux/amd64 asset (v0.15.1) and it is built
+  # with the `agent-detection` cargo feature OFF, so `robot agents configure`
+  # answers robot.feature_not_available: the root-file writer exists in the
+  # source and is unreachable in every artifact upstream ships. The assertions
+  # below therefore need a source build, supplied through APG_FT_SOURCE_BIN, and
+  # the results are source-code evidence, not released-binary evidence.
+  FTSRC="${APG_FT_SOURCE_BIN:-}"
   FT="$EXT/ft-0.15.1/ft"
-  if [ -x "$FT" ]; then
+  if [ -n "$FTSRC" ] && [ -x "$FTSRC" ]; then
+    FTD="$WORK/d/ft"
+    # `configure --agent codex` refuses a slug it does not consider detected, and
+    # detection is a plain `root.exists()` probe on $HOME/.codex/sessions (or
+    # $CODEX_HOME/sessions). Seeding that empty directory is what makes the
+    # writer reachable at all; without it ft exits with robot.invalid_args.
+    mkdir -p "$FTD/cwd" "$FTD/home" "$FTD/tmp" "$FTD/home/.codex/sessions"; seed_depths "$FTD/cwd"
+    # Snapshot with `/` flattened: a per-depth directory tree would collide with
+    # its own parent (`seed/a` as a file vs `seed/a` as a directory), silently
+    # leaving later depths unsnapshotted and every comparison against them wrong.
+    for x in a a/b a/b/c a/b/c/d; do
+      cp "$FTD/cwd/$x/AGENTS.md" "$FTD/seed-$(printf '%s' "$x" | tr / -)"
+    done
+    cp "$FTD/cwd/AGENTS.md" "$FTD/agents.before"
+    ft_run() { # <tag> <args...>  in $FTD/cwd, HOME redirected, network wrapped if $NET
+      local tag="$1"; shift
+      ( cd "$FTD/cwd" && HOME="$FTD/home" TMPDIR="$FTD/tmp" \
+        $NET timeout 180 "$FTSRC" "$@" ) >"$FTD/$tag.log" 2>&1
+    }
+    note_warn "D/ft: asserting against a SOURCE build ($("$FTSRC" --version 2>/dev/null | head -1)), not a released artifact"
+    ft_run append robot agents configure --agent codex
+    check "D/ft configure --agent codex exits 0" "$?" "0"
+    if has "$FTD/append.log" '"action": "append"'; then
+      ok "D/ft reports action=append on a root file with no FrankenTerm region"
+    else
+      no "D/ft did not report action=append; its plan model changed"
+    fi
+    before_n="$(wc -c < "$FTD/agents.before")"
+    after_n="$(wc -c < "$FTD/cwd/AGENTS.md" 2>/dev/null || echo 0)"
+    ft_wrote=0
+    if [ "$after_n" -gt "$before_n" ] && cmp -s -n "$before_n" "$FTD/agents.before" "$FTD/cwd/AGENTS.md"; then
+      ft_wrote=1
+      ok "D/ft is a pure append: all $before_n pre-existing bytes survive as an exact prefix"
+    else
+      no "D/ft did not preserve the pre-existing bytes as a prefix (before=$before_n, after=$after_n)"
+    fi
+    ft_off="$(grep -bo 'frankenterm:start' "$FTD/cwd/AGENTS.md" | head -1 | cut -d: -f1)"
+    apg_off="$(grep -bo 'agent-project-guides:v2:end' "$FTD/cwd/AGENTS.md" | head -1 | cut -d: -f1)"
+    if [ -n "$ft_off" ] && [ -n "$apg_off" ] && [ "$ft_off" -gt "$apg_off" ]; then
+      ok "D/ft's region lands below APG's (APG ends at byte $apg_off, ft starts at $ft_off)"
+    else
+      no "D/ft's region does not land below APG's (APG end='$apg_off', ft start='$ft_off')"
+    fi
+    # The next three assertions are all "the file did NOT change" claims. Each one
+    # is trivially true if ft wrote nothing at all, so each is gated on $ft_wrote:
+    # a binary that silently does nothing must not read as three quiet successes.
+    drifted=0
+    for x in a a/b a/b/c a/b/c/d; do
+      cmp -s "$FTD/cwd/$x/AGENTS.md" "$FTD/seed-$(printf '%s' "$x" | tr / -)" || drifted=$((drifted + 1))
+    done
+    if [ "$ft_wrote" -ne 1 ]; then
+      no "D/ft recursion probe is vacuous: the first configure never wrote the root file"
+    elif [ ! -f "$FTD/seed-a" ] || [ ! -f "$FTD/seed-a-b-c-d" ]; then
+      no "D/ft recursion probe is vacuous: its snapshots were not written"
+    else
+      check "D/ft default scope rewrites only ./AGENTS.md, not the 4 identical copies below it" "$drifted" "0"
+    fi
+    cp "$FTD/cwd/AGENTS.md" "$FTD/agents.after1"
+    ft_run again robot agents configure --agent codex
+    if [ "$ft_wrote" -ne 1 ]; then
+      no "D/ft idempotence probe is vacuous: there was no first write to repeat"
+    elif cmp -s "$FTD/agents.after1" "$FTD/cwd/AGENTS.md"; then
+      ok "D/ft is idempotent: a second configure in the same project is byte-identical"
+    else
+      no "D/ft's second configure changed the root file again"
+    fi
+    check "D/ft leaves exactly one frankenterm:start region after two runs" \
+          "$(grep -c 'frankenterm:start' "$FTD/cwd/AGENTS.md")" "1"
+    arts="$(find "$FTD/cwd" -maxdepth 1 -name '.ft-agent-config-*' | wc -l)"
+    if [ "$arts" -ge 4 ]; then
+      ok "D/ft leaves $arts transaction artifacts in the project root (APG must ignore them)"
+    else
+      note_gap "D/ft left only $arts transaction artifacts; its claim/ack protocol may have changed"
+    fi
+    if [ -e "$FTD/cwd/.ft-atomic-transition.lock" ] || [ -d "$FTD/cwd/.ft" ]; then
+      note_warn "D/ft also leaves .ft/ (crash, diag, logs) and an empty .ft-atomic-transition.lock in the project root"
+    fi
+    # Replace-in-place: the path that matters for APG, whose region sits beside it.
+    FTR="$WORK/d/ft-replace"
+    mkdir -p "$FTR/cwd" "$FTR/home" "$FTR/tmp" "$FTR/home/.codex/sessions"; seed_root "$FTR/cwd"
+    printf '\n<!-- frankenterm:start -->\nSTALE FRANKENTERN SECTION\n<!-- frankenterm:end -->\n' >> "$FTR/cwd/AGENTS.md"
+    cp "$FTR/cwd/AGENTS.md" "$FTR/agents.before"
+    ( cd "$FTR/cwd" && HOME="$FTR/home" TMPDIR="$FTR/tmp" \
+      $NET timeout 180 "$FTSRC" robot agents configure --agent codex ) >"$FTR/replace.log" 2>&1
+    check "D/ft configure over a pre-existing stale region exits 0" "$?" "0"
+    if has "$FTR/replace.log" '"action": "replace"'; then
+      ok "D/ft reports action=replace when its own region already exists"
+    else
+      no "D/ft did not report action=replace; the in-place path changed"
+    fi
+    if has "$FTR/cwd/AGENTS.md" 'STALE FRANKENTERN SECTION'; then
+      replaced=0
+      no "D/ft left the stale region text in place"
+    else
+      replaced=1
+      ok "D/ft replaced the stale region text in place"
+    fi
+    # Guard against the vacuous version of this comparison: two absent or
+    # region-less files both hash to the empty string and would "pass", and a
+    # rewrite that never happened leaves the region identical for free.
+    apg_before="$(sed -n '/agent-project-guides:v2:start/,/agent-project-guides:v2:end/p' "$FTR/agents.before")"
+    apg_after="$(sed -n '/agent-project-guides:v2:start/,/agent-project-guides:v2:end/p' "$FTR/cwd/AGENTS.md")"
+    if [ -z "$apg_before" ]; then
+      no "D/ft replace probe seeded no APG region, so the rewrite comparison is vacuous"
+    elif [ "$replaced" -ne 1 ]; then
+      no "D/ft's region-identity check is vacuous: no in-place rewrite happened to compare"
+    else
+      check "D/ft's in-place rewrite leaves APG's region byte-identical" \
+            "$(printf '%s' "$apg_after" | sha256sum | cut -d' ' -f1)" \
+            "$(printf '%s' "$apg_before" | sha256sum | cut -d' ' -f1)"
+    fi
+  elif [ -x "$FT" ]; then
     mkdir -p "$WORK/d/ft/cwd"; seed_root "$WORK/d/ft/cwd"
     cp "$WORK/d/ft/cwd/AGENTS.md" "$WORK/d/ft/agents.before"
     ext_run ft "$FT" robot agents configure --workspace .
@@ -478,7 +602,7 @@ else
       ok "D/ft released binary did write agent config"
     fi
   else
-    note_gap "D/ft: released binary absent"
+    note_gap "D/ft: no source build (set APG_FT_SOURCE_BIN) and no released binary staged"
   fi
 fi
 

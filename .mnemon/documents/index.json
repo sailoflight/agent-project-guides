@@ -433,6 +433,31 @@
       "contentHash": "dc2437ef9266814a98c7aec501fd70d78d8a30c0517960b70e412ab7977ad922",
       "sizeBytes": 8646,
       "memoryBodyIds": []
+    },
+    {
+      "id": "e25445ac-90b1-4ed4-b17f-5b7f073fcf24",
+      "title": "外部组件实测的宿主实务：无特权沙箱失效判别与低占用源码构建（APG 3.0.10）",
+      "description": "APG 3.0.10 外部组件实测时撞到的宿主侧实务：无特权 unshare 沙箱失效的四步判别表与误诊陷阱（unshare -U 成功但 unshare -r 因 EACCES 写 /proc/self/uid_map 失败 ⇒ 根因是文件沙箱而非内核禁用 userns）、隔离降级必须显式报告（section D 新增 WARN 与 isolation 行，计数格式不变）、以及从源码构建外部组件的低占用收敛配置（-j1 + nice + OPENSSL_NO_VENDOR + debug=0 + 内存看门狗）与「中断即全量重编」的教训。补充而非取代既有外部组件校验规程文档的 §5。",
+      "status": "active",
+      "filename": "apg-3-0-10-e25445ac.md",
+      "relativePath": "documents/active/apg-3-0-10-e25445ac.md",
+      "sourcePaths": [
+        "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
+        "decisions/0006-root-instruction-block-ownership.md",
+        "scripts/test-interop-writers.sh",
+        "scripts/test-release.sh",
+        "CHANGELOG.md"
+      ],
+      "sessionIds": [
+        "44f32f1c-5fcf-44fb-b4f4-78f64affb527"
+      ],
+      "createdAt": "2026-09-20T04:53:59.370Z",
+      "updatedAt": "2026-09-20T04:53:59.370Z",
+      "lastAccessedAt": "2026-09-20T04:53:59.370Z",
+      "revision": 1,
+      "contentHash": "ec80d7a57e7c2eb50deb73957e3a839e21260a55b5daa43be5e2018f4fdde3e0",
+      "sizeBytes": 7239,
+      "memoryBodyIds": []
     }
   ]
 }

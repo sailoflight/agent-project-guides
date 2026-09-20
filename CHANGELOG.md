@@ -59,7 +59,7 @@ over-refusing.**
   result: `bv`'s **shipped** binary emits `bv-agent-instructions-v6` while its
   source at HEAD declares `v7`, and `slb` writes `.cursorrules`, not `AGENTS.md`.
   `frankenterm`'s released v0.15.1 was built without the agent-config feature at
-  all, so that row is now marked unmeasured. `scripts/test-interop-writers.sh`
+  all, so that row could not be exercised from the artifact. `scripts/test-interop-writers.sh`
   gained section D asserting the observed facts against those binaries. Section D
   is driven by default - it falls back to `.agent-scratch/external-test/bin` when
   `APG_EXTERNAL_BIN` is unset. Inside it each component is an independent
@@ -92,6 +92,35 @@ over-refusing.**
   `/proc/self/uid_map` when a file sandbox restricts writes outside the worktree
   - the user namespace is permitted, the identity mapping is not. Assertions and
   counts are unchanged.
+- Repository-side (not distributed): the census's last unmeasured row is now
+  measured, from source. `frankenterm` publishes exactly one linux/amd64 asset
+  (v0.15.1) and it is built with the `agent-detection` cargo feature off, so every
+  released binary answers `robot.feature_not_available` and its root-file writer is
+  unreachable; no second build variant exists. Building `0.15.6-rc.40` from source
+  made the writer observable, and it turned out to be the mildest writer in the
+  census: with the default `--scope project` it rewrites only `./AGENTS.md` (four
+  byte-identical copies at depth 1-4 are untouched, so it does **not** recurse),
+  it **appends** rather than rewrites - every pre-existing byte survives as an
+  exact prefix and its region lands *below* APG's - a stale region of its own is
+  replaced in place with APG's region left byte-identical, and a repeat run is a
+  byte-level no-op that never produces a second marker pair. What it does leave
+  behind is **six** root entries per run: `.backup`, `.candidate`, `.claim.json`,
+  `.ack.json`, an empty `.ft-atomic-transition.lock`, and a `.ft/` directory.
+  `scripts/test-interop-writers.sh` now drives ft from `APG_FT_SOURCE_BIN` and adds
+  12 assertions there (77 passed, 0 failed, 0 gaps with the build supplied). The
+  default run, which has only the released binary, stays at the previously cited
+  **65 passed, 0 failed, 1 gap**, and the row is labelled source-built-RC evidence
+  rather than released-artifact evidence.
+- Repository-side (not distributed): three vacuous assertions were caught in that
+  harness before they shipped, and the fix is the point rather than the bug. Each
+  was a "the file did not change" claim that a binary doing nothing at all would
+  satisfy - a superset test, an idempotence check, and a region-preservation
+  comparison - and one of them hashed a `sed` extraction from a file that did not
+  exist, so two empty strings compared equal. They are now gated on the write
+  actually having happened, and `APG_FT_SOURCE_BIN=/bin/true` is kept as an
+  executable negative control that must produce 9 failures. A silently no-op
+  implementation or a feature that was never compiled in is the common case, not a
+  corner case.
 
 ## 3.0.9
 

@@ -1524,7 +1524,7 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 | 11 | 消费者仓是否升到 3.0.10 | 12 个真实消费者仓仍是 schema 2 / 固定 3.0.7，全部 `state: ready`（§13.13.1） | 是否发布（**按既有纪律，消费者仓的治理更新不自动 commit/push**） | 未触碰任何消费者仓 |
 | 12 | `.agent-scratch/` 外部试验区的去留 | `.agent-scratch/external-test/repos`（39 checkout，约 2.9 G）+ `external-verify`（普查原始证据，含 SHA256SUMS）已有生命周期标注（§13.13.8） | 是否点名删除（我保留原始证据以便复核） | 未删 |
 | 13 | 新 harness 的**长期证据**怎么保住 | `scripts/test-interop-writers.sh` 的输入是 gitignored 的 39 个 checkout，缺失时**干净 SKIP** ⇒ scratch 一删它就静默不跑了（§13.16.5） | 是否固定**最小子集**（`ultimate_bug_scanner` + `agentic_coding_flywheel_setup` + 已有 `br` 二进制）的获取方式：提交"从哪来/什么版本/sha256"清单，**不提交组件字节**（NOASSERTION 红线） | 未固定；harness 只写明了预期路径与 SKIP 行为 |
-| 14 | `frankenterm` 这一行是否值得换成"可观测" | 发布的 v0.15.1 根本没编进 agent 检测功能（二进制内 `ft-agent-config-`/`frankenterm:start` 出现 0 次，`robot agents configure` 返回 `feature_not_available`）；要测只能换构建（§13.17.3） | 是否批准装 Rust 工具链 + 大幅构建去测这一行；不批就让它**永久保持"未观测"标注** | 未构建；ADR 里已标成"未观测行，不得当作已测负例" |
+| 14 | `frankenterm` 这一行是否值得换成"可观测" | 发布的 v0.15.1 根本没编进 agent 检测功能（二进制内 `ft-agent-config-`/`frankenterm:start` 出现 0 次，`robot agents configure` 返回 `feature_not_available`）；要测只能换构建（§13.17.3） | 是否批准装 Rust 工具链 + 大幅构建去测这一行；不批就让它**永久保持"未观测"标注** | 未构建；ADR 里已标成"未观测行，不得当作已测负例" → **已裁定：构建**；源构建 `0.15.6-rc.40` 已实测完成，ADR 该行升级为「源构建 RC 证据」（§13.18.4 / §13.18.8） |
 | 15 | 沙箱证据与 287.5 MiB 发布件归档的去留 | `external-test/bin/`（9 件归档 + 解包件 + `install-manifest.json`）、`/tmp/apg-external-sandbox/`（暂存二进制 + 运行窗口）。scratch 一删，section D 就只剩一条 GAP（§13.17.5） | 与 #13 是同一问题的两面：固定"从哪来/版本/sha256"清单，还是接受这些断言退化为 SKIP；以及是否点名清理 | 未清；获取与校验流程已脚本化（重跑即可再生） → **已裁定：保留**，交给系统清理（§13.18.3） |
 | 16 | `APG_EXTERNAL_BIN` 是否纳入 `test-release.sh` 默认 | 现在默认**不带**，`test-release.sh` 保持无网、无大件也能跑；真实二进制断言要显式给环境变量（§13.17.4） | 是否让默认 runner 也驱动真实二进制（会让 CI 依赖 287.5 MiB 本地件） | 未改默认；section D 缺输入时只报 1 条 GAP → **已改：默认即驱动**；并更正为「每缺一件记一条 GAP」（§13.18.2） |
 | 17 | 被 git 跟踪的 `.mnemon/documents/index.json` 每次**读取**都会改（`lastAccessedAt`） | 本轮只是读了一次托管文档，`git status` 就多出一份纯时间戳 diff（内容 hash 与 `revision` 都没变）。每读一次脏一次，是台 treadmill | 二选一：把 `lastAccessedAt` 从跟踪面里去掉（改 `.gitignore` 或让工具别写它），或接受每次读完要提交一次纯时间戳 diff | 本轮按第二选项提交了（否则树不干净），但**没有改跟踪策略**——那是契约变更 → **已修**：`.gitattributes` + 每 clone opt-in 的 clean filter（§13.18.1） |
@@ -1703,7 +1703,7 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 
 代价照旧记账：这些目录一旦消失，section D 的相应断言就会变成 GAP（见 §13.16.5 与第 13 行）。这是被接受的取舍，不是遗漏。
 
-### 13.18.4 第 14 行：ft 换构建（进行中）
+### 13.18.4 第 14 行：ft 换构建（构建已完成；实测结论见 §13.18.8）
 
 预编译件路线对 ft **确认无效**，证据如下表。因此这一行只能从源码构建，构建与实测进度在本小节续写。
 
@@ -1724,11 +1724,13 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 | 1 | `-j 16` | 23 GB 内存只剩 1 GB 可用，swap 吃掉 5–7 GB，两个 rustc 各 7.7 GB，load 17.3 | 直接威胁同机其他 agent，**不可接受** |
 | 2 | `-j 1` + `nice -n 19` | 单 rustc（`asupersync`）仍爬到 **6.5 GB 且还在涨**，可用内存每 20 秒掉约 200 MB | 并行度不是唯一变量 |
 | 3 | 同上 + `OPENSSL_NO_VENDOR=1` | 不再从源码编 OpenSSL（原本在跑 `make build_libs`） | 去掉一整块纯构建开销 |
-| 4 | 再 + `CARGO_PROFILE_DEV_DEBUG=0` + `RUSTFLAGS=-Zthreads=1` | 同一个 `asupersync` 的**中途快照**读到 4.05 GB，随后**同一进程实测涨到 7.42 GB** | 方向对，但幅度远小于中途快照给人的印象 |
+| 4 | 再 + `CARGO_PROFILE_DEV_DEBUG=0` + `RUSTFLAGS=-Zthreads=1` | 中途快照读到 4.05 GB，随后同一进程涨到 7.42 GB；**全程峰值采样（每 10 秒）最终给出真实高水位**：单个 rustc **13,551,040 KB ≈ 12.9 GiB**，`MemAvailable` 最低 **4,619 MB** | 方向对，但**远不足以单独保证安全**——真正兜住的是看门狗 |
 
-> **一条自己的教训（必须留）**：我在本节初稿里写「降到 4.05 GB，可用内存稳定在 13–18 GB」，依据是**一次 `ps` 快照**。几分钟后同一个 rustc 就涨到 7.42 GB，那句话被自己的后续观测推翻。**单次快照不能支撑「降到 X」这类结论**——已改成峰值采样器（每 10 秒记录 rustc RSS 高水位与 `MemAvailable` 低水位），本节最终数字以采样器的高水位为准，不再用瞬时读数。
+**最终验收（本轮构建的实测收尾）**：`Finished \`dev\` profile [unoptimized] target(s) in 28m 10s`；产物 `/tmp/apg-ft-build/target/debug/ft` = **307,854,936 B (293.6 MiB)**；看门狗阈值 3500 MB **未触发**，但最低可用内存只到 **4,619 MB**，距闸门 **1.1 GB**。也就是说：这轮"低占用配置"把并发压到了 1 个 rustc，可**单个 rustc 的峰值仍有 ~12.9 GiB**（dev profile 默认 `codegen-units=256`，`-Zthreads=1` 只压前端并行度，不压 codegen）。结论要写准：**限流降低了同时占用，但没有降低单进程峰值；安全边际来自看门狗，不是来自参数**。
 
-真正吃内存的是 **codegen 与调试信息**，不是 `-j` 本身——dev profile 默认带完整 DWARF，而我们要的只是一个能跑的二进制，调试信息是纯浪费。另外两条：`nice -n 19` + 内存看门狗（`MemAvailable` 低于阈值即中止）把"应该会轻一点"变成**强制上限**；以及 **cargo 被中断后下一轮会从头重编**（三次中断都观察到了，本轮的 `Compiling` 计数每次都从 0 重新开始），所以限流构建不能靠反复打断来"省资源"——打断反而是最费资源的操作。
+> **一条自己的教训（必须留）**：我在本节初稿里写「降到 4.05 GB，可用内存稳定在 13–18 GB」，依据是**一次 `ps` 快照**。几分钟后同一个 rustc 就涨到 7.42 GB，那句话被自己的后续观测推翻；最终峰值（12.9 GiB）比我最初写的高出三倍。**单次快照不能支撑「降到 X」这类结论**。附带一个自己的小 bug 也该记：采样器把 `ps` 的 RSS（单位 KB）当 MB 打印，于是输出成 `13551040 MB (13233.44 GB)`——数字本身是真的，**单位是错的**（正确读数是 13,551,040 KB）。凡是用 `ps` 采样，先确认单位。
+
+吃内存的主要是 **codegen 与调试信息**，而不是 `-j` 本身——但要注意两者的作用点不同：`-j 1` 管的是**同时有几个 rustc**，`CARGO_PROFILE_DEV_DEBUG=0` 与 `-Zthreads=1` 管的是**单个 rustc 内部**。实测下来前者效果确定（峰值从"两个 7.7 GB 并存"变成"一个最高 12.9 GiB"），后者的效果没有我最初以为的那么大（同一个 crate 从 6.5 GB 只压到 7.4 GB 量级，随后其他 crate 还是冲到 12.9 GiB）。**dev profile 默认 `codegen-units=256` 才是单进程峰值的主要来源**，这一轮没有去动它，留给下次。另外两条：`nice -n 19` + 内存看门狗（`MemAvailable` 低于阈值即中止）把"应该会轻一点"变成**强制上限**；以及 **cargo 被中断后下一轮会从头重编**（三次中断都观察到了，本轮的 `Compiling` 计数每次都从 0 重新开始），所以限流构建不能靠反复打断来"省资源"——打断反而是最费资源的操作。
 
 ### 13.18.5 顺带做的 runner 完整性审计（结论：无缺陷）
 
@@ -1780,3 +1782,47 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 **为什么是 WARN 而不是 GAP**：断言全部跑到了，只是条件更弱；`GAP` 语义是"这条断言做不了"。两者都不该静默，但不是一个东西。
 
 **两条分支都验过**（不用申请权限就能验）：真环境下跑 → 出现 `WARN`，收尾显示 `NOT network-isolated`；把一个**空操作 `unshare`** 放进 PATH 再跑 → 无 `WARN`，收尾显示 `network-isolated`。两次都是 `65 passed, 0 failed, 1 gaps`。
+
+### 13.18.8 第 14 行收尾：ft 实测完成，并修掉三处**空洞 PASS**
+
+源构建（`ft 0.15.6-rc.40 (31f255d…)`）拿到后补跑 13 个探针，结论如下。**所有数字都来自实跑**，且明确标为"源构建 RC 证据"，不是"发布件证据"——发布件根本执行不了这个写入。
+
+| 观测项 | 结果 |
+|---|---|
+| 默认作用域 | `--scope project` 只重写 `./AGENTS.md`；摆在 `a/`、`a/b/`、`a/b/c/`、`a/b/c/d/` 的**四个字节相同的副本一个都没动** |
+| 写入方式 | `action: append`，**纯追加**：既有 2094 B 全部作为精确前缀存活（`cmp -n` 比对） |
+| 区块相对位置 | APG 区块 0–2031 B，ft 区块起于 **2100 B**——在 APG **下方** |
+| replace 路径 | 预置过期 `frankenterm:start` 区块 → `action: replace`，过期文本清零，**APG 区块逐字节不变**（哈希比对） |
+| 幂等 | 同一目录连跑两次：第 1 次改、第 2 次**逐字节不变**；两轮后 `frankenterm:start` 恰好 **1** 个、`end` 恰好 1 个 |
+| 探测门槛 | `configure --agent codex` 需要 `$HOME/.codex/sessions` 存在，否则 `robot.invalid_args`（"not currently detected"）；探测本身只是 `root.exists()` |
+| 根目录残留 | **6 项**：`.ft-agent-config-<32hex>.{backup,candidate,claim.json,ack.json}` + 空 `.ft-atomic-transition.lock` + `.ft/`（内含空 `crash/ diag/ logs/`）。只有 `.backup` 算恢复点 |
+
+**一条旧认知要更正**：我此前按源码里的显式文件清单推断 ft 可能像 `am` 一样递归；实测是**不递归**，默认只碰项目根那一个文件。这正是"scan 不等于 observed"的又一例。
+
+**安全性收尾（这一轮最要紧的一条）**：ft 每次启动都会把 4 个内置 `.ttf` 装进 `$HOME/.local/share/fonts` 并跑 `fc-cache -f`。13 个探针全在影子 home 下运行，收尾核对 **真 `/home/lijq/.local/share/fonts` 是空的**——字体与缓存全部落在沙箱内。escape 计数每轮 9 条，逐条核对后全部是环境噪声（`.dsh/sessions`、`.vscode-server/data/logs`），没有一条属于 ft。**但对照窗口并不能独立证明这一点**：某轮里 `agent-project-guides/plans/…` 也出现在 escape 列表里，那是**我自己在探针运行期间编辑计划文件**。对照窗口只能提示"有新写入"，归属仍需人知道自己在干什么——这条限制必须如实写，不能报成"干净"。
+
+**门禁落地**：`scripts/test-interop-writers.sh` 的 ft 段重写为三段式——
+1. `APG_FT_SOURCE_BIN` 指向源构建时，跑 **12 条**断言（append / 纯前缀 / 区块相对位置 / 不递归 / 幂等 / 单区块 / 4 个事务件 / replace 三连 / APG 区块哈希）；
+2. 只暂存了发布件时，维持原来的 `feature_not_available` **GAP**；
+3. 两者都没有时，GAP 文案改成"请设 `APG_FT_SOURCE_BIN`"。
+
+三态各跑一次，全部符合预期：
+
+| 运行 | 结果 |
+|---|---|
+| `APG_FT_SOURCE_BIN=<源构建>` | **77 passed, 0 failed, 0 gaps**（65 + 新增 12 条，原 ft GAP 消失），exit 0 |
+| 不设该变量（默认） | **65 passed, 0 failed, 1 gaps**，exit 0 —— 数字与已引用过的完全一致 |
+| `APG_FT_SOURCE_BIN=/bin/true`（负控制） | **9 FAIL**，exit 1 —— 证明这些断言会咬人，不是摆设 |
+
+**为什么专门跑第 3 行**：改这一轮时我自己连续造出**三处空洞 PASS**，都是"断言在什么都没发生的情况下也会通过"：
+
+| 空洞 PASS | 怎么被发现的 | 修法 |
+|---|---|---|
+| 我用 `mkdir -p "$FTD/home" …` 却漏了 `"$FTD/cwd"`，于是 `seed_root` 的 `cp` 目标目录不存在直接失败；ft 于是 `action: create` 新建文件，而我那条"区块位置"断言读到 `APG end=''` 才算暴露 | 断言真的 FAIL 了 | 补 `mkdir -p "$FTD/cwd"` |
+| 同一个漏目录让 `sed` 在**不存在的文件**上取 APG 区块，前后两次都取到空串，于是"APG 区块逐字节不变"**通过** | 顺着上一条查文件才发现 `agents.before` 根本不存在 | 先要求 `agents.before` 里真能取到区块，取不到就判 FAIL 并说明"这条比对是空洞的" |
+| 深递归快照把 `seed/a` 先写成**文件**、再想把它当**目录**用（`seed/a/b`），后三级快照静默没生成，"不递归"断言于是拿三个不存在的路径去比 | 计数是 `got '3', want '0'` 而不是 `0`——**数字不对才露出来** | 快照名改用扁平化（`seed-a`、`seed-a-b`…），并要求快照确实存在，否则判 FAIL |
+| 幂等 / 不递归 / replace 后区块不变这三条都是"文件**没有**变化"型断言，用 `/bin/true` 替换 ft 时**全部空过** | 负控制跑出来的 | 用一个 `ft_wrote` 标志把这三条绑到"第一次写入确实发生且文件确实变长"，`/bin/true` 下三条全部 FAIL |
+
+教训：**"没有变化"型断言必须绑定一个"变化确实发生过"的前置条件**，否则任何"静默什么都没干"的实现都能拿满分——而"静默什么都没干"恰好是插件、封装脚本、feature 未编入最常见的行为。这个负控制（`APG_FT_SOURCE_BIN=/bin/true`）现在是这条经验的**可执行形式**，可随时重跑。
+
+**一条顺带的交叉验证**：本条 replace 断言里用 `sed` 抽出的 APG 区块，哈希是 `sha256:101cee60678964792bf626e6fea622cb27d9f9a350284bd9f01d3e2810c6bb62`；全量门禁 `project validate` 独立报出的 `bootstrap.root_block_hash` **是同一个值**。两边算的是不同东西（一边是我手写的正则在文件里截取，一边是规范定义的"marker 包裹区块的 sha256"），值相同说明 **harness 抽到的确实是规范区块字节**，而不是我正则凑巧匹配到的一段相似文本。这类"两条独立路径给出同一常量"的巧合值得记一笔，它是免费的正确性证据。
