@@ -1,0 +1,10 @@
+# The Mnemon documents plugin rewrites `lastAccessedAt` on every index read, so
+# this tracked file went dirty after almost any session and every commit carried
+# a meaningless timestamp diff (owner-queue row 17). The clean filter rewrites
+# that field to the record's own `updatedAt` before it reaches the object store;
+# the working tree keeps the real access time the plugin needs.
+#
+# Per-clone opt-in: run `sh scripts/setup-git-filters.sh`. A clone that never
+# runs it ignores the attribute and behaves exactly as before - the filter is a
+# churn fix, not a correctness requirement.
+.mnemon/documents/index.json filter=apg-mnemon-index
