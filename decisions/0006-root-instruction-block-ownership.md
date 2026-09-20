@@ -159,6 +159,8 @@ Why the descriptor anchor is the one that matters: a hash recorded *inside* the 
 
 The `legacy` verdict still exists in `lib/block-integrity.mjs` and is still used by the routing-block path and by `reattest`'s pre-check, but it is no longer a way to pass validation with no anchor.
 
+**Checked against the real installations on this machine, not only fixtures.** Every consumer project under the developer's `code/` directory was inspected with the shipping code (`validateDescriptor` plus `inspectBootstrap` / `inspectV3Root`, called directly so nothing could write): **12 of 12 are schema 2** (`shared-runtime.pinned`, pinned release 3.0.7), each already carries `integrity.root_block_hash`, and each returns `state: ready`. So the stricter schema-1 gate cannot break an installed consumer here. The only schema-1 project on the machine is this repository itself, which reports `anchor: both`. Schema 1 is in practice the self-hosting/source-worktree and test-fixture path; a schema-1 project installed by a release up to 3.0.8 would need `project reattest`, which is what the 3.0.9 upgrade note in `CHANGELOG.md` records.
+
 Evidence (all in `scripts/test-v2.mjs`): a block tampered while keeping all three descriptor tokens fails with `bootstrap_mismatch`; deleting the integrity line fails against the descriptor anchor; deleting the descriptor anchor *and* the line fails with `bootstrap_unverifiable`; `project reattest` verifies the installed block first (so it cannot launder a hand edit), installs a stamped block, records the new hash, and is idempotent — driven from the worst case (a block with no line and a stale descriptor anchor).
 
 ### P3: implemented and measured
