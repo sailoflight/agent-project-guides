@@ -121,6 +121,23 @@ over-refusing.**
   executable negative control that must produce 9 failures. A silently no-op
   implementation or a feature that was never compiled in is the common case, not a
   corner case.
+- Repository-side (not distributed): the writer census is now fully observed, so
+  `decisions/0006` gains the table it existed for - each of the 11 writers mapped
+  to the defence that actually fires, measured rather than projected. Three tiers
+  fall out of the observations, and they are not "markers vs no markers": six
+  writers are marker-scoped and coexist by construction (`br`, `bv`, `ee`, `sbh`,
+  `frankenterm`, `am`); `ubs` appends but its recovery point is destroyed by a
+  re-run; and three rewrite the whole file (`cass`, `ntm`, `acfs`), where no
+  grammar can help and only after-the-fact detection plus P8 remain. The P8
+  recovery path stops being an inference here: the whole-file tier's only way back
+  is the sibling `<root>.agent-project-guides.bak`, and "no writer shares that
+  name" was an argument from naming. Section D now seeds that exact sibling, runs
+  the clobber, and asserts the copy is still **byte-identical** - passing for
+  `ntm setup --force` and `cass project --force` (2,094 B to 261 B, APG's region
+  gone, backup intact). `acfs` is labelled inferred rather than measured, because
+  two of three is not three of three. The census's earlier "four writers keep no
+  recovery point" is corrected to three stable, one unstable, six none, recorded
+  next to the original number rather than quietly replacing it.
 
 ## 3.0.9
 
