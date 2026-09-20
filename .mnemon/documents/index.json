@@ -161,38 +161,35 @@
     },
     {
       "id": "ef9d12e4-81a3-4c8d-acfb-3c95bdc54f3f",
-      "title": "APG × Multi-Agent 生态融合：边界裁定与 Agent Flywheel 取证（最终态）",
-      "description": "APG × Multi-Agent 生态融合的最终边界裁定：融合（正交）与 Architecture B 推荐、档位 1 认定、三套记忆分层、记忆层 token 实测、用户 11 项决策结果、两条红线与许可证/EE trust 核实结论、组织原则。权威源为已提交的报告 plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md（1,118 行，6498163）。",
+      "title": "APG × Multi-Agent 生态融合：边界裁定与 13 项 owner 裁定收口（2026-09-20）",
+      "description": "APG × 外部多智能体生态的最终边界裁定 + 主人 13 项裁定的落地终态：融合（正交）与 Architecture B 推荐、让步档位 1、三套记忆分层与锚拆分、根块每轮 token 已降至 1,117 B、11 个写入方三档覆盖、新增 P6 观测账本、13 项逐项 commit 落地点，以及\"main ≠ 标签 v3.0.10，下次发布必须先升版本号\"和两封待处理建议信。取代早期 11 项 / 6498163 快照；权威源为 plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md §13.19 与 decisions/0006、decisions/0008。",
       "status": "active",
       "filename": "apg-multi-agent-control-plane-ef9d12e4.md",
       "relativePath": "documents/active/apg-multi-agent-control-plane-ef9d12e4.md",
       "sourcePaths": [
         "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
-        "plans/DEVELOPMENT_ROADMAP.md",
-        "plans/PROVIDER_RUNTIME_EVOLUTION.md",
-        "schemas/project-v3.schema.json",
-        "bootstrap/AGENTS.routing-block.md",
-        "lib/core.mjs",
-        "lib/catalog.mjs",
-        "lib/migration-v3.mjs",
-        "scripts/manage-root-blocks.mjs",
-        "scripts/test-install.sh",
-        "decisions/0004-threat-model-untrusted-checkouts.md",
-        "decisions/0005-harness-neutral-core.md",
-        "docs/V2_CONTRACT.md",
-        "plans/REVIEW_FINDINGS.md"
+        "decisions/0006-root-instruction-block-ownership.md",
+        "decisions/0008-external-component-identifiers-and-observation.md",
+        "lib/observation-ledger.mjs",
+        "lib/root-marker-grammar.mjs",
+        "lib/memory.mjs",
+        "bootstrap/AGENTS.v2-block.md",
+        "scripts/test-observation-ledger.mjs",
+        "scripts/test-release.sh",
+        "CHANGELOG.md"
       ],
       "sessionIds": [
         "6275cb6d-72bf-40ef-bc3d-4d7d7707444d",
         "b185bd60-197d-4d4d-b687-8d18e0c584f5",
-        "1ae84e51-bed9-4989-b910-ed814975e922"
+        "1ae84e51-bed9-4989-b910-ed814975e922",
+        "eaa15f63-fd6a-44aa-acbd-b0161b77ccda"
       ],
       "createdAt": "2026-09-19T04:26:50.620Z",
-      "updatedAt": "2026-09-19T08:35:22.685Z",
-      "lastAccessedAt": "2026-09-19T08:35:22.685Z",
-      "revision": 3,
-      "contentHash": "ffd8d4473bbe9a7af163124fb582657e78074e271ac3cd1db0a5795f5a5a5236",
-      "sizeBytes": 8756,
+      "updatedAt": "2026-09-20T07:32:05.336Z",
+      "lastAccessedAt": "2026-09-20T07:32:05.336Z",
+      "revision": 4,
+      "contentHash": "a07140010b8e6d7a5a93ace1e07739b7791458e8acd0eaba7e121ad7212a4ee4",
+      "sizeBytes": 10947,
       "memoryBodyIds": []
     },
     {
@@ -483,6 +480,36 @@
       "revision": 1,
       "contentHash": "41ee96b90da36d028278d1b7f057f1f32d1905aabb6076d68a89bdaa936fbbd8",
       "sizeBytes": 11798,
+      "memoryBodyIds": []
+    },
+    {
+      "id": "9543cc82-9263-45f4-aee4-4b395f778869",
+      "title": "APG 入口化与组件复用：发现优先于部署（本机组件库契约草案）",
+      "description": "用户 2026-09-20 方向 + 已核实代码依据：APG 当入口（先住进去→别的东西进来，以 plugins/<harness>-apg/ 独立嵌套仓形态）、装配前先发现并复用本机已有的 HTTP/常驻服务（不部署第二遍）、用户自备本机组件库（文件包 + HTTP 服务器）并照 APG 自身部署方式组织。含五条部署方式、文件型/服务型两套判据、四态（新增 conflict）、宿主 vs 项目 scope 切分、只读优先与 Operator 权限分层、store 骨架、红线与三步落地顺序、两个待定问题。",
+      "status": "active",
+      "filename": "apg-9543cc82.md",
+      "relativePath": "documents/active/apg-9543cc82.md",
+      "sourcePaths": [
+        "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
+        "scripts/apg.mjs",
+        "scripts/apg-launcher.mjs",
+        "lib/core.mjs",
+        "PACKAGE_MANIFEST.json",
+        "scripts/external-components.json",
+        "profiles/mcp/WINDOWS_WSL_BRIDGE.md",
+        "routing/mcp-subtypes.jsonl",
+        "decisions/0007-authority-plane-and-execution-plane.md",
+        "decisions/0008-external-component-identifiers-and-observation.md"
+      ],
+      "sessionIds": [
+        "53cfb1d4-cff5-4417-ad50-a9f3efec0ca8"
+      ],
+      "createdAt": "2026-09-20T08:17:00.548Z",
+      "updatedAt": "2026-09-20T08:17:00.548Z",
+      "lastAccessedAt": "2026-09-20T08:17:00.548Z",
+      "revision": 1,
+      "contentHash": "2d26cea28718e3753209ee821acaa53bb35a75a5f4ab99fc042a878df39a3c74",
+      "sizeBytes": 9157,
       "memoryBodyIds": []
     }
   ]
