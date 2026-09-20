@@ -2,6 +2,7 @@
 
 import fs from 'node:fs';
 import { stampBlock, verifyBlock } from '../lib/block-integrity.mjs';
+import { looksForeignMarker } from '../lib/root-marker-grammar.mjs';
 
 // Marker-level strip/stamp/replace for APG's managed instruction blocks.
 //
@@ -57,38 +58,10 @@ function strip(buffer, markerPairs) {
 // migrates (test-install.sh), and it moves no third party's block.
 //
 // The grammar is ADR 0006 P2's: a delimited region whose owner is not
-// `agent-project-guides`. Only start markers count - an end marker with no start
-// above it is malformed input for its own writer, not a block APG could reorder.
-// The forms are the measured vocabulary of the foreign writers found by the
-// field census (decisions/0006 "Writer survey"), not a guess:
-//   `br`/`bv`  <!-- br-agent-instructions-v1 -->   (version inside the marker)
-//   `ee`       <!-- ee:agentsmd:begin generation=N hash=H -->
-//   `slb`      <!-- slb:cursor-rules:start -->
-//   `sbh`      <!-- sbh-docs:begin <section> -->
-//   `frankenterm` <!-- frankenterm:start -->
-//   `am`       <!-- am:blurb -->                   (no version token at all)
-//   `ubs`      <!-- >>> Ultimate Bug Scanner quick reference (...) -->
-//   `cass`     <!-- Auto-generated rules from cass-memory playbook -->
-//              <project_rules>                     (bare container tag)
-//   `ntm`      <INSTRUCTIONS>                      (bare container tag)
-// The last four were added after the census. Three findings drove them: `am`
-// suffixes `:blurb` instead of `:start`/`:begin`; `ubs` writes no namespaced
-// marker at all; and two writers delimit their region without an HTML comment -
-// `cass` with a spaced sentence marker plus a snake_case tag, `ntm` with an
-// upper-case tag. Markers that no writer emits stay allowed on purpose: field
-// scan literals such as `<!-- casr-machine-readable-v1 -->`,
-// `<!-- BEGIN REOLINK_RAG_WSL_TOOL -->` and `<!-- >>> -->` are project prose, and
-// refusing them would be over-refusal (test-install.sh P3 vocabulary).
-const FOREIGN_COMMENT_MARKER =
-  /^<!--\s*(?:(?:>>>|<<<)\s+[A-Za-z0-9]|auto-generated\b|(?!agent-project-guides:)[a-z0-9_.:-]*(?:[.:-](?:start|begin|blurb)\b|-agent-instructions-v\d+\b))/i;
-// Case-sensitive on purpose: a bare `<name>` container tag, either an all-caps
-// tag (`<INSTRUCTIONS>`) or a snake_case one (`<project_rules>`). Ordinary HTML
-// tags (`<br>`, `<div>`) and link-like text (`<https://x>`) do not qualify.
-const FOREIGN_TAG_MARKER = /^<(?:(?:[A-Z][A-Z0-9_]{2,})|(?:[a-z][a-z0-9]*_[a-z0-9_]+))>$/;
-
-function looksForeign(text) {
-  return FOREIGN_COMMENT_MARKER.test(text) || FOREIGN_TAG_MARKER.test(text);
-}
+// `agent-project-guides`. The vocabulary itself now lives in
+// lib/root-marker-grammar.mjs, because the P6 observation ledger has to agree with
+// this guard about which blocks exist - two copies of the same regex would let the
+// guard and the ledger disagree about what APG saw.
 
 function foreignBlockAbove(buffer, markerPairs) {
   let first = -1;
@@ -100,7 +73,7 @@ function foreignBlockAbove(buffer, markerPairs) {
   const lines = buffer.subarray(0, first).toString('utf8').split(/\r?\n/);
   for (const [index, line] of lines.entries()) {
     const text = line.trim();
-    if (looksForeign(text)) return { line: index + 1, text };
+    if (looksForeignMarker(text)) return { line: index + 1, text };
   }
   return undefined;
 }

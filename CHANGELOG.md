@@ -11,6 +11,51 @@ they change.
 
 ## 3.0.10
 
+**Root-block observation (ADR 0006 P6) — APG can now record the blocks it saw, and
+nothing else.**
+
+- Three of the eleven writers rewrite the whole root file — `ntm setup --force` was
+  observed replacing a seeded 2,140 B root with its own template and leaving no backup
+  — so after a clobber nothing on disk says what used to be there.
+  `lib/observation-ledger.mjs` appends one record per observation to
+  `observation-ledger.jsonl` in the clone-local project state directory (mode 0600,
+  appended under the project mutation lock), reachable as
+  `apg project observe --target <root>`. Each record carries the root file's presence,
+  size and sha256 plus every marker line's literal text, kind, best-effort owner, the
+  version token the marker itself carried, line, byte range and an approximate token
+  count. It never edits, upgrades, removes or repairs a block, and a missing block is
+  never an error.
+- The marker vocabulary is not restated: it moved out of
+  `scripts/manage-root-blocks.mjs` into `lib/root-marker-grammar.mjs`, which the P3
+  guard and the ledger both import. Two copies of "which blocks exist" would eventually
+  disagree exactly where the census was run to look. `am` writes no version token, so
+  `null` means "this marker named no version" rather than "version unknown", and a
+  closing tag is recorded only as the closing half of an opener seen above it.
+- `scripts/test-observation-ledger.mjs`, wired into `scripts/test-release.sh`, asserts
+  the measured vocabulary by exact count, that observing leaves the root byte-identical
+  and creates no `.bak` or sidecar, that the ledger's first line is unchanged after a
+  second observation, that a clobber is attributed as `disappeared`/`appeared`, that a
+  marker version bump is a `version_changed` rather than a clobber (`beads_viewer`
+  ships three marker versions at once), that a missing root file is not an error, that
+  a corrupt log is refused, and that the CLI path runs against this repository's own
+  root rather than only being declared.
+- The gate found two real defects while it was being written, both in the parsing it
+  exists to check: a character class missing `_` meant `cass`'s `<project_rules>` was
+  never recorded (the exact-count assertion returned 11 of 12), and a stray
+  `</project_rules>` was recorded because an "the opener form is recognisable" branch
+  bypassed the pairing rule the code's own comment stated. Both are fixed in the
+  library; without the gate the second would have shipped as a comment that looked
+  implemented.
+- Deliberately minimal: the ledger records only when someone runs `apg project
+  observe` — it is not invoked from `install`, `merge` or `reattest`, which would add a
+  write to commands that are read-only for clone-local state. `changes` compares
+  against the immediately previous record only, and `token_estimate` is `bytes / 4`, an
+  approximation for sizing the per-turn surface rather than a tokenizer measurement.
+- Two new distributed libraries take the distribution surface from 81 to 83 files;
+  the catalog (253 entries) and the manifest were regenerated, moving the digest from
+  `sha256:6027df75…` to `sha256:148974e8…`. `PACKAGE_VERSION` stays `3.0.10` for the
+  reason recorded above.
+
 **Bootstrap block — the v2 root instruction file is now the compact form v3
 consumers already receive.**
 

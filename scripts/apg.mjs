@@ -29,6 +29,7 @@ import { contextErrorRecord } from '../lib/context-errors.mjs';
 export { contextErrorRecord };
 import { composeRisk, parseEffectList } from '../lib/risk.mjs';
 import { projectDigest, promoteMemory, proposeMemory, purgeMemoryProposal, readMemoryInput, reviewMemory, supersedeMemory } from '../lib/memory.mjs';
+import { observeRootBlocks } from '../lib/observation-ledger.mjs';
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const VERSION = fs.readFileSync(path.join(packageRoot, 'PACKAGE_VERSION'), 'utf8').trim();
@@ -101,7 +102,7 @@ function helpText(scope) {
     ...common,
     'Commands:',
     '  context                      Resolve bounded governance context',
-    '  project                      Initialize, validate, reattest, or materialize a project',
+    '  project                      Initialize, validate, reattest, observe, or materialize a project',
     '  catalog                      Build or check the catalog',
     '  release                      Build, install, or verify a release',
     '  provider                     Resolve and load provider content',
@@ -350,6 +351,12 @@ function hydrateProject(options) {
 // would be to hand-edit the descriptor, which is exactly the kind of unverified
 // edit the anchor exists to catch. The installed block is verified first, so
 // reattest cannot launder a hand-edited block into a fresh anchor.
+function observeProject(options) {
+  const projectRoot = targetRoot(options);
+  const { descriptor } = readDescriptor(projectRoot);
+  return observeRootBlocks(projectRoot, descriptor, { root: options.root });
+}
+
 function reattestProject(options) {
   const projectRoot = targetRoot(options);
   const { descriptor } = readDescriptor(projectRoot);
@@ -881,6 +888,7 @@ export async function main(argv = process.argv.slice(2)) {
     if (action === 'hydrate') return hydrateProject(options);
     if (action === 'validate' || action === 'status') return validateProject(options);
     if (action === 'reattest') return reattestProject(options);
+    if (action === 'observe') return observeProject(options);
     if (action === 'uninstall') return uninstallProject(options);
     if (action === 'materialize') {
       const projectRoot = observedTargetRoot(options, false);
