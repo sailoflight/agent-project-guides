@@ -101,7 +101,7 @@ function helpText(scope) {
     ...common,
     'Commands:',
     '  context                      Resolve bounded governance context',
-    '  project                      Initialize, validate, or materialize a project',
+    '  project                      Initialize, validate, reattest, or materialize a project',
     '  catalog                      Build or check the catalog',
     '  release                      Build, install, or verify a release',
     '  provider                     Resolve and load provider content',
@@ -277,8 +277,15 @@ function initProject(options) {
       facets: splitList(options.facets),
       overlays: splitList(options.overlays),
     });
-    writeDescriptor(projectRoot, descriptor, { overwrite: Boolean(options.overwrite) });
     const runtimeRoot = mode === 'source-worktree' ? sourceRoot : installed.root;
+    // Record the descriptor-side anchor for the v2 block *before* writing either
+    // file. The block does not depend on this field, so there is no cycle: render
+    // it once, hash it, then write the descriptor and install exactly those bytes.
+    descriptor = {
+      ...descriptor,
+      integrity: { root_block_hash: `sha256:${sha256(renderBootstrap(runtimeRoot, descriptor))}` },
+    };
+    writeDescriptor(projectRoot, descriptor, { overwrite: Boolean(options.overwrite) });
     rootOwnership = installBootstrap(projectRoot, runtimeRoot, descriptor, { includeV1: false });
     const descriptorAfter = snapshotFile(descriptorFile);
     const receipt = {
@@ -332,6 +339,57 @@ function hydrateProject(options) {
     implicit_latest: false,
     launcher: ensureLauncher(installed.root),
   };
+}
+
+// Re-record the descriptor-side anchor for the v2 bootstrap block, and install the
+// block those bytes describe.
+//
+// Needed because the anchor is a hash of a block that legitimately changes: the
+// block renders the pinned release and digest, so a release bump invalidates the
+// recorded hash by design. Without this command the only way to move the anchor
+// would be to hand-edit the descriptor, which is exactly the kind of unverified
+// edit the anchor exists to catch. The installed block is verified first, so
+// reattest cannot launder a hand-edited block into a fresh anchor.
+function reattestProject(options) {
+  const projectRoot = targetRoot(options);
+  const { descriptor } = readDescriptor(projectRoot);
+  const mutationLock = acquireProjectMutationLock(projectRoot, descriptor.project_id);
+  try {
+    // requireAnchor:false because a missing or stale anchor is precisely what
+    // reattest is here to fix; requireDescriptorMatch:false because the block is
+    // about to be regenerated for the descriptor's current release and digest. What
+    // is still enforced: byte 0, exactly one well-formed marker pair, and the
+    // block's own integrity line, so a hand-edited block cannot be laundered into a
+    // fresh anchor.
+    const before = inspectBootstrap(projectRoot, { ...descriptor, integrity: undefined }, { requireAnchor: false, requireDescriptorMatch: false });
+    const provider = openProvider(projectRoot, descriptor);
+    const block = renderBootstrap(provider.root, descriptor);
+    const rootBlockHash = `sha256:${sha256(block)}`;
+    // Block first, descriptor second. A crash in between leaves the block correct
+    // and the descriptor pointing at the old hash, which the normal gate reports
+    // as a mismatch; re-running reattest finishes the job.
+    const ownership = installBootstrap(projectRoot, provider.root, descriptor, { includeV1: false });
+    writeDescriptor(projectRoot, { ...descriptor, integrity: { root_block_hash: rootBlockHash } }, { overwrite: true });
+    const recordedBefore = descriptor.integrity ? descriptor.integrity.root_block_hash : undefined;
+    return {
+      status: 'reattested',
+      root: descriptor.policy.root,
+      root_block_hash: rootBlockHash,
+      // What was installed before the repair, reported against the *file* (the
+      // pre-check deliberately ignores the descriptor anchor, since a stale one is
+      // the reason to run this command): `previous_integrity` is the block's own
+      // integrity line, `previous_descriptor_anchor` is how the descriptor's
+      // recorded hash compared with the block it was supposed to pin.
+      previous_integrity: before.integrity,
+      previous_descriptor_anchor: recordedBefore === undefined
+        ? 'absent'
+        : (recordedBefore === before.root_block_hash ? 'matched' : 'stale'),
+      provider_mode: descriptor.provider.mode,
+      root_ownership: ownership,
+    };
+  } finally {
+    mutationLock.release();
+  }
 }
 
 function validateProject(options) {
@@ -614,7 +672,14 @@ function providerCommand(action, options) {
   if (action === 'export') return { revision: projectDigest(context.descriptor), portable: portableSnapshot(context.descriptor) };
   if (action === 'import') {
     if (!options.input || !options['expected-project-digest']) fail('provider import requires --input and --expected-project-digest');
-    const incoming = validateDescriptor(readJson(options.input, 'portable snapshot'), context.projectRoot);
+    const incomingRaw = validateDescriptor(readJson(options.input, 'portable snapshot'), context.projectRoot);
+    // The block anchor is a local installation fact, not a portable project fact: it
+    // hashes the installed root block, which renders the local release and digest.
+    // portableSnapshot therefore carries none, and importing one must preserve the
+    // local anchor rather than read its absence as a change to apply.
+    const incoming = incomingRaw.integrity === undefined && context.descriptor.integrity !== undefined
+      ? { ...incomingRaw, integrity: context.descriptor.integrity }
+      : incomingRaw;
     const currentDigest = projectDigest(context.descriptor);
     if (currentDigest !== options['expected-project-digest']) throw new UserError('project descriptor changed before import', 'cas_conflict');
     const losses = portableImportLosses(context.descriptor, incoming);
@@ -815,6 +880,7 @@ export async function main(argv = process.argv.slice(2)) {
     if (action === 'init') return initProject(options);
     if (action === 'hydrate') return hydrateProject(options);
     if (action === 'validate' || action === 'status') return validateProject(options);
+    if (action === 'reattest') return reattestProject(options);
     if (action === 'uninstall') return uninstallProject(options);
     if (action === 'materialize') {
       const projectRoot = observedTargetRoot(options, false);

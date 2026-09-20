@@ -26,6 +26,7 @@ A project commits `.agent-project-guides.json`. It contains only portable projec
 - delivery facets and domain overlays;
 - declared protected effects;
 - selected root policy file and mandatory catalog IDs;
+- the recorded hash of the managed v2 bootstrap block (`integrity.root_block_hash`), so the block has an anchor outside the file it protects;
 - project-native scratch and memory bindings.
 
 Machine paths, caches, receipts, journals, ACL/audit metadata, generic package bytes, and generated search state remain outside the descriptor. APG's project-owned `docs/memory/` research records are excluded from release distribution files.
