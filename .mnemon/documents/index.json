@@ -484,8 +484,8 @@
     },
     {
       "id": "9543cc82-9263-45f4-aee4-4b395f778869",
-      "title": "APG 入口化与组件复用：4.0.0 的组件库，身份可声明、依赖可检查（ADR 0009/0010）",
-      "description": "4.0.0 组件库记录：D9 身份映射/断言身份/停止信号、D10 requires 依赖检查、D11 重复 digest 冲突，真实实例判决，路由词表修订与两封建议信收口",
+      "title": "APG 入口化与组件复用：4.0.0 已打标签，身份可声明、依赖可检查、首条服务条目（ADR 0009/0010 D1–D12）",
+      "description": "4.0.0 已打标签：D12 第一条服务条目、外部能力配置清单与新机器规程、门禁 118 条与三条反证、标签后的分发面纪律",
       "status": "active",
       "filename": "apg-9543cc82.md",
       "relativePath": "documents/active/apg-9543cc82.md",
@@ -493,6 +493,7 @@
         "decisions/0009-local-component-store.md",
         "decisions/0010-component-store-on-the-distribution-surface.md",
         "plans/MULTI_AGENT_INFRA_INTEGRATION_RESEARCH.md",
+        "docs/V2_CONTRACT.md",
         "lib/components.mjs",
         "schemas/component-entry.schema.json",
         "scripts/apg.mjs",
@@ -509,11 +510,11 @@
         "9a13fd2d-07d7-42ff-b4e0-c53a75a3bbb7"
       ],
       "createdAt": "2026-09-20T08:17:00.548Z",
-      "updatedAt": "2026-09-20T09:57:59.825Z",
-      "lastAccessedAt": "2026-09-20T09:57:59.825Z",
-      "revision": 5,
-      "contentHash": "a629cd12b85c4ae4434634e4bf80ac82c240dacd3076fccb9c5948f195b8ac2e",
-      "sizeBytes": 12816,
+      "updatedAt": "2026-09-20T10:50:33.597Z",
+      "lastAccessedAt": "2026-09-20T10:50:33.597Z",
+      "revision": 6,
+      "contentHash": "92687d88c78430b141d931573502454d6b9f5a6e09da0455bf8e63943543fefe",
+      "sizeBytes": 13853,
       "memoryBodyIds": []
     }
   ]
