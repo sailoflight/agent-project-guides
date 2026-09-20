@@ -1732,6 +1732,30 @@ ADR 0007 的 Validation 段写着"shipped CLI surface must contain no command th
 
 吃内存的主要是 **codegen 与调试信息**，而不是 `-j` 本身——但要注意两者的作用点不同：`-j 1` 管的是**同时有几个 rustc**，`CARGO_PROFILE_DEV_DEBUG=0` 与 `-Zthreads=1` 管的是**单个 rustc 内部**。实测下来前者效果确定（峰值从"两个 7.7 GB 并存"变成"一个最高 12.9 GiB"），后者的效果没有我最初以为的那么大（同一个 crate 从 6.5 GB 只压到 7.4 GB 量级，随后其他 crate 还是冲到 12.9 GiB）。**dev profile 默认 `codegen-units=256` 才是单进程峰值的主要来源**，这一轮没有去动它，留给下次。另外两条：`nice -n 19` + 内存看门狗（`MemAvailable` 低于阈值即中止）把"应该会轻一点"变成**强制上限**；以及 **cargo 被中断后下一轮会从头重编**（三次中断都观察到了，本轮的 `Compiling` 计数每次都从 0 重新开始），所以限流构建不能靠反复打断来"省资源"——打断反而是最费资源的操作。
 
+#### 13.18.4.1 可复现的构建配方（**必须在仓内，因为 `/tmp` 会被清**）
+
+上面那份配方原先只存在于 `/tmp/apg-ft-build/build5.sh`。`/tmp` 在本机由 `/usr/lib/tmpfiles.d/tmp.conf:11`（`D /tmp 1777 root root 30d`）按**年龄**清理，30 天后脚本与二进制一起消失，而 §13.18.8 的实测就再也复现不了。所以配方落进本节，`/tmp` 只作为缓存。
+
+工具链来源（已验）：`.agent-scratch/external-test/toolchain/rust`，rustc 1.100.0-nightly（commit `908501772`，2026-08-30），`SHA256_MATCH b6ac13b4…0c65`，`VALIDSIG 108F66205EAEB0AAA8DD5E1C85AB96E6FA1BE5FE`。源码来源：`github.com` 上 frankenterm 仓的 clone，**HEAD = `31f255d56ff3c701475365cc9d4f369641b0251a`**（`0.15.6-rc.40`）。源码侧**没有做签名校验**（该仓没有可用的 tag 签名证据），这一点与九个预编译件的 `GAP` 记法一致，属**已知缺口而非已验通过**。
+
+```bash
+# 语义：只为"跑得起来"而构建，不为发布。内存是这里的约束，不是墙钟。
+ROOT=/home/lijq/code/agent-project-guides/.agent-scratch/external-test
+export PATH="$ROOT/toolchain/rust/bin:$PATH"      # 系统 cargo/rustc 不存在，必须显式给工具链
+export CARGO_HOME="$ROOT/toolchain/cargo"
+export CARGO_TARGET_DIR=/tmp/apg-ft-build/target  # 中间件放 /tmp，随系统清理，不进仓
+export CARGO_NET_GIT_FETCH_WITH_CLI=true          # 关键：否则 libgit2 会走 HTTPS 代理去取 git 依赖而挂死
+export OPENSSL_NO_VENDOR=1                        # 用系统 OpenSSL 3.0.13，别从源码编
+export MAKEFLAGS=-j2                              # 兜住 build script 里 `make` 的默认并行度
+export CARGO_PROFILE_DEV_DEBUG=0                  # dev profile 默认全量 DWARF，是单进程峰值主因
+export RUSTFLAGS="-Zthreads=1"                    # 覆盖仓内 .cargo/config.toml 的 -Zthreads=4（故意的）
+cd "$ROOT/repos/frankenterm"
+nice -n 19 cargo build -p frankenterm -j 1        # 一次只跑一个 rustc
+# 配套：一个每 10 秒采样 MemAvailable 的看门狗，低于阈值即中止（本轮阈值 3500 MB，实际最低 4,619 MB）
+```
+
+**收尾时怎么做才不会把配方也一起删掉**（本轮实际做法，值得照抄）：先 `cp target/debug/ft ./ft-0.15.6-rc.40` 并**验证副本能跑**（`--version` 输出与构建一致），再按**显式名**删掉 `target/`（那是 17 GB 的纯中间件）。结果：磁盘从 **10 GB 可用 / 90% 满** 变成 **27 GB 可用 / 72%**，而 293.6 MiB 的二进制仍在，形如 `APG_FT_SOURCE_BIN=/tmp/apg-ft-build/ft-0.15.6-rc.40`。删除**只**用显式名，不用通配符——这是本仓一贯的纪律。
+
 ### 13.18.5 顺带做的 runner 完整性审计（结论：无缺陷）
 
 等编译时做的一次只读审计，回答「仓里还有没有第二个 `test-genericity.mjs`」（即**已写好、文档也说要跑、但没有任何 runner 调用**的测试）。这个问题在 3.0.10 才第一次被问，当时抓出一个摆设了三个版本的门。
