@@ -2408,7 +2408,7 @@ C 档的三条要点（都有实测支撑）：`install.sh check`（`validate_ro
 ### 13.21.5 「都修复一下」：把实测暴露的三处缺口补进契约，并让依赖检查真的生效（2026-09-20）
 
 主人指令是「都修复一下 然后把服务依赖的服务也加入APG要求检查的东西 随后进一步处理 比较敏感的root API 我自己来」。
-本节记录前半段落地了什么，以及后半段还剩什么。**版本仍是 4.0.0（未打标签）**：PACKAGE_VERSION、descriptor 的
+本节记录前半段落地了什么，以及后半段还剩什么。**版本 4.0.0**（当时未打标签；§13.22 之后已打 `v4.0.0`）：PACKAGE_VERSION、descriptor 的
 `provider.release`、根块 integrity 行、catalog、manifest 五者同步移动，标签由主人单独打。
 
 **A. 三处缺口，全部按「可声明＋不猜」补进 ADR 0010（D9/D10/D11）。**
@@ -2566,7 +2566,15 @@ identity 只出现在 MCP 握手里；记录里的 `revision` 与健康端点的
 `verify` 同时列出该服务条目（`requires: []`、`revision: 0.3.36`），证明两个命令都看得见它、且都不改动它。
 （本机 `am` 当前未运行，探测结果是 timeout→`degraded`，与 §13.22.1 第 2 条一致。）
 
-### 13.22.4 这次上的两条门禁（含反证）
+### 13.22.4 标签 `v4.0.0` 已打（2026-09-20）
+
+`v4.0.0` 附注标签指向 `ba3baeb`（= 当时的 `origin/main`），已推送。打标签前逐项核对：`PACKAGE_VERSION` = `4.0.0`、
+descriptor 的 `provider.release` = `4.0.0`、根块 integrity 行与 `release: \`4.0.0\``、catalog（253 条，`catalog check` 通过）、
+`PACKAGE_MANIFEST.json`（85 文件 / `sha256:e7f428d1…`，`release verify-source` 通过）、`scripts/test-release.sh` exit 0。
+**打标签后只允许改非分发面**（`plans/`、`decisions/`、`CHANGELOG.md`、`.mnemon/`）：改任何一个分发文件都会让 `main` 的表面
+再次超出标签所钉的内容，那正是 3.0.10 之前踩过的坑。本文与 §13.22 的后续补充都属于非分发面。
+
+### 13.22.5 这次上的两条门禁（含反证）
 
 门禁 `scripts/test-component-store.mjs` 从 **103 条增到 118 条**，新增两节：
 
