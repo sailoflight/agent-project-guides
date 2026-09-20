@@ -1349,6 +1349,8 @@ exit=1
 
 #### 对 ADR 0006 的两处修正 + 写入方普查从 3 个扩到 5 个
 
+> **本节已被 §13.13 取代**：第三次（系统性）普查把写入方从 5 个扩到 **11 个**，并另外推翻了本节的两条记录。保留原文以便看演进过程。
+
 实测推翻了 ADR 0006 的两处先行记录：
 
 - `bv` **不做备份**就改写 `AGENTS.md`（`pkg/agents/file_lock_unix.go:195` 的原子 `os.Rename`；`--rollback` 是它**自升级**的路径，不是文件回滚）。
@@ -1365,3 +1367,92 @@ ADR 0006 断言"三个 AGENTS.md 写入方"，实测至少 **5 个**，新增两
 
 - **决策 8**：EE trust 阶梯只做注意力排序，映射到 APG 时 4 档 → `intended`，`peer_human_attested` 只映射"声明"这一层并建议新增 `declaration-observed`；引用时必须写明 scale 名。
 - **决策 7**：命名约定 `agent-project-guides:external:<command-name>`，版本作字段、完整性作三元组、命名空间按词法定界。
+
+---
+
+## 13.13 外部拓展验证（2026-09-20）
+
+> 这一节回答一个问题：**APG 关于外部组件的主张，有几个是真的？** 判据不是"读源码觉得对"，而是**真文件、真安装、真二进制、真消费者仓**。凡是只从源码读出来的结论，都在表里标 `scan`，不与实跑混写。
+
+### 13.13.1 三个被验证的主张与结论
+
+| 主张 | 验证方式 | 结论 |
+|---|---|---|
+| "APG 的 `guard-prefix` 认识全部外部写入方的块" | 39 个 checkout 的根指令文件（`AGENTS.md`/`CLAUDE.md`/`AGENTS.local.md`）逐注释行扫描 + 真实写入方 marker 字面量逐条过 `guard-prefix` | **原来不成立**：写入方 marker 100% 命中（37/37 个"写入方发出的 start marker"），但**系统普查又找出 3 个此前不可见的真实写入方形态**，已补（见 13.13.4） |
+| "外部组件的写入在 APG 这里可共存" | 真跑 `br` v0.6.0 二进制、真跑 `ubs` 的写入路径、真跑 `acfs` 的生成器 | **成立**：`test-interop-br.sh` 19/19；三条真跑路径的写入语义与 ADR 记录一致，并另发现 `ubs` 备份会被幂等重跑覆盖（见 13.13.3） |
+| "已安装的消费者仓不会被新的严格闸门打断" | 直接读 12 个真实消费者仓的 descriptor + root 块 + `project validate` | **成立**：12/12 已是 schema 2 且带 `integrity.root_block_hash`，全部 `state: ready`；唯一 schema 1 的仓是 APG 自己（`anchor: both`） |
+
+### 13.13.2 写入方全量普查：11 个有写入方，28 个明确没有
+
+39 个 checkout、**17 条写入记录**、**11 个组件带根指令写入方**、**28 个组件经字面量 grep + 写 API 站点复核确认为"无写入方"**。原始证据 `.agent-scratch/external-verify/census.json` + `evidence/`（含 SHA256SUMS）。
+
+完整写入方表已进 `decisions/0006`（"Writer survey: the full census"），本节只放**这次才出现的判断**：
+
+1. **`ubs` 的"有备份"只在第一次成立。** `install.sh:4007` 的 `cp` 早于 `:4012` 的"已存在"检查，所以幂等重跑会用**已修改后**的内容覆盖原始备份（实测 sha `142c1e29…`(36 B) → `9b49d91a…`(2147 B)，证据 `evidence/ubs-backup-clobber-proof.txt`）。⇒ 对 APG 的含义：**不能把"对方有备份"当作恢复点来依赖**，P8 的自备份是必需的，不是冗余。
+2. **`acfs` 与 `ntm` 是"整文件改写"型**：真跑 `acfs` 的 `--output` 把 39 B 手写文件整文件覆盖为 4244 B、**无备份**；`ntm` 的块边界是 `<INSTRUCTIONS>`/`</INSTRUCTIONS>`（无 HTML 注释）。⇒ 结论：**任何基于 marker 的守卫都不可能完全防住整文件改写方**；对它们，`check` 的漂移检测才是唯一防线。这是一条**能力边界**，应写进 ADR 的 open items。
+3. **`cass` 只在 `--force` 下改写已存在文件**，否则拒绝——这是十一个写入方里唯一"默认拒绝"的，与 APG 自己的 fail-closed 同向。
+4. **`slb` 默认只预览**；`bv` 的 marker 版本号是数据（代码发 `v7`，现场有 `v1`/`v5`）。⇒ 文法**不能钉版本号**，只能钉形状。
+
+### 13.13.3 真跑证据（不是源码阅读）
+
+| 组件 | 真跑了什么 | 结果 |
+|---|---|---|
+| `br` v0.6.0（预编译二进制） | `agents --add --dry-run` / `--add --force` / 重跑 / 空目录 / 子目录 | dry-run 零写入；`--force` 写 2126 B 并生成 `AGENTS.md.bak`(39 B=原文)；重跑幂等（"already contains current … (v1)"，字节不变）；空目录**自动创建**且无备份；子目录里沿父目录向上写 |
+| `ubs`（Python+shell） | `--help`/`--info`/`--dry-run --easy-mode` + 逐字抽取 `add_to_agents_md` 等函数做定向实跑 | dry-run 零写入（假 HOME 与工程目录 sha 均不变）；`--version` **不是有效选项**，会落入完整安装流程（含下载二进制、改 rc、装 cron）——**不可在无人值守下跑**；定向实跑：39 B → 2150 B，首行/末行即 ADR 记录的两个 `>>>`/`<<<` marker，并生成 `AGENTS.md.backup` |
+| `acfs`（shell） | `generate-root-agents-md.sh --output` + `deploy --project`（`ACFS_TARGET_HOME` 隔离） | `--output` 整文件覆盖且无备份；`deploy` 目标不存在→`created`、一致→`up to date`、分歧→`REFUSED … was NOT modified` 并另写 `AGENTS.md.acfs-new`、exit 3 |
+
+一律：`HOME` 指向新建临时目录、cwd 为新建临时工程、**无 sudo**、结束后 `git status --porcelain` 为空、39 个 checkout 的 mtime 保持在 9月19日。
+
+### 13.13.4 语法覆盖实测：4 个真缺口闭合，1 类过度匹配收紧
+
+**现场扫描**（39 个根指令文件、78 条注释行）：37 行命中"写入方形态"，6 个**互异**的不命中形态。逐条判定后只有 3 条是**真缺口**（另有 1 条是过度匹配）： 
+
+| 现场字面量 | 谁写 | 旧文法 | 判定 |
+|---|---|---|---|
+| `<!-- Auto-generated rules from cass-memory playbook -->` | `cass` | **allow（漏）** | **真缺口**——含空格，`[a-z0-9_.:-]*` 跨不过去 |
+| `<project_rules>` / `</project_rules>` | `cass` | **allow（漏）** | **真缺口**——不是 HTML 注释 |
+| `<INSTRUCTIONS>` / `</INSTRUCTIONS>` | `ntm` | **allow（漏）** | **真缺口**——同上 |
+| `<!-- >>> -->`（空箭头） | 无（合成探针） | **refuse（误拒）** | **过度匹配**——`>>>`/`<<<` 分支过宽，正文引用 UBS marker 也会被拒 |
+| `<!-- casr-machine-readable-v1 -->`、`<!-- dcg-machine-readable-v1 -->` | 无写入方 | allow | **正确**：两个组件的文档小节标题（人工提交，无生成器；已核对全仓无写它的代码） |
+| `<!-- BEGIN/END REOLINK_RAG_WSL_TOOL -->` | 无写入方 | allow | **正确**：本机 `~/.codex/AGENTS.md` 的人工分节 |
+| `<!-- end-bv-agent-instructions -->`、`<!-- sbh-docs:end -->` | 是 end marker | allow | **正确**：设计只看 start marker（其 start 必在其上方，已被同一条规则覆盖） |
+| `<!--count:…-->47<!--/count-->` | `frankenterm` | allow | **正确**：行内数值戳，位置无关的替换，不构成可搬移区域 |
+
+**已闭合**：`FOREIGN_COMMENT_MARKER` 增加 `auto-generated\b`，并新增**区分大小写**的 `FOREIGN_TAG_MARKER`（全大写 tag 或 snake_case tag，且必须独占一行）；`>>>`/`<<<` 分支要求箭头后**有真实文本**。回归落点是 `test-install.sh` 的 P3 词表：**14 refuse / 18 allow = 32 行**，其中含 7 条**现场扫到的"无写入方"字面量**与 5 条"永不命中"形态——即**两个方向都钉住了**（既钉"必须认识的写入方 marker"，也钉"不许误拒的人工形态"）。
+
+**负向验证（证明新行是承重的，不是装饰）**：把文法回退到 pass-2 版本，`cass` 句marker / `<project_rules>` / `<INSTRUCTIONS>` 三条都变 `allow`（实测），而 `<!-- >>> -->` 仍被误拒 ⇒ 新行确实堵住了两个方向。
+
+### 13.13.5 本机"安装面"扩展扫描（是否还有第 12 个写入方）
+
+| 检查 | 结果 |
+|---|---|
+| PATH 上的外部 agent 工具 | 只有 `claude`、`codex`（`~/.local/bin`）——`br`/`bv`/`ee`/`ntm`/`dcg`/`am`/`ubs` 等**一个都没装** |
+| 家目录工具配置 | 只有 `~/.claude`、`~/.codex`；`~/.claude` 下**没有** `CLAUDE.md`；`~/.codex/AGENTS.md`(2403 B) 是**人工**个人规则（`BEGIN/END` 分节），不是写入方产物 |
+| 继承面 | **无** `~/AGENTS.md`、**无** `~/code/AGENTS.md` ⇒ 13 个消费者仓之上**没有**父目录继承的根指令，APG 的"byte 0 所有权"假设在本机不被继承规则破坏 |
+| APG marker 是否泄漏进家目录 | 只在 codex 的 **session 转录**（`.jsonl`）里出现，不在任何指令文件里 |
+
+⇒ **本机没有未记录的第 12 个写入方**。这条是负面结论，但它是"扩展验证"必须给出的那种结论。
+
+### 13.13.6 这次**没有**验证的（明确不确定性）
+
+1. **8 个 go/rust 组件未真跑**（`bv`、`slb`、`sbh`、`am`、`ntm`、`ee`、`frankenterm`、`meta_skill`）：本机**无 go、无 cargo/rustc、无 bun**，它们的操作/备份/递归语义**全部来自源码阅读**（标 `scan`）。
+2. **`ubs` 的真跑是"逐字抽取写入函数"**，不是上游入口：上游没有"只写 AGENTS.md"的入口，而完整安装器会下载二进制、改 rc、装 cron——按红线不允许执行。
+3. **`pi_agent_rust` 的 5 个写入方在 vendored fixtures 里**，是否被上游 CI 真实使用未验证。
+4. **`no writer found` 的边界**是"所列扩展名 + 写 API 站点"的字面量复核；若某组件从配置数据拼文件名则可能逃逸（未发现此类间接路径）。
+5. **`cass` 未端到端真跑**（缺 bun），其 marker 字面量来自源码。
+
+### 13.13.7 仍然待批/待定的两项（与本次验证直接相关）
+
+| 事项 | 为什么没直接做 |
+|---|---|
+| 把版本号族从 `-agent-instructions-v\d+` 泛化为任意 `-[a-z-]+-v\d+`、并把 `BEGIN <NAME>` 也纳入 | **与主人已裁定的"窄口径"冲突**：现场这两种形态都**没有写入方**（人工提交），纳入就是为人工注释拒绝迁移。收益（防将来某组件改用这种形态）小于代价（误拒人工分节），故只把证据记进本节 + ADR，**不动文法** |
+| **P6 观测账本**：记录"APG 见过哪些外来块" | 未批准；但本次普查正好提供了它的输入（11 个写入方 + 各自 marker + 是否备份）。整文件改写型（`ntm`/`acfs`）**没有账本就不可能事后归因**，P6 的价值因此比原判断更高 |
+| **P7 块体积**：APG 自身块 2062 B vs 消费者 731–758 B | 未批准（ADR 0006 open item 原样保留） |
+
+### 13.13.8 临时产物的生命周期
+
+| 路径 | 内容 | 失效条件 / 删除方式 |
+|---|---|---|
+| `.agent-scratch/external-verify/census.json`、`evidence/` | 本次普查的原始证据（17 写入记录 / 51 语法结果 / 28 无写入方 + SHA256SUMS） | 已在 `decisions/0006` 与本节落成可读记录；**当 `.agent-scratch/external-test/repos/` 被删除时同步失效**；点名删除 `rm -rf .agent-scratch/external-verify`（不用通配符） |
+| `.agent-scratch/external-test/repos/`（39 checkout，约 2.9 G） | 只读普查输入 | 与上同批；点名删除 |
+| `.agent-scratch/consumer-gate/` | 现场语法扫描脚本 + 结果 | 结论已进 13.13.4；点名删除三个文件各自的名字 |
