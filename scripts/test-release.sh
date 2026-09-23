@@ -61,6 +61,7 @@ node scripts/test-observation-ledger.mjs
 # fetch action, and four falsifiable discovery states driven against real loopback
 # servers. It opens no sockets beyond 127.0.0.1 and needs no third-party bytes.
 node scripts/test-component-store.mjs
+node --test scripts/test-component-regressions.mjs
 # Project memory is tracked in git, and the index that makes it searchable
 # rewrites an access timestamp on every read, so the file went dirty after almost
 # any session. This gate pins the clean filter that removes the churn without

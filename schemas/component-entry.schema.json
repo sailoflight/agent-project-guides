@@ -121,8 +121,8 @@
         },
         "endpoint": {
           "type": "string",
-          "pattern": "^(?:(?:\\d{1,3}\\.){3}\\d{1,3}|\\[[0-9a-fA-F:]+\\]|localhost):\\d{1,5}$",
-          "description": "A literal local address and port. Discovery performs no name resolution, so a record cannot point the probe at an arbitrary destination."
+          "pattern": "^(?:127(?:\\.\\d{1,3}){3}|\\[(?:::1|(?:0:){7}1)\\]|localhost):[1-9]\\d{0,4}$",
+          "description": "A loopback address and port. Runtime additionally checks IP validity and port <= 65535. localhost is mapped to 127.0.0.1 without DNS; remote destinations are not supported."
         },
         "transport": {
           "enum": [
@@ -132,8 +132,8 @@
         },
         "health": {
           "type": "string",
-          "pattern": "^/",
-          "description": "The read-only path discovery may request. No other request is issued."
+          "pattern": "^/(?!/)[\\x21-\\x7e]*$",
+          "description": "A percent-encoded read-only path (optional query), no fragment, authority or control characters. One bounded GET, no redirects."
         },
         "revision": {
           "type": "string",
@@ -190,7 +190,7 @@
             "component": {
               "type": "string",
               "minLength": 1,
-              "description": "An id in this store. A package requirement is met when the entry verifies; a service requirement when its record is present."
+              "description": "An id whose final verdict, including all transitive prerequisites, must be available. Cycles and unprobed service health are not satisfied. probe verifies required packages only; verify never probes services."
             }
           }
         },
