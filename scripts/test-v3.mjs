@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
+import { compareCanonical } from '../lib/core.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -54,7 +55,7 @@ function git(directory, args) {
 function treeSnapshot(directory) {
   const output = new Map();
   function visit(relative = '') {
-    for (const entry of fs.readdirSync(path.join(directory, relative), { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+    for (const entry of fs.readdirSync(path.join(directory, relative), { withFileTypes: true }).sort((left, right) => compareCanonical(left.name, right.name))) {
       if (entry.name === '.git') continue;
       const child = relative ? `${relative}/${entry.name}` : entry.name;
       if (entry.isDirectory()) visit(child);
