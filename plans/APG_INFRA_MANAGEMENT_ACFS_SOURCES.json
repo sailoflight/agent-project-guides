@@ -1,0 +1,46 @@
+{
+  "review_date": "2026-09-23",
+  "scope": "Read-only source review; no installer or third-party command executed. No license permission conclusion.",
+  "sources": [
+    {
+      "repo": "agentic_coding_flywheel_setup",
+      "commit": "b042ffba3b6f874db0608c8171a42c577bdc2f1f",
+      "file": "README.md",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/agentic_coding_flywheel_setup/b042ffba3b6f874db0608c8171a42c577bdc2f1f/README.md",
+      "sha256": "1c662e58e205e23472ef6a8acb83ce733fd6f5c297bf0414dc7ae2a63c13b6ec",
+      "local_content_verified": true
+    },
+    {
+      "repo": "agentic_coding_flywheel_setup",
+      "commit": "b042ffba3b6f874db0608c8171a42c577bdc2f1f",
+      "file": "acfs.manifest.yaml",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/agentic_coding_flywheel_setup/b042ffba3b6f874db0608c8171a42c577bdc2f1f/acfs.manifest.yaml",
+      "sha256": "e6e19440f28dce4504492b497ed0d24ff5cd9bb9ae8f81d5bac05b67a9457613",
+      "local_content_verified": true
+    },
+    {
+      "repo": "agentic_coding_flywheel_setup",
+      "commit": "b042ffba3b6f874db0608c8171a42c577bdc2f1f",
+      "file": "install.sh",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/agentic_coding_flywheel_setup/b042ffba3b6f874db0608c8171a42c577bdc2f1f/install.sh",
+      "sha256": "ec01461d00cfff6bdb1ad8929307db802bb226467b72ec322f3121f46a299871",
+      "local_content_verified": true
+    },
+    {
+      "repo": "agentic_coding_flywheel_setup",
+      "commit": "b042ffba3b6f874db0608c8171a42c577bdc2f1f",
+      "file": "scripts/lib/acfs-services.sh",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/agentic_coding_flywheel_setup/b042ffba3b6f874db0608c8171a42c577bdc2f1f/scripts/lib/acfs-services.sh",
+      "sha256": "01e543d418c0ca5c45d42acb81510fce03150ff98e8bfd05438c863708daf359",
+      "local_content_verified": true
+    },
+    {
+      "repo": "agentic_coding_flywheel_setup",
+      "commit": "b042ffba3b6f874db0608c8171a42c577bdc2f1f",
+      "file": "LICENSE",
+      "immutable_url": "https://raw.githubusercontent.com/Dicklesworthstone/agentic_coding_flywheel_setup/b042ffba3b6f874db0608c8171a42c577bdc2f1f/LICENSE",
+      "sha256": "32a82e0a5754e72e51fae44b65a936c831c07376f21c90f5fb9e76897fcc3509",
+      "local_content_verified": true
+    }
+  ]
+}
