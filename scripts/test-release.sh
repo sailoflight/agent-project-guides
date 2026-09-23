@@ -43,6 +43,7 @@ node scripts/test-genericity.mjs
 # silently. Either way this runner stays usable with no network and no large
 # local files.
 node scripts/test-boundary.mjs
+node scripts/test-architecture.mjs
 # The provenance record behind the external writers harness. It has no external
 # inputs, so unlike section D it runs everywhere: it pins that the record stays off
 # the distribution surface, that it has not drifted from the harness it describes,

@@ -1,0 +1,2345 @@
+{
+  "schema_version": 1,
+  "evidence_digest": "sha256:2de59c8e4465b49a2200c3020fe039dd60eb53c11830ebf5c4f04fe457a9d519",
+  "analysis": {
+    "dependencies": "Node ESM parser; compile-only, never link/evaluate",
+    "anchors": "unique named declaration lines",
+    "flows": "human-declared, not inferred control flow",
+    "limitations": [
+      "dynamic imports and subprocess calls are not dependency edges",
+      "shell/Python files are inventoried, not parsed",
+      "conditional/runtime calls are not a call graph",
+      "JavaScript declaration anchors use a constrained line matcher"
+    ]
+  },
+  "modules": [
+    {
+      "id": "architecture",
+      "title": "架构导航工具",
+      "summary": "从声明和静态代码事实生成导航、定位和改动说明",
+      "not_owned": "执行被分析源码、完整调用图或治理权威",
+      "owns": [
+        "tools/architecture/*.mjs",
+        "scripts/architecture.mjs"
+      ],
+      "allowed_dependencies": [],
+      "entries": [
+        {
+          "file": "tools/architecture/model.mjs",
+          "symbol": "inspectArchitecture",
+          "change": "所有权、依赖、锚点检查",
+          "line": 61
+        },
+        {
+          "file": "tools/architecture/model.mjs",
+          "symbol": "changeImpact",
+          "change": "保守改动影响",
+          "line": 134
+        },
+        {
+          "file": "tools/architecture/render.mjs",
+          "symbol": "renderArchitecture",
+          "change": "模块卡片和流程图",
+          "line": 7
+        },
+        {
+          "file": "scripts/architecture.mjs",
+          "symbol": "main",
+          "change": "离线作者命令",
+          "line": 7
+        }
+      ],
+      "tests": [
+        "scripts/test-architecture.mjs"
+      ],
+      "tags": [
+        "架构",
+        "导航",
+        "流程图",
+        "修改",
+        "定位"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "从声明和静态代码事实生成导航、定位和改动说明",
+            "entry": "inspectArchitecture"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/ARCHITECTURE_NAVIGATION.md",
+      "files": [
+        "scripts/architecture.mjs",
+        "tools/architecture/model.mjs",
+        "tools/architecture/parse-esm.mjs",
+        "tools/architecture/render.mjs"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "author-tools",
+      "title": "源码维护工具",
+      "summary": "验证路由、暂存组件和过滤本地索引噪声",
+      "not_owned": "进入默认运行时或自动抓取组件",
+      "owns": [
+        "scripts/validate-routing.mjs",
+        "scripts/build-component-store.mjs",
+        "scripts/git-filter-mnemon-index.mjs",
+        "scripts/setup-git-filters.sh"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "components",
+        "catalog"
+      ],
+      "entries": [
+        {
+          "file": "scripts/build-component-store.mjs",
+          "symbol": "main",
+          "change": "显式来源的本机组件暂存",
+          "line": 97
+        },
+        {
+          "file": "scripts/validate-routing.mjs",
+          "change": "路由注册表验证",
+          "line": 1
+        }
+      ],
+      "tests": [
+        "scripts/test-component-store.mjs",
+        "scripts/test-mnemon-index-filter.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "验证路由、暂存组件和过滤本地索引噪声",
+            "entry": "main"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "scripts/build-component-store.mjs",
+        "scripts/git-filter-mnemon-index.mjs",
+        "scripts/setup-git-filters.sh",
+        "scripts/validate-routing.mjs"
+      ],
+      "dependencies": [
+        "catalog",
+        "components",
+        "foundation"
+      ]
+    },
+    {
+      "id": "catalog",
+      "title": "内容目录与精确路由",
+      "summary": "索引治理章节并校验路由预算",
+      "not_owned": "运行时权限或语义检索",
+      "owns": [
+        "lib/catalog.mjs",
+        "lib/context-routes.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files"
+      ],
+      "entries": [
+        {
+          "file": "lib/catalog.mjs",
+          "symbol": "buildCatalog",
+          "change": "章节目录生成",
+          "line": 125
+        },
+        {
+          "file": "lib/context-routes.mjs",
+          "symbol": "validateContextRoutes",
+          "change": "角色章节与预算约束",
+          "line": 39
+        }
+      ],
+      "tests": [
+        "scripts/test-determinism.mjs",
+        "scripts/validate-routing.mjs",
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "索引治理章节并校验路由预算",
+            "entry": "buildCatalog"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/catalog.mjs",
+        "lib/context-routes.mjs"
+      ],
+      "dependencies": [
+        "files",
+        "foundation"
+      ]
+    },
+    {
+      "id": "cli",
+      "title": "CLI 与冷启动",
+      "summary": "解析命令、选择用例和校验固定运行时",
+      "not_owned": "组件领域判定、上下文展示实现",
+      "owns": [
+        "scripts/apg.mjs",
+        "scripts/apg-launcher.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "catalog",
+        "descriptor",
+        "root-policy",
+        "runtime",
+        "generation",
+        "context",
+        "materialization",
+        "migration",
+        "components",
+        "memory",
+        "observation",
+        "risk"
+      ],
+      "entries": [
+        {
+          "file": "scripts/apg.mjs",
+          "symbol": "main",
+          "change": "公共命令分派",
+          "line": 843
+        },
+        {
+          "file": "scripts/apg-launcher.mjs",
+          "symbol": "validatePackedRuntime",
+          "change": "导入前固定摘要校验",
+          "line": 101
+        }
+      ],
+      "tests": [
+        "scripts/test-boundary.mjs",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "解析命令、选择用例和校验固定运行时",
+            "entry": "main"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "scripts/apg-launcher.mjs",
+        "scripts/apg.mjs"
+      ],
+      "dependencies": [
+        "catalog",
+        "components",
+        "context",
+        "descriptor",
+        "files",
+        "foundation",
+        "materialization",
+        "memory",
+        "migration",
+        "observation",
+        "risk",
+        "root-policy",
+        "runtime"
+      ]
+    },
+    {
+      "id": "closure",
+      "title": "选择闭包",
+      "summary": "构造所选角色和文档的有界内容视图",
+      "not_owned": "修改目标项目或决定操作权限",
+      "owns": [
+        "lib/closure.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "catalog",
+        "descriptor"
+      ],
+      "entries": [
+        {
+          "file": "lib/closure.mjs",
+          "symbol": "buildSelectedClosure",
+          "change": "文档选择、依赖和拥有关系",
+          "line": 58
+        }
+      ],
+      "tests": [
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "构造所选角色和文档的有界内容视图",
+            "entry": "buildSelectedClosure"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/closure.mjs"
+      ],
+      "dependencies": [
+        "catalog",
+        "descriptor",
+        "foundation"
+      ]
+    },
+    {
+      "id": "components",
+      "title": "组件发现与可复用性",
+      "summary": "文件完整性、回环健康探测和最终依赖判定",
+      "not_owned": "下载、启动、停止或修复外部组件",
+      "owns": [
+        "lib/components.mjs",
+        "lib/service-probe.mjs",
+        "lib/component-resolution.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/components.mjs",
+          "symbol": "readStoreEntryRecords",
+          "change": "组件记录读取",
+          "line": 186
+        },
+        {
+          "file": "lib/service-probe.mjs",
+          "symbol": "probeService",
+          "change": "单次有界健康请求",
+          "line": 37
+        },
+        {
+          "file": "lib/component-resolution.mjs",
+          "symbol": "resolveDependencyGraph",
+          "change": "传递依赖和环",
+          "line": 26
+        },
+        {
+          "file": "lib/component-resolution.mjs",
+          "symbol": "probeComponents",
+          "change": "服务分组、单实例和汇总",
+          "line": 67
+        },
+        {
+          "file": "lib/component-resolution.mjs",
+          "symbol": "verifyComponents",
+          "change": "无网络的文件验证",
+          "line": 49
+        }
+      ],
+      "tests": [
+        "scripts/test-component-store.mjs",
+        "scripts/test-component-regressions.mjs"
+      ],
+      "tags": [
+        "健康",
+        "available",
+        "singleton",
+        "依赖",
+        "HTTP"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "records",
+            "label": "读取组件声明",
+            "entry": "readStoreEntryRecords"
+          },
+          {
+            "id": "group",
+            "label": "按 ID 分组并检查声明一致性",
+            "entry": "probeComponents"
+          },
+          {
+            "id": "probe",
+            "label": "仅回环：HTTP 状态、身份、版本、大小、时限",
+            "entry": "probeService"
+          },
+          {
+            "id": "dependencies",
+            "label": "传递依赖与环检查",
+            "entry": "resolveDependencyGraph"
+          },
+          {
+            "id": "result",
+            "label": "available / degraded / conflict"
+          }
+        ],
+        "edges": [
+          {
+            "from": "records",
+            "to": "group"
+          },
+          {
+            "from": "group",
+            "to": "probe",
+            "label": "声明一致"
+          },
+          {
+            "from": "group",
+            "to": "result",
+            "label": "冲突"
+          },
+          {
+            "from": "probe",
+            "to": "dependencies"
+          },
+          {
+            "from": "dependencies",
+            "to": "result"
+          }
+        ]
+      },
+      "contract": "docs/modules/COMPONENTS.md",
+      "files": [
+        "lib/component-resolution.mjs",
+        "lib/components.mjs",
+        "lib/service-probe.mjs"
+      ],
+      "dependencies": [
+        "foundation"
+      ]
+    },
+    {
+      "id": "context",
+      "title": "任务上下文",
+      "summary": "任务分类、选路、预算和面向人的展示",
+      "not_owned": "物化写入或隐式权限授予",
+      "owns": [
+        "lib/context.mjs",
+        "lib/context-presentation.mjs",
+        "lib/context-errors.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "catalog",
+        "closure",
+        "generation"
+      ],
+      "entries": [
+        {
+          "file": "lib/context.mjs",
+          "symbol": "compileContext",
+          "change": "路由和有界加载",
+          "line": 391
+        },
+        {
+          "file": "lib/context-presentation.mjs",
+          "symbol": "renderContext",
+          "change": "人读展示",
+          "line": 16
+        },
+        {
+          "file": "lib/context.mjs",
+          "symbol": "validateContextMatrix",
+          "change": "路由矩阵验证",
+          "line": 567
+        }
+      ],
+      "tests": [
+        "scripts/test-context-choice.mjs",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [
+        "角色",
+        "路由",
+        "上下文",
+        "预算"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "任务分类、选路、预算和面向人的展示",
+            "entry": "compileContext"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/CONTEXT.md",
+      "files": [
+        "lib/context-errors.mjs",
+        "lib/context-presentation.mjs",
+        "lib/context.mjs"
+      ],
+      "dependencies": [
+        "catalog",
+        "closure",
+        "foundation",
+        "generation"
+      ]
+    },
+    {
+      "id": "descriptor",
+      "title": "描述符兼容层",
+      "summary": "校验 schema 1/2 与变体约束",
+      "not_owned": "物化或自动修复项目",
+      "owns": [
+        "lib/descriptor.mjs",
+        "lib/descriptor-v3.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/descriptor.mjs",
+          "symbol": "validateDescriptor",
+          "change": "描述符版本分派",
+          "line": 42
+        },
+        {
+          "file": "lib/descriptor-v3.mjs",
+          "symbol": "validateV3Descriptor",
+          "change": "schema 2 变体约束",
+          "line": 89
+        }
+      ],
+      "tests": [
+        "scripts/test-schema.py",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "校验 schema 1/2 与变体约束",
+            "entry": "validateDescriptor"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/descriptor-v3.mjs",
+        "lib/descriptor.mjs"
+      ],
+      "dependencies": [
+        "foundation"
+      ]
+    },
+    {
+      "id": "files",
+      "title": "安全文件原语",
+      "summary": "排他创建、原子替换与可选耐久写入",
+      "not_owned": "业务事务、权限授予或敌对文件系统隔离",
+      "owns": [
+        "lib/files.mjs"
+      ],
+      "allowed_dependencies": [],
+      "entries": [
+        {
+          "file": "lib/files.mjs",
+          "symbol": "writeFileAtomic",
+          "change": "文件替换与临时文件清理",
+          "line": 7
+        }
+      ],
+      "tests": [
+        "scripts/test-local-write-safety.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "排他创建、原子替换与可选耐久写入",
+            "entry": "writeFileAtomic"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/STORAGE_RUNTIME.md",
+      "files": [
+        "lib/files.mjs"
+      ],
+      "dependencies": []
+    },
+    {
+      "id": "foundation",
+      "title": "基础类型与摘要",
+      "summary": "错误、规范序列化、路径与发行文件集合",
+      "not_owned": "路由选择和项目业务状态",
+      "owns": [
+        "lib/core.mjs",
+        "lib/crypto.mjs"
+      ],
+      "allowed_dependencies": [
+        "files"
+      ],
+      "entries": [
+        {
+          "file": "lib/core.mjs",
+          "symbol": "compareCanonical",
+          "change": "跨环境规范排序",
+          "line": 49
+        },
+        {
+          "file": "lib/core.mjs",
+          "symbol": "listDistributionFiles",
+          "change": "发行文件边界",
+          "line": 186
+        },
+        {
+          "file": "lib/core.mjs",
+          "symbol": "resolveInside",
+          "change": "项目相对路径校验",
+          "line": 99
+        }
+      ],
+      "tests": [
+        "scripts/test-determinism.mjs",
+        "scripts/test-boundary.mjs",
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "错误、规范序列化、路径与发行文件集合",
+            "entry": "compareCanonical"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/STORAGE_RUNTIME.md",
+      "files": [
+        "lib/core.mjs",
+        "lib/crypto.mjs"
+      ],
+      "dependencies": [
+        "files"
+      ]
+    },
+    {
+      "id": "generation",
+      "title": "上下文选择凭据",
+      "summary": "保存本机 generation 状态并绑定选择票据",
+      "not_owned": "授予执行权限或选择具体路由",
+      "owns": [
+        "lib/generation-state.mjs",
+        "lib/context-choice.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/generation-state.mjs",
+          "symbol": "loadGenerationReference",
+          "change": "私有引用读取与完整性",
+          "line": 126
+        },
+        {
+          "file": "lib/context-choice.mjs",
+          "symbol": "verifyCompactChoice",
+          "change": "目标、选择和过期绑定",
+          "line": 23
+        }
+      ],
+      "tests": [
+        "scripts/test-context-state.mjs",
+        "scripts/test-context-choice.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "保存本机 generation 状态并绑定选择票据",
+            "entry": "loadGenerationReference"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/CONTEXT.md",
+      "files": [
+        "lib/context-choice.mjs",
+        "lib/generation-state.mjs"
+      ],
+      "dependencies": [
+        "foundation"
+      ]
+    },
+    {
+      "id": "legacy",
+      "title": "旧版兼容工具",
+      "summary": "维护旧安装器、根块边界和版本检查入口",
+      "not_owned": "新项目的默认物化路径",
+      "owns": [
+        "scripts/install.sh",
+        "scripts/manage-root-blocks.mjs",
+        "scripts/check-update.mjs"
+      ],
+      "allowed_dependencies": [
+        "root-policy"
+      ],
+      "entries": [
+        {
+          "file": "scripts/install.sh",
+          "change": "旧版安装与回退",
+          "line": 1
+        },
+        {
+          "file": "scripts/manage-root-blocks.mjs",
+          "symbol": "markerRange",
+          "change": "块所有权边界",
+          "line": 23
+        }
+      ],
+      "tests": [
+        "scripts/test-install.sh",
+        "scripts/test-interop-writers.sh"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "维护旧安装器、根块边界和版本检查入口",
+            "entry": "scripts/install.sh"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "scripts/check-update.mjs",
+        "scripts/install.sh",
+        "scripts/manage-root-blocks.mjs"
+      ],
+      "dependencies": [
+        "root-policy"
+      ]
+    },
+    {
+      "id": "materialization",
+      "title": "项目物化",
+      "summary": "预览、应用和验证 schema 2 项目状态",
+      "not_owned": "旧版迁移策略或生产操作",
+      "owns": [
+        "lib/materializer.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "closure",
+        "descriptor",
+        "root-policy",
+        "runtime"
+      ],
+      "entries": [
+        {
+          "file": "lib/materializer.mjs",
+          "symbol": "previewMaterialization",
+          "change": "零写入预览",
+          "line": 243
+        },
+        {
+          "file": "lib/materializer.mjs",
+          "symbol": "applyMaterialization",
+          "change": "锁、journal、应用与恢复",
+          "line": 330
+        },
+        {
+          "file": "lib/materializer.mjs",
+          "symbol": "validateMaterializedProject",
+          "change": "物化结果验证",
+          "line": 583
+        }
+      ],
+      "tests": [
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [
+        "物化",
+        "失败恢复",
+        "事务"
+      ],
+      "flow": {
+        "steps": [
+          {
+            "id": "preview",
+            "label": "预览候选与前后像",
+            "entry": "previewMaterialization"
+          },
+          {
+            "id": "review",
+            "label": "调用方审查与权限确认"
+          },
+          {
+            "id": "apply",
+            "label": "重验、锁、journal 和拥有字节应用",
+            "entry": "applyMaterialization"
+          },
+          {
+            "id": "verify",
+            "label": "验证物化结果",
+            "entry": "validateMaterializedProject"
+          },
+          {
+            "id": "recover",
+            "label": "遇到失败按 journal 恢复或显式冲突"
+          }
+        ],
+        "edges": [
+          {
+            "from": "preview",
+            "to": "review"
+          },
+          {
+            "from": "review",
+            "to": "apply"
+          },
+          {
+            "from": "apply",
+            "to": "verify",
+            "label": "成功"
+          },
+          {
+            "from": "apply",
+            "to": "recover",
+            "label": "失败"
+          }
+        ]
+      },
+      "contract": "docs/modules/TRANSACTIONS.md",
+      "files": [
+        "lib/materializer.mjs"
+      ],
+      "dependencies": [
+        "closure",
+        "descriptor",
+        "files",
+        "foundation",
+        "root-policy",
+        "runtime"
+      ]
+    },
+    {
+      "id": "memory",
+      "title": "记忆提案与晋升",
+      "summary": "提案、独立审查、晋升和替代",
+      "not_owned": "索引或检索引擎",
+      "owns": [
+        "lib/memory.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "descriptor"
+      ],
+      "entries": [
+        {
+          "file": "lib/memory.mjs",
+          "symbol": "proposeMemory",
+          "change": "创建提案",
+          "line": 55
+        },
+        {
+          "file": "lib/memory.mjs",
+          "symbol": "promoteMemory",
+          "change": "审查后的拥有字节写入",
+          "line": 97
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "提案、独立审查、晋升和替代",
+            "entry": "proposeMemory"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/memory.mjs"
+      ],
+      "dependencies": [
+        "descriptor",
+        "foundation"
+      ]
+    },
+    {
+      "id": "migration",
+      "title": "迁移与回滚",
+      "summary": "审核计划、拥有字节和恢复边界",
+      "not_owned": "任意删除用户文件或自动升级到 latest",
+      "owns": [
+        "lib/migration.mjs",
+        "lib/migration-v3.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "descriptor",
+        "root-policy",
+        "runtime",
+        "materialization",
+        "closure",
+        "catalog"
+      ],
+      "entries": [
+        {
+          "file": "lib/migration.mjs",
+          "symbol": "planMigration",
+          "change": "旧版迁移预览",
+          "line": 91
+        },
+        {
+          "file": "lib/migration-v3.mjs",
+          "symbol": "applyV2ToV3Migration",
+          "change": "schema 1 到 2 的审核应用",
+          "line": 157
+        },
+        {
+          "file": "lib/migration-v3.mjs",
+          "symbol": "rollbackV3Migration",
+          "change": "冲突检查与恢复",
+          "line": 355
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "审核计划、拥有字节和恢复边界",
+            "entry": "planMigration"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/TRANSACTIONS.md",
+      "files": [
+        "lib/migration-v3.mjs",
+        "lib/migration.mjs"
+      ],
+      "dependencies": [
+        "catalog",
+        "closure",
+        "descriptor",
+        "files",
+        "foundation",
+        "materialization",
+        "root-policy",
+        "runtime"
+      ]
+    },
+    {
+      "id": "observation",
+      "title": "观察账本",
+      "summary": "追加记录观察到的根指令块变化",
+      "not_owned": "修改被观察根文件或声称模型已遵循",
+      "owns": [
+        "lib/observation-ledger.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "root-policy"
+      ],
+      "entries": [
+        {
+          "file": "lib/observation-ledger.mjs",
+          "symbol": "observeRootBlocks",
+          "change": "无目标写入的块观察",
+          "line": 159
+        }
+      ],
+      "tests": [
+        "scripts/test-observation-ledger.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "追加记录观察到的根指令块变化",
+            "entry": "observeRootBlocks"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/observation-ledger.mjs"
+      ],
+      "dependencies": [
+        "foundation",
+        "root-policy"
+      ]
+    },
+    {
+      "id": "risk",
+      "title": "风险组合",
+      "summary": "单调组合声明的操作效果",
+      "not_owned": "授予权限或执行操作",
+      "owns": [
+        "lib/risk.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation"
+      ],
+      "entries": [
+        {
+          "file": "lib/risk.mjs",
+          "symbol": "composeRisk",
+          "change": "效果分类与风险合并",
+          "line": 15
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "单调组合声明的操作效果",
+            "entry": "composeRisk"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/risk.mjs"
+      ],
+      "dependencies": [
+        "foundation"
+      ]
+    },
+    {
+      "id": "root-policy",
+      "title": "根指令与完整性",
+      "summary": "生成和验证拥有的根指令块",
+      "not_owned": "重写用户拥有的其它字节",
+      "owns": [
+        "lib/bootstrap.mjs",
+        "lib/bootstrap-v3.mjs",
+        "lib/block-integrity.mjs",
+        "lib/root-marker-grammar.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files"
+      ],
+      "entries": [
+        {
+          "file": "lib/bootstrap.mjs",
+          "symbol": "installBootstrap",
+          "change": "schema 1 块安装",
+          "line": 106
+        },
+        {
+          "file": "lib/bootstrap-v3.mjs",
+          "symbol": "inspectV3Root",
+          "change": "schema 2 根块验证",
+          "line": 98
+        }
+      ],
+      "tests": [
+        "scripts/test-local-write-safety.mjs",
+        "scripts/test-install.sh",
+        "scripts/test-v3.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "生成和验证拥有的根指令块",
+            "entry": "installBootstrap"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/block-integrity.mjs",
+        "lib/bootstrap-v3.mjs",
+        "lib/bootstrap.mjs",
+        "lib/root-marker-grammar.mjs"
+      ],
+      "dependencies": [
+        "files",
+        "foundation"
+      ]
+    },
+    {
+      "id": "runtime",
+      "title": "发行与运行时提供器",
+      "summary": "安装和校验精确摘要的内容及 packed runtime",
+      "not_owned": "解释任务或运行第三方服务",
+      "owns": [
+        "lib/provider.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "files",
+        "catalog",
+        "generation"
+      ],
+      "entries": [
+        {
+          "file": "lib/provider.mjs",
+          "symbol": "openProvider",
+          "change": "提供器选择",
+          "line": 243
+        },
+        {
+          "file": "lib/provider.mjs",
+          "symbol": "buildPackedRuntimeArtifact",
+          "change": "打包内容与运行时",
+          "line": 122
+        },
+        {
+          "file": "lib/provider.mjs",
+          "symbol": "gitExcludeFile",
+          "change": "Git 排除写入目标",
+          "line": 284
+        }
+      ],
+      "tests": [
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs",
+        "scripts/test-determinism.mjs",
+        "scripts/test-local-write-safety.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "安装和校验精确摘要的内容及 packed runtime",
+            "entry": "openProvider"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/modules/STORAGE_RUNTIME.md",
+      "files": [
+        "lib/provider.mjs"
+      ],
+      "dependencies": [
+        "catalog",
+        "files",
+        "foundation",
+        "generation"
+      ]
+    },
+    {
+      "id": "verification",
+      "title": "验证套件",
+      "summary": "使用隔离 fixture 验证公共契约与失败分支",
+      "not_owned": "生产验证或自动发布",
+      "owns": [
+        "scripts/test-*.mjs",
+        "scripts/test-*.sh",
+        "scripts/test-*.py"
+      ],
+      "allowed_dependencies": [
+        "files",
+        "foundation",
+        "descriptor",
+        "root-policy",
+        "catalog",
+        "closure",
+        "generation",
+        "runtime",
+        "context",
+        "materialization",
+        "migration",
+        "components",
+        "memory",
+        "observation",
+        "risk",
+        "cli",
+        "legacy",
+        "author-tools",
+        "architecture"
+      ],
+      "entries": [
+        {
+          "file": "scripts/test-release.sh",
+          "change": "聚合验证门禁",
+          "line": 1
+        },
+        {
+          "file": "scripts/test-architecture.mjs",
+          "change": "导航派生物与边界验证",
+          "line": 1
+        }
+      ],
+      "tests": [
+        "scripts/test-release.sh"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "使用隔离 fixture 验证公共契约与失败分支",
+            "entry": "scripts/test-release.sh"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "scripts/test-architecture.mjs",
+        "scripts/test-boundary.mjs",
+        "scripts/test-component-regressions.mjs",
+        "scripts/test-component-store.mjs",
+        "scripts/test-context-choice.mjs",
+        "scripts/test-context-state.mjs",
+        "scripts/test-determinism.mjs",
+        "scripts/test-external-provenance.mjs",
+        "scripts/test-genericity.mjs",
+        "scripts/test-install.sh",
+        "scripts/test-interop-br.sh",
+        "scripts/test-interop-writers.sh",
+        "scripts/test-local-write-safety.mjs",
+        "scripts/test-mnemon-index-filter.mjs",
+        "scripts/test-observation-ledger.mjs",
+        "scripts/test-release-pilots.mjs",
+        "scripts/test-release.sh",
+        "scripts/test-schema.py",
+        "scripts/test-v2.mjs",
+        "scripts/test-v3.mjs"
+      ],
+      "dependencies": [
+        "architecture",
+        "catalog",
+        "components",
+        "context",
+        "foundation",
+        "generation",
+        "observation",
+        "root-policy",
+        "runtime"
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "file": "lib/block-integrity.mjs",
+      "owner": "root-policy",
+      "hash": "sha256:d7e011011a24530d8f7fdf18bc343f82842b544659e734a6771fc85bf6cbb0f6",
+      "imports": [],
+      "external_imports": [
+        "node:crypto"
+      ]
+    },
+    {
+      "file": "lib/bootstrap-v3.mjs",
+      "owner": "root-policy",
+      "hash": "sha256:1d12a43bc66854878eb25b820ba8da2790daf86aa0e9bea9eec7a5130a358597",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/bootstrap.mjs",
+      "owner": "root-policy",
+      "hash": "sha256:03309c48bb36e52a4cf8a27f8e470d3497109a40a045c322cb45f767af569c7e",
+      "imports": [
+        "lib/block-integrity.mjs",
+        "lib/core.mjs",
+        "lib/files.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/catalog.mjs",
+      "owner": "catalog",
+      "hash": "sha256:2896780454792a0d1a77e0662ea2029962e2e97ffe4a47d05466c300dab6c572",
+      "imports": [
+        "lib/context-routes.mjs",
+        "lib/core.mjs",
+        "lib/files.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/closure.mjs",
+      "owner": "closure",
+      "hash": "sha256:98ea189cc9665fd8ba1f496ec2b7d318c83a9673038ec81091609f16a3ba64a3",
+      "imports": [
+        "lib/catalog.mjs",
+        "lib/context-routes.mjs",
+        "lib/core.mjs",
+        "lib/descriptor-v3.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/component-resolution.mjs",
+      "owner": "components",
+      "hash": "sha256:aa071ab441075b2b6b72f002bb0838f883d9dd95295344ce4ac442134ff3c265",
+      "imports": [
+        "lib/components.mjs",
+        "lib/core.mjs",
+        "lib/service-probe.mjs"
+      ],
+      "external_imports": [
+        "node:fs"
+      ]
+    },
+    {
+      "file": "lib/components.mjs",
+      "owner": "components",
+      "hash": "sha256:7158cc0dd21d4d72331239fc9c45030cc319b51655869f6b1f7ae15cf201879d",
+      "imports": [
+        "lib/core.mjs",
+        "lib/service-probe.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/context-choice.mjs",
+      "owner": "generation",
+      "hash": "sha256:3ff24904720f8943c3317fd376052d560a466742e0c2bfe548e0c2a1b30e6089",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:crypto",
+        "node:fs"
+      ]
+    },
+    {
+      "file": "lib/context-errors.mjs",
+      "owner": "context",
+      "hash": "sha256:8680a51fd9cddc010e79f6360976e1bfa824801e6895139830d558789f122fd7",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "lib/context-presentation.mjs",
+      "owner": "context",
+      "hash": "sha256:c037da626504752c88656a92d435d953847cf9c8f1cb9a72617ecf258a6ac505",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "lib/context-routes.mjs",
+      "owner": "catalog",
+      "hash": "sha256:1bfe91281b28503b81990e1b37543cd320aad4d320f05d587b1f7f16e6e1cdeb",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/context.mjs",
+      "owner": "context",
+      "hash": "sha256:3822d00d41df7748b0adfa07de4a14f3ad92be9ec75b42c9991c6df60151cc8d",
+      "imports": [
+        "lib/catalog.mjs",
+        "lib/closure.mjs",
+        "lib/context-choice.mjs",
+        "lib/context-presentation.mjs",
+        "lib/core.mjs",
+        "lib/crypto.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/core.mjs",
+      "owner": "foundation",
+      "hash": "sha256:237bd1b621cd4e43cb6cc55d809013dfb0daeee448b50562bfab96527ee69b20",
+      "imports": [
+        "lib/files.mjs"
+      ],
+      "external_imports": [
+        "node:crypto",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/crypto.mjs",
+      "owner": "foundation",
+      "hash": "sha256:6feb0f11196d0f17f14f8af84854439e5d182b65b48a26cb522686d9f26ca32b",
+      "imports": [],
+      "external_imports": [
+        "node:crypto"
+      ]
+    },
+    {
+      "file": "lib/descriptor-v3.mjs",
+      "owner": "descriptor",
+      "hash": "sha256:7eff30c08ff7ffe0300cbc33e49c84c8067fbd56223b583ca121d19ec7a5a211",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": []
+    },
+    {
+      "file": "lib/descriptor.mjs",
+      "owner": "descriptor",
+      "hash": "sha256:4ebe409d9b0c21432bc83e33426de4db0169afa63aa395382f8d982c7b6f15bf",
+      "imports": [
+        "lib/core.mjs",
+        "lib/descriptor-v3.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/files.mjs",
+      "owner": "files",
+      "hash": "sha256:17cc2a9d8f06058cf5ae53301d68a211067fc154d0c43d15aa3de9ac1467e333",
+      "imports": [],
+      "external_imports": [
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/generation-state.mjs",
+      "owner": "generation",
+      "hash": "sha256:5f2b5b43240c42c528df6399e27743f8712c8345f0bc5ea0b2a86b59ed5381ef",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:crypto",
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/materializer.mjs",
+      "owner": "materialization",
+      "hash": "sha256:a7027fb13549a02b20af4442457e8ade93f203e28fea4bacedda08be9797af10",
+      "imports": [
+        "lib/bootstrap-v3.mjs",
+        "lib/closure.mjs",
+        "lib/core.mjs",
+        "lib/descriptor-v3.mjs",
+        "lib/files.mjs",
+        "lib/provider.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/memory.mjs",
+      "owner": "memory",
+      "hash": "sha256:6140e0797a46a4bc5e1c772c0cd81ce37cb0cb969c91b86d87ea7c9e05cc60ab",
+      "imports": [
+        "lib/core.mjs",
+        "lib/descriptor.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/migration-v3.mjs",
+      "owner": "migration",
+      "hash": "sha256:be8b092a8ae3d6135e27efc7119e715770ba424abbcb900994ca7571592fd219",
+      "imports": [
+        "lib/bootstrap-v3.mjs",
+        "lib/closure.mjs",
+        "lib/core.mjs",
+        "lib/descriptor-v3.mjs",
+        "lib/descriptor.mjs",
+        "lib/files.mjs",
+        "lib/materializer.mjs",
+        "lib/provider.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/migration.mjs",
+      "owner": "migration",
+      "hash": "sha256:f95cd67cc125970684d472dbe181cfa8225ac01a74f83f700b2ad50442641eba",
+      "imports": [
+        "lib/bootstrap.mjs",
+        "lib/catalog.mjs",
+        "lib/core.mjs",
+        "lib/descriptor.mjs",
+        "lib/files.mjs",
+        "lib/provider.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/observation-ledger.mjs",
+      "owner": "observation",
+      "hash": "sha256:3d97e52a01154c0f0a0de528a202e86aabb46c8d3395574474f006133f44ef32",
+      "imports": [
+        "lib/core.mjs",
+        "lib/root-marker-grammar.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/provider.mjs",
+      "owner": "runtime",
+      "hash": "sha256:aaf522faa3c787e4fa363f6dd4de4b3a0c889e14429983138508cc073aa335a6",
+      "imports": [
+        "lib/catalog.mjs",
+        "lib/context-routes.mjs",
+        "lib/core.mjs",
+        "lib/files.mjs",
+        "lib/generation-state.mjs"
+      ],
+      "external_imports": [
+        "node:child_process",
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/risk.mjs",
+      "owner": "risk",
+      "hash": "sha256:7a7d9ce54e965171c846bd48615a82634597ee78f50f1b105b4f398421ced92c",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
+      "file": "lib/root-marker-grammar.mjs",
+      "owner": "root-policy",
+      "hash": "sha256:3fee442f51c9a9ae1461cdee3a0f647ae246d0f70f484070c71fba23d8cc591c",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "lib/service-probe.mjs",
+      "owner": "components",
+      "hash": "sha256:c24823353f65256ef65be593a69616be59d1aaab701b15648b3f33cf2486326a",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:http",
+        "node:https",
+        "node:net"
+      ]
+    },
+    {
+      "file": "scripts/apg-launcher.mjs",
+      "owner": "cli",
+      "hash": "sha256:36a22b79f15d889b66ce761d931906c864e86e25fe66ac5be47615465fc12b09",
+      "imports": [],
+      "external_imports": [
+        "node:crypto",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/apg.mjs",
+      "owner": "cli",
+      "hash": "sha256:958a35c8fb1f0d841e4613dda8e535e5182013f51bc562bd10abc148af19adc5",
+      "imports": [
+        "lib/bootstrap.mjs",
+        "lib/catalog.mjs",
+        "lib/component-resolution.mjs",
+        "lib/context-errors.mjs",
+        "lib/context-routes.mjs",
+        "lib/context.mjs",
+        "lib/core.mjs",
+        "lib/descriptor.mjs",
+        "lib/files.mjs",
+        "lib/materializer.mjs",
+        "lib/memory.mjs",
+        "lib/migration-v3.mjs",
+        "lib/migration.mjs",
+        "lib/observation-ledger.mjs",
+        "lib/provider.mjs",
+        "lib/risk.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/architecture.mjs",
+      "owner": "architecture",
+      "hash": "sha256:f625d3291bfe5bc0eeea002bc2005c4b59b1f2879077f5043675cb5a53d95d6a",
+      "imports": [
+        "tools/architecture/model.mjs",
+        "tools/architecture/render.mjs"
+      ],
+      "external_imports": [
+        "node:path"
+      ]
+    },
+    {
+      "file": "scripts/build-component-store.mjs",
+      "owner": "author-tools",
+      "hash": "sha256:03d701d1aca97c0234e0d1d0ed674432434dcfd8c1f8ef42e4c9cdcccaf77cf7",
+      "imports": [
+        "lib/components.mjs",
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/check-update.mjs",
+      "owner": "legacy",
+      "hash": "sha256:c088b1ed67e8d8f0c972a6b7af489ab5adc149e6b30d59fb37f632b5d839b889",
+      "imports": [],
+      "external_imports": [
+        "node:child_process",
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/git-filter-mnemon-index.mjs",
+      "owner": "author-tools",
+      "hash": "sha256:143005d2baa30d0e8574357eec7a305a56c86e53c24004bab20ef061ca9a0491",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/install.sh",
+      "owner": "legacy",
+      "hash": "sha256:dc4eeeccfd915170efef31a35a7afeefaa9da4bf52043a54485b15df43f16dbe",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/manage-root-blocks.mjs",
+      "owner": "legacy",
+      "hash": "sha256:4fefb686879a8d6aeebb9f832debb76db59b79e498267062c545c89ad8a40231",
+      "imports": [
+        "lib/block-integrity.mjs",
+        "lib/root-marker-grammar.mjs"
+      ],
+      "external_imports": [
+        "node:fs"
+      ]
+    },
+    {
+      "file": "scripts/setup-git-filters.sh",
+      "owner": "author-tools",
+      "hash": "sha256:0c4db2ae870ee5a2056d499d9d4b0867f6e79c106fe617c668a96abe5dfe152e",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/test-architecture.mjs",
+      "owner": "verification",
+      "hash": "sha256:5a94de892217230dc7ce36bbdabab5a88118b28f9bf19fdeadc12efbb2429059",
+      "imports": [
+        "lib/catalog.mjs",
+        "lib/core.mjs",
+        "tools/architecture/model.mjs",
+        "tools/architecture/render.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-boundary.mjs",
+      "owner": "verification",
+      "hash": "sha256:d1a4362cb888b836f5146d189758718ae5d570972c342e3bda7f4b8c5d5ff814",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:child_process",
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-component-regressions.mjs",
+      "owner": "verification",
+      "hash": "sha256:7a1b30b4f122d3c6e3c52cb98bef5c78b9f8b58fda6383155c196b1e3285b1e4",
+      "imports": [
+        "lib/components.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:fs",
+        "node:http",
+        "node:os",
+        "node:path",
+        "node:test",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-component-store.mjs",
+      "owner": "verification",
+      "hash": "sha256:876fee84e4fc338885280f926aeee2ca23ab32f81a8fadf19de52bd38e30e76e",
+      "imports": [
+        "lib/components.mjs",
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:fs",
+        "node:http",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-context-choice.mjs",
+      "owner": "verification",
+      "hash": "sha256:396a0ec4fefd5608619cdf1b62ed9ec3a3ac8d0da6d92f8af47b26cbda1ec63f",
+      "imports": [
+        "lib/context-choice.mjs",
+        "lib/context-errors.mjs",
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:crypto",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    {
+      "file": "scripts/test-context-state.mjs",
+      "owner": "verification",
+      "hash": "sha256:12f8423e0247f3249555029a4e0577c3c6a8298b755255201b03245c281f06cc",
+      "imports": [
+        "lib/core.mjs",
+        "lib/provider.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:crypto",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    {
+      "file": "scripts/test-determinism.mjs",
+      "owner": "verification",
+      "hash": "sha256:5a9f164422421c884128ba9dbdc4d0b40bc9637fa97fad0e3a0c9efddc00af57",
+      "imports": [],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-external-provenance.mjs",
+      "owner": "verification",
+      "hash": "sha256:36a19b26e90572f0d514d6dfb882316729d2f49eadea261c5cfda850bb5fcf66",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-genericity.mjs",
+      "owner": "verification",
+      "hash": "sha256:1613802ba34803be48471854c854cd9bb9d9217d982a2f9b7973d8cff87922f1",
+      "imports": [],
+      "external_imports": [
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-install.sh",
+      "owner": "verification",
+      "hash": "sha256:e21dc150b728b5dcb82bf621236eb3686870bfe7aebf505f903d509ae2b34e0c",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/test-interop-br.sh",
+      "owner": "verification",
+      "hash": "sha256:f1905ec8a3e888106be007e5cfb5a00d2977f6c64597c6c22e74524c1f3ee765",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/test-interop-writers.sh",
+      "owner": "verification",
+      "hash": "sha256:42b3a3bf08dbd20fa7915518874a503fabe7b53e2721a81b62013b5143b079b7",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/test-local-write-safety.mjs",
+      "owner": "verification",
+      "hash": "sha256:47abd3e42e9799357944515d540ccce5173e6413781a2d082a45ec5449330c4e",
+      "imports": [
+        "lib/bootstrap.mjs",
+        "lib/provider.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path"
+      ]
+    },
+    {
+      "file": "scripts/test-mnemon-index-filter.mjs",
+      "owner": "verification",
+      "hash": "sha256:5855947bc2c396fa4a7d871ed70d5c860ab561eb09988d7c4c4bb2535a968bc3",
+      "imports": [],
+      "external_imports": [
+        "node:child_process",
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-observation-ledger.mjs",
+      "owner": "verification",
+      "hash": "sha256:5675649ce0ea6bf73fae2a4f834415f3c5cd57567cdf698e27addd967684aaa3",
+      "imports": [
+        "lib/observation-ledger.mjs",
+        "lib/root-marker-grammar.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-release-pilots.mjs",
+      "owner": "verification",
+      "hash": "sha256:4efe1ade7b26096418be9a08629304e5e6e9da1c918b672cbe86482fc9b18c63",
+      "imports": [],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:crypto",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-release.sh",
+      "owner": "verification",
+      "hash": "sha256:9682e4f73aab67425d4db6b39dd0482d6f04ac4c53ba0514d0cc3269f69c5596",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/test-schema.py",
+      "owner": "verification",
+      "hash": "sha256:bf21e3bf913125b57eb9a869aef470823d0641b75a17593c78847aec78160a0c",
+      "imports": [],
+      "external_imports": []
+    },
+    {
+      "file": "scripts/test-v2.mjs",
+      "owner": "verification",
+      "hash": "sha256:f2c4fb4d406f80709ad3400eb71621cf8614f5520dc7b80cbdd9c926968d3c4f",
+      "imports": [],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/test-v3.mjs",
+      "owner": "verification",
+      "hash": "sha256:1eecae501258004abe1e02156e39bd35f5f9a21985c6bb95ce46d0bf41eebc07",
+      "imports": [
+        "lib/context-errors.mjs",
+        "lib/context.mjs",
+        "lib/core.mjs",
+        "lib/provider.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:crypto",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/validate-routing.mjs",
+      "owner": "author-tools",
+      "hash": "sha256:82a2a3c4ad8e4db204f1756e13074b00597672247c48a67d46587421bab78cd1",
+      "imports": [
+        "lib/catalog.mjs",
+        "lib/context-routes.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "tools/architecture/model.mjs",
+      "owner": "architecture",
+      "hash": "sha256:9da1bfbfa3ca8b7d6c5d322db2bc1d9d27e09cbd4332eede7bb5510b98cf63f0",
+      "imports": [],
+      "external_imports": [
+        "node:child_process",
+        "node:crypto",
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "tools/architecture/parse-esm.mjs",
+      "owner": "architecture",
+      "hash": "sha256:aae5cfc5aa04d97ac032dbf3fea30364accad84c66bbc221d7ec2a69c61c3e50",
+      "imports": [],
+      "external_imports": [
+        "node:fs",
+        "node:vm"
+      ]
+    },
+    {
+      "file": "tools/architecture/render.mjs",
+      "owner": "architecture",
+      "hash": "sha256:f822df969658a69c9f6144ed21d166c27142459acc8ce65332e3a878fb5c13d0",
+      "imports": [
+        "tools/architecture/model.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    }
+  ]
+}
