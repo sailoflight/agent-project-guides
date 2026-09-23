@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { writeFileAtomic } from '../lib/files.mjs';
 import { compareCanonical } from '../lib/core.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -172,8 +173,7 @@ function restoreSnapshotFile(file, before, afterHash) {
   else {
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const temporary = `${file}.apg-restore-${process.pid}`;
-    fs.writeFileSync(temporary, Buffer.from(before.base64, 'base64'), { mode: before.mode || 0o644 });
-    fs.renameSync(temporary, file);
+    writeFileAtomic(file, Buffer.from(before.base64, 'base64'), { mode: before.mode ?? 0o644, temporary });
   }
   return { status: 'restored', path: file };
 }
@@ -181,8 +181,7 @@ function restoreSnapshotFile(file, before, afterHash) {
 function writeBytesAtomic(file, bytes, mode = 0o644) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temporary = `${file}.apg-bytes-${process.pid}`;
-  fs.writeFileSync(temporary, bytes, { mode });
-  fs.renameSync(temporary, file);
+  writeFileAtomic(file, bytes, { mode, temporary });
 }
 
 function descriptorTransactionFile(projectRoot, projectId) {

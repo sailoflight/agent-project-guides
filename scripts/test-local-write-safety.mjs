@@ -1,0 +1,44 @@
+#!/usr/bin/env node
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { installBootstrap } from '../lib/bootstrap.mjs';
+import { addEmbeddedExclude } from '../lib/provider.mjs';
+const root = new URL('../', import.meta.url).pathname;
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'apg-local-write-'));
+const project = path.join(tmp, 'project');
+fs.mkdirSync(project);
+const outside = path.join(tmp, 'outside');
+fs.writeFileSync(outside, 'untouched');
+const temporary = path.join(project, `AGENTS.md.apg-${process.pid}`);
+fs.symlinkSync(outside, temporary);
+const descriptor = {schema_version: 1, project_id: 'safe.fixture', provider: {mode: 'source-worktree', release: '4.0.0', digest: 'observe', source: '.'}, policy: {root: 'AGENTS.md'}};
+try {
+  assert.throws(() => installBootstrap(project, root, descriptor), /EEXIST|symlink/);
+  assert.equal(fs.readFileSync(outside, 'utf8'), 'untouched');
+  assert.equal(fs.existsSync(path.join(project, 'AGENTS.md')), false);
+  assert.ok(fs.lstatSync(temporary).isSymbolicLink(), 'refusing a collision must not delete somebody else\'s file');
+  const fakeGit = path.join(tmp, 'fake-git'); fs.mkdirSync(fakeGit);
+  fs.writeFileSync(path.join(project, '.git'), `gitdir: ${fakeGit}\n`);
+  assert.throws(() => addEmbeddedExclude(project), /git|metadata|worktree/i);
+  assert.equal(fs.existsSync(path.join(fakeGit, 'info')), false);
+  fs.unlinkSync(path.join(project, '.git'));
+  fs.symlinkSync(fakeGit, path.join(project, '.git'));
+  assert.throws(() => addEmbeddedExclude(project), /symlink|metadata/i);
+  fs.unlinkSync(path.join(project, '.git'));
+  const git = (...args) => execFileSync('git', args, {encoding: 'utf8', env: {...process.env, GIT_CONFIG_GLOBAL: '/dev/null', GIT_CONFIG_NOSYSTEM: '1'}});
+  git('init', '-q', project);
+  assert.equal(addEmbeddedExclude(project).changed, true);
+  assert.equal(addEmbeddedExclude(project).changed, false);
+  git('-C', project, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '--allow-empty', '-qm', 'fixture');
+  const worktree = path.join(tmp, 'worktree');
+  git('-C', project, 'worktree', 'add', '-q', '--detach', worktree);
+  assert.equal(addEmbeddedExclude(worktree).changed, true, 'real linked worktrees remain supported');
+  assert.equal(addEmbeddedExclude(worktree).changed, false);
+  const info = path.join(project, '.git', 'info');
+  fs.renameSync(info, `${info}-original`); fs.symlinkSync(fakeGit, info);
+  assert.throws(() => addEmbeddedExclude(project), /symlink|metadata/i);
+  console.log('PASS: temporary collisions and unrelated Git metadata are zero-write; normal repositories and linked worktrees remain usable');
+} finally { fs.rmSync(tmp, {recursive: true, force: true}); }

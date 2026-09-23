@@ -17,6 +17,8 @@ The caller and called component initially treat one another as acting in good fa
 
 Security hardening is added when an actual boundary requires it, not as a prerequisite to the core workflow.
 
+Trusted-local write safeguards use exclusive temporary-file creation: a pre-existing temporary path is a conflict, never a file to truncate or delete. External Git metadata must bind back to this checkout through a linked-worktree `gitdir` record or `core.worktree`; unbound gitdir pointers and symlinked metadata paths are refused. These checks prevent accidental write redirection, not concurrent hostile-filesystem attacks.
+
 ## Project descriptor
 
 A project commits `.agent-project-guides.json`. It contains only portable project facts:
