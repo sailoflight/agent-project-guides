@@ -18,9 +18,9 @@
 |---|---|
 | [`lib/components.mjs#readStoreEntryRecords`](../../../lib/components.mjs#L186) | 组件记录读取 |
 | [`lib/service-probe.mjs#probeService`](../../../lib/service-probe.mjs#L37) | 单次有界健康请求 |
-| [`lib/component-resolution.mjs#resolveDependencyGraph`](../../../lib/component-resolution.mjs#L26) | 传递依赖和环 |
-| [`lib/component-resolution.mjs#probeComponents`](../../../lib/component-resolution.mjs#L67) | 服务分组、单实例和汇总 |
-| [`lib/component-resolution.mjs#verifyComponents`](../../../lib/component-resolution.mjs#L49) | 无网络的文件验证 |
+| [`lib/component-resolution.mjs#resolveDependencyGraph`](../../../lib/component-resolution.mjs#L29) | 传递依赖和环 |
+| [`lib/component-resolution.mjs#probeComponents`](../../../lib/component-resolution.mjs#L73) | 服务分组、单实例和汇总 |
+| [`lib/component-resolution.mjs#verifyComponents`](../../../lib/component-resolution.mjs#L55) | 无网络的文件验证 |
 
 ## 声明性主流程
 
@@ -40,9 +40,9 @@ flowchart TD
 
 流程依据：人工模块声明；锚点存在性由检查器验证，分支和时序仍需核对实现与测试。
 - 读取组件声明 → [`lib/components.mjs#readStoreEntryRecords`](../../../lib/components.mjs#L186)
-- 按 ID 分组并检查声明一致性 → [`lib/component-resolution.mjs#probeComponents`](../../../lib/component-resolution.mjs#L67)
+- 按 ID 分组并检查声明一致性 → [`lib/component-resolution.mjs#probeComponents`](../../../lib/component-resolution.mjs#L73)
 - 仅回环：HTTP 状态、身份、版本、大小、时限 → [`lib/service-probe.mjs#probeService`](../../../lib/service-probe.mjs#L37)
-- 传递依赖与环检查 → [`lib/component-resolution.mjs#resolveDependencyGraph`](../../../lib/component-resolution.mjs#L26)
+- 传递依赖与环检查 → [`lib/component-resolution.mjs#resolveDependencyGraph`](../../../lib/component-resolution.mjs#L29)
 
 ## 边界与验证
 

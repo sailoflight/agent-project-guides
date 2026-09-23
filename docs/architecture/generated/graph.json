@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "evidence_digest": "sha256:2de59c8e4465b49a2200c3020fe039dd60eb53c11830ebf5c4f04fe457a9d519",
+  "evidence_digest": "sha256:10ad2e7f51e019275faea62e1b701cbae2f2ba57d39c4b01d2acf8ff1f99161e",
   "analysis": {
     "dependencies": "Node ESM parser; compile-only, never link/evaluate",
     "anchors": "unique named declaration lines",
@@ -424,19 +424,19 @@
           "file": "lib/component-resolution.mjs",
           "symbol": "resolveDependencyGraph",
           "change": "传递依赖和环",
-          "line": 26
+          "line": 29
         },
         {
           "file": "lib/component-resolution.mjs",
           "symbol": "probeComponents",
           "change": "服务分组、单实例和汇总",
-          "line": 67
+          "line": 73
         },
         {
           "file": "lib/component-resolution.mjs",
           "symbol": "verifyComponents",
           "change": "无网络的文件验证",
-          "line": 49
+          "line": 55
         }
       ],
       "tests": [
@@ -1638,7 +1638,7 @@
     {
       "file": "lib/component-resolution.mjs",
       "owner": "components",
-      "hash": "sha256:aa071ab441075b2b6b72f002bb0838f883d9dd95295344ce4ac442134ff3c265",
+      "hash": "sha256:e79dac6ee95ed23c515d5263d1d9543f138d24a5da0ba4b259fb7736f220d45e",
       "imports": [
         "lib/components.mjs",
         "lib/core.mjs",
@@ -2062,7 +2062,7 @@
     {
       "file": "scripts/test-component-regressions.mjs",
       "owner": "verification",
-      "hash": "sha256:7a1b30b4f122d3c6e3c52cb98bef5c78b9f8b58fda6383155c196b1e3285b1e4",
+      "hash": "sha256:9273bc31dd8bf8b9606205dc375191bd303f0b7fcfb1ca375147f062dd17a7a9",
       "imports": [
         "lib/components.mjs"
       ],

@@ -69,3 +69,23 @@ test('corrupt or renamed packages are isolated conflicts, not usable dependencie
 test('verify never mistakes an unprobed service declaration for satisfied health',async t=>{
   const root=fixture(t);record(root,'audit',service);pkg(root,'consumer',[{component:'audit'}]);assert.deepEqual((await run(root,'verify')).reusable_packages,[]);
 });
+test('a package and its running service may share an id without a false conflict',async t=>{
+  const root=fixture(t);pkg(root,'audit');record(root,'audit',{...service,endpoint:await server(t,healthy)});
+  const verified=await run(root,'verify');assert.deepEqual(verified.reusable_packages,['audit']);assert.deepEqual(verified.conflicted_packages,[]);
+  const probed=await run(root,'probe');assert.deepEqual(probed.reusable_services,['audit']);
+});
+test('a same-id service can depend on its package; package failure is not hidden by live health',async t=>{
+  const root=fixture(t);pkg(root,'audit',[{bin:'apg_absent_fixture_933434'}]);record(root,'audit',{...service,endpoint:await server(t,healthy),requires:[{component:'audit'}]});
+  assert.equal((await run(root,'verify')).packages[0].state,'degraded');
+  assert.equal((await run(root,'probe')).services[0].state,'degraded');
+});
+test('same-id kind separation preserves singleton conflicts without corrupting package verdicts',async t=>{
+  const root=fixture(t);pkg(root,'audit');for(const [i,endpoint] of [await server(t,healthy),await server(t,healthy)].entries())record(root,String(i),{...service,endpoint});
+  assert.deepEqual((await run(root,'verify')).reusable_packages,['audit']);
+  assert.equal((await run(root,'probe')).services[0].state,'conflict');
+});
+test('same-id service prerequisites resolve the package rather than forming a false self cycle',async t=>{
+  const root=fixture(t);pkg(root,'audit');pkg(root,'consumer',[{component:'audit'}]);record(root,'audit',{...service,endpoint:await server(t,healthy),requires:[{component:'audit'}]});
+  assert.deepEqual((await run(root,'verify')).reusable_packages,['audit','consumer']);
+  assert.deepEqual((await run(root,'probe')).reusable_services,['audit']);
+});

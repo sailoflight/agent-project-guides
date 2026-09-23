@@ -2,7 +2,7 @@
 
 > 自动生成；请修改 `docs/architecture/modules.json` 或源码后重新 build。图是导航，不授予权限、不替代契约；声明流程不是自动证明的调用链。
 
-证据摘要：`sha256:2de59c8e4465b49a2200c3020fe039dd60eb53c11830ebf5c4f04fe457a9d519`
+证据摘要：`sha256:10ad2e7f51e019275faea62e1b701cbae2f2ba57d39c4b01d2acf8ff1f99161e`
 
 ## 模块地图
 

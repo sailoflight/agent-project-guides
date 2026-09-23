@@ -24,6 +24,8 @@ Architecture parent: `docs/architecture/OVERVIEW.md`。
 4. localhost 映射到回环而不解析 DNS；HTTPS 不禁用证书检查，不跟随重定向。
 5. 健康失败、匿名/错误对象、响应超限或总时限到期不产生 available。
 6. 冲突优先于缺失前提；坏包不掩盖其它正常包的评估。
+7. 同 ID 的包和服务分开判定，不因共存而冲突；未限定的 component 依赖优先选包，
+   包失败不回退为服务健康。服务可显式依赖同名包。
 
 ## 修改方式与验证
 
