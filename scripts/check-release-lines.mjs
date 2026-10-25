@@ -35,10 +35,19 @@ try {
 const version = fs.readFileSync(path.join(root, 'PACKAGE_VERSION'), 'utf8').trim();
 const branch = spawnSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: root, encoding: 'utf8' });
 const current = branch.status === 0 ? branch.stdout.trim() : '';
+// A gate that cannot fail is not a gate. Outside a git checkout there is no branch to
+// hold the table against, and "valid with branch_checked: skipped" is the silent
+// false-pass a consumer measured on their own tool: an empty table still exited 0.
+// Detached HEAD is different - it has real content to check, just no branch ref - so it
+// falls back to the weaker version rule instead of skipping.
 const problems = [];
-let checked = 'skipped';
-if (current && current !== 'HEAD') {
-  const own = lines.lines.find((line) => line.ref === current);
+let checked;
+if (branch.status !== 0) {
+  checked = 'unavailable';
+  problems.push(`${root} is not a git checkout, so the branch-to-line check cannot run`);
+} else {
+  const current = branch.stdout.trim();
+  const own = current === 'HEAD' ? undefined : lines.lines.find((line) => line.ref === current);
   if (own) {
     checked = current;
     if (own.package_version !== version) {
@@ -49,7 +58,7 @@ if (current && current !== 'HEAD') {
     // version is prepared. It cannot be held to a ref that will only exist after the
     // merge, but it must still carry a version the table already knows - otherwise the
     // branch is preparing a release nobody has described.
-    checked = `unlisted:${current}`;
+    checked = current === 'HEAD' ? 'detached' : `unlisted:${current}`;
     if (!lines.lines.some((line) => line.package_version === version)) {
       problems.push(`PACKAGE_VERSION ${version} belongs to no line, and branch ${current} is not a line reference`);
     }
