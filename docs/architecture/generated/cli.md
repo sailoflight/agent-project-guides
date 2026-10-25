@@ -16,7 +16,7 @@
 
 | 源码位置 | 适合修改什么 |
 |---|---|
-| [`scripts/apg.mjs#main`](../../../scripts/apg.mjs#L843) | 公共命令分派 |
+| [`scripts/apg.mjs#main`](../../../scripts/apg.mjs#L844) | 公共命令分派 |
 | [`scripts/apg-launcher.mjs#validatePackedRuntime`](../../../scripts/apg-launcher.mjs#L101) | 导入前固定摘要校验 |
 
 ## 声明性主流程
@@ -31,13 +31,13 @@ flowchart TD
 ```
 
 流程依据：人工模块声明；锚点存在性由检查器验证，分支和时序仍需核对实现与测试。
-- 解析命令、选择用例和校验固定运行时 → [`scripts/apg.mjs#main`](../../../scripts/apg.mjs#L843)
+- 解析命令、选择用例和校验固定运行时 → [`scripts/apg.mjs#main`](../../../scripts/apg.mjs#L844)
 
 ## 边界与验证
 
-实际依赖：[catalog](catalog.md)、[components](components.md)、[context](context.md)、[descriptor](descriptor.md)、[files](files.md)、[foundation](foundation.md)、[materialization](materialization.md)、[memory](memory.md)、[migration](migration.md)、[observation](observation.md)、[risk](risk.md)、[root-policy](root-policy.md)、[runtime](runtime.md)
+实际依赖：[catalog](catalog.md)、[components](components.md)、[context](context.md)、[descriptor](descriptor.md)、[files](files.md)、[foundation](foundation.md)、[materialization](materialization.md)、[memory](memory.md)、[migration](migration.md)、[observation](observation.md)、[registration](registration.md)、[risk](risk.md)、[root-policy](root-policy.md)、[runtime](runtime.md)
 
-允许依赖：`foundation`、`files`、`catalog`、`descriptor`、`root-policy`、`runtime`、`generation`、`context`、`materialization`、`migration`、`components`、`memory`、`observation`、`risk`
+允许依赖：`foundation`、`files`、`catalog`、`descriptor`、`root-policy`、`runtime`、`generation`、`context`、`materialization`、`migration`、`components`、`memory`、`observation`、`risk`、`registration`
 
 建议验证（只显示，不自动执行）：
 - [`scripts/test-boundary.mjs`](../../../scripts/test-boundary.mjs)

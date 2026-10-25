@@ -10,6 +10,56 @@ runtime and it never executes a model. Entries below are grouped by the surface
 they change.
 
 
+## 4.0.1
+
+**The registration surface is on the 4.x line too, and published modes are uniform.**
+
+This is the forward port of 3.0.11 and 3.0.12 (the `maintenance/3.0` line), because a
+consumer could not register this repository without them: the manifest named no
+permission bits, so nothing could say whether an installed file was executable or
+group-writable, and there was no read-only way to ask a project whether its root block
+still matched its pin.
+
+- `PACKAGE_MANIFEST.json` `files[]` now carries `mode` (decimal POSIX mask) and the
+  field is covered by the digest. Contract: `schemas/package-manifest.schema.json`.
+  Manifests from before this version carry no mode and stay verifiable on their own
+  shape; a 4.0.1-or-later manifest that omits it is `release_corrupt`.
+- `apg release manifest` refuses to publish any file whose mode has `0o022` set. This
+  one is not theoretical on this line: after a branch switch under umask 002,
+  twenty-seven distribution files materialized as `0o664`, because git records only the
+  exec bit and everything else comes from the umask. Publishing those bits would make
+  the package unregistrable for every consumer.
+- The published modes are now uniform and reproducible: `0o644` for ordinary files and
+  `0o755` for the three executable scripts, taken from the git index rather than from
+  whatever the working tree happened to hold. 92 + 3 across 95 files.
+- `RELEASE_LINES.json` ships with the package and answers "which line may be loaded
+  now" with three words - `default`, `loadable`, `promotable` - plus the preconditions a
+  held line must state. `scripts/check-release-lines.mjs` holds a line branch to
+  `PACKAGE_VERSION`; on a port or feature branch it requires the version to belong to
+  some described line instead, since that ref only exists after the merge.
+- `apg project block-verify --target <project>` is read-only and reports in one pass
+  whether the root block exists, matches the descriptor's pin, and which line it
+  claims - `{field, expected, actual, line}` per disagreement instead of the first
+  exception. It shares markers and hash conventions with the write-path guards, and
+  deliberately does not inherit two of their rules: the 16 KiB root limit guards what
+  APG may write, and a duplicate marker after the block is prose.
+- `writeCatalog` already wrote through `writeFileAtomic`, which defaults to `0o644`, so
+  the umask defect fixed in 3.0.12 never existed on this line. The guard above is what
+  keeps it that way.
+- Regression: `scripts/test-registration-surface.mjs` (18 assertions) builds a fixture
+  from the published manifest, installs it, flips one permission bit, edits one
+  character inside a root block, and asserts each is red; it also pins the pre-boundary
+  manifest shape, the mode distribution, and the release-line invariants.
+- `docs/REGISTRATION_SURFACE.md` documents the three surfaces and their limits.
+
+This release also carries the changes listed under Unreleased below.
+
+**4.x is still not promoted.** `RELEASE_LINES.json` keeps `4.x` at `promotable: false`:
+the payload digest changed here, so every consumer that pinned the previous digest must
+re-verify against this one, and replacing the global launcher remains a separate
+reviewed round.
+
+
 ## Unreleased — 2026-09-23
 
 - Latest-source self-hosting exposed same-ID artifact/service coexistence being misclassified as a conflict; keep kind-scoped verdicts and package-first prerequisite resolution.

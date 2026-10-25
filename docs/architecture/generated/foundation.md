@@ -16,9 +16,9 @@
 
 | 源码位置 | 适合修改什么 |
 |---|---|
-| [`lib/core.mjs#compareCanonical`](../../../lib/core.mjs#L49) | 跨环境规范排序 |
-| [`lib/core.mjs#listDistributionFiles`](../../../lib/core.mjs#L186) | 发行文件边界 |
-| [`lib/core.mjs#resolveInside`](../../../lib/core.mjs#L99) | 项目相对路径校验 |
+| [`lib/core.mjs#compareCanonical`](../../../lib/core.mjs#L52) | 跨环境规范排序 |
+| [`lib/core.mjs#listDistributionFiles`](../../../lib/core.mjs#L189) | 发行文件边界 |
+| [`lib/core.mjs#resolveInside`](../../../lib/core.mjs#L102) | 项目相对路径校验 |
 
 ## 声明性主流程
 
@@ -32,7 +32,7 @@ flowchart TD
 ```
 
 流程依据：人工模块声明；锚点存在性由检查器验证，分支和时序仍需核对实现与测试。
-- 错误、规范序列化、路径与发行文件集合 → [`lib/core.mjs#compareCanonical`](../../../lib/core.mjs#L49)
+- 错误、规范序列化、路径与发行文件集合 → [`lib/core.mjs#compareCanonical`](../../../lib/core.mjs#L52)
 
 ## 边界与验证
 

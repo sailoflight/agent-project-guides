@@ -1001,7 +1001,8 @@
         "components",
         "memory",
         "observation",
-        "risk"
+        "risk",
+        "registration"
       ],
       "entries": [
         {
@@ -1269,7 +1270,8 @@
         "cli",
         "legacy",
         "author-tools",
-        "architecture"
+        "architecture",
+        "registration"
       ],
       "entries": [
         {
@@ -1295,6 +1297,66 @@
             "id": "process",
             "label": "使用隔离 fixture 验证公共契约与失败分支",
             "entry": "scripts/test-release.sh"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md"
+    },
+    {
+      "id": "registration",
+      "title": "对外登记面",
+      "summary": "外部消费方登记本仓前要读的只读事实：发布线与根块是否仍与钉住的发布一致",
+      "not_owned": "写路径：块的生成与校验原语属于 root-policy，文件清单摘要属于 foundation",
+      "owns": [
+        "lib/block-report.mjs",
+        "lib/release-lines.mjs",
+        "scripts/check-release-lines.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "descriptor",
+        "root-policy"
+      ],
+      "entries": [
+        {
+          "file": "lib/block-report.mjs",
+          "symbol": "inspectRootBlock",
+          "change": "只读报告根块与钉住发布是否一致"
+        },
+        {
+          "file": "lib/release-lines.mjs",
+          "symbol": "readReleaseLines",
+          "change": "读取并校验发布线状态"
+        }
+      ],
+      "tests": [
+        "scripts/test-registration-surface.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "读取描述符、根块与发布线状态",
+            "entry": "inspectRootBlock"
           },
           {
             "id": "output",

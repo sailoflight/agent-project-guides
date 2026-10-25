@@ -2,7 +2,7 @@
 
 > 自动生成；请修改 `docs/architecture/modules.json` 或源码后重新 build。图是导航，不授予权限、不替代契约；声明流程不是自动证明的调用链。
 
-证据摘要：`sha256:208715f190839c89705d44c9a8544778bc5a8ab46470eb286da2dc984f711e8c`
+证据摘要：`sha256:badd6b4e5077e2ef3903173e7d18e470b1ffa472c164e76c44ef4289ce9914a0`
 
 ## 模块地图
 
@@ -24,6 +24,7 @@ flowchart TD
   memory["记忆提案与晋升"]
   migration["迁移与回滚"]
   observation["观察账本"]
+  registration["对外登记面"]
   risk["风险组合"]
   root-policy["根指令与完整性"]
   runtime["发行与运行时提供器"]
@@ -43,6 +44,7 @@ flowchart TD
   cli --> memory
   cli --> migration
   cli --> observation
+  cli --> registration
   cli --> risk
   cli --> root-policy
   cli --> runtime
@@ -76,6 +78,9 @@ flowchart TD
   migration --> runtime
   observation --> foundation
   observation --> root-policy
+  registration --> descriptor
+  registration --> foundation
+  registration --> root-policy
   risk --> foundation
   root-policy --> files
   root-policy --> foundation
@@ -90,6 +95,7 @@ flowchart TD
   verification --> foundation
   verification --> generation
   verification --> observation
+  verification --> registration
   verification --> root-policy
   verification --> runtime
 ```
@@ -116,6 +122,7 @@ flowchart TD
 | 记忆提案与晋升 | 提案、独立审查、晋升和替代 | [memory](memory.md) |
 | 迁移与回滚 | 审核计划、拥有字节和恢复边界 | [migration](migration.md) |
 | 观察账本 | 追加记录观察到的根指令块变化 | [observation](observation.md) |
+| 对外登记面 | 外部消费方登记本仓前要读的只读事实：发布线与根块是否仍与钉住的发布一致 | [registration](registration.md) |
 | 风险组合 | 单调组合声明的操作效果 | [risk](risk.md) |
 | 根指令与完整性 | 生成和验证拥有的根指令块 | [root-policy](root-policy.md) |
 | 发行与运行时提供器 | 安装和校验精确摘要的内容及 packed runtime | [runtime](runtime.md) |

@@ -35,9 +35,9 @@ flowchart TD
 
 ## 边界与验证
 
-实际依赖：[architecture](architecture.md)、[catalog](catalog.md)、[components](components.md)、[context](context.md)、[foundation](foundation.md)、[generation](generation.md)、[observation](observation.md)、[root-policy](root-policy.md)、[runtime](runtime.md)
+实际依赖：[architecture](architecture.md)、[catalog](catalog.md)、[components](components.md)、[context](context.md)、[foundation](foundation.md)、[generation](generation.md)、[observation](observation.md)、[registration](registration.md)、[root-policy](root-policy.md)、[runtime](runtime.md)
 
-允许依赖：`files`、`foundation`、`descriptor`、`root-policy`、`catalog`、`closure`、`generation`、`runtime`、`context`、`materialization`、`migration`、`components`、`memory`、`observation`、`risk`、`cli`、`legacy`、`author-tools`、`architecture`
+允许依赖：`files`、`foundation`、`descriptor`、`root-policy`、`catalog`、`closure`、`generation`、`runtime`、`context`、`materialization`、`migration`、`components`、`memory`、`observation`、`risk`、`cli`、`legacy`、`author-tools`、`architecture`、`registration`
 
 建议验证（只显示，不自动执行）：
 - [`scripts/test-release.sh`](../../../scripts/test-release.sh)
@@ -59,6 +59,7 @@ flowchart TD
 - [`scripts/test-local-write-safety.mjs`](../../../scripts/test-local-write-safety.mjs)
 - [`scripts/test-mnemon-index-filter.mjs`](../../../scripts/test-mnemon-index-filter.mjs)
 - [`scripts/test-observation-ledger.mjs`](../../../scripts/test-observation-ledger.mjs)
+- [`scripts/test-registration-surface.mjs`](../../../scripts/test-registration-surface.mjs)
 - [`scripts/test-release-pilots.mjs`](../../../scripts/test-release-pilots.mjs)
 - [`scripts/test-release.sh`](../../../scripts/test-release.sh)
 - [`scripts/test-schema.py`](../../../scripts/test-schema.py)

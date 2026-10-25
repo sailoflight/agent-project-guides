@@ -25,6 +25,7 @@ import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, lo
 import { applyMigration, planMigration, rollbackMigration } from '../lib/migration.mjs';
 import { applyV2ToV3Migration, previewV2ToV3Migration, rollbackV3Migration } from '../lib/migration-v3.mjs';
 import { applyMaterialization, previewMaterialization, validateMaterializedProject } from '../lib/materializer.mjs';
+import { inspectRootBlock } from '../lib/block-report.mjs';
 import { compileContext, renderContext, validateContextMatrix } from '../lib/context.mjs';
 import { contextErrorRecord } from '../lib/context-errors.mjs';
 export { contextErrorRecord };
@@ -104,7 +105,7 @@ function helpText(scope) {
     ...common,
     'Commands:',
     '  context                      Resolve bounded governance context',
-    '  project                      Initialize, validate, reattest, observe, or materialize a project',
+    '  project                      Initialize, validate, verify the root block, reattest, observe, or materialize a project',
     '  catalog                      Build or check the catalog',
     '  release                      Build, install, or verify a release',
     '  provider                     Resolve and load provider content',
@@ -866,6 +867,18 @@ export async function main(argv = process.argv.slice(2)) {
       const root = options.source ? fs.realpathSync(options.source) : packageRoot;
       validateSourceCatalog(root);
       const manifest = buildFileManifest(root);
+      // Publishing is where a mode becomes a promise. A group- or other-writable file
+      // cannot be registered as a managed capability at all - consumers reject
+      // `mode & 0o022` outright - and in practice the bit arrives from a umask rather
+      // than from a decision. Git cannot show it either: it records only the exec bit,
+      // so a clone under umask 002 materializes 0o664 for everything without any
+      // tracked difference. Refusing here turns that into a build error at the one
+      // moment the bits become a contract.
+      const writable = manifest.files.filter((file) => (file.mode & 0o022) !== 0);
+      if (writable.length) {
+        const shown = writable.slice(0, 5).map((file) => `${file.path} (0o${file.mode.toString(8)})`).join(', ');
+        fail(`release refuses group/other-writable files: ${shown}${writable.length > 5 ? ` and ${writable.length - 5} more of ${writable.length}` : ''}; build with umask 022 or fix the bits`);
+      }
       writeJsonAtomic(path.join(root, 'PACKAGE_MANIFEST.json'), manifest);
       return { status: 'written', manifest };
     }
@@ -893,6 +906,10 @@ export async function main(argv = process.argv.slice(2)) {
     if (action === 'init') return initProject(options);
     if (action === 'hydrate') return hydrateProject(options);
     if (action === 'validate' || action === 'status') return validateProject(options);
+    // Read-only, and deliberately not a variant of `validate`: a consumer deciding
+    // whether to trust this project's root block wants the disagreement list, not the
+    // first exception. It never locks, writes, or re-renders.
+    if (action === 'block-verify') return inspectRootBlock(observedTargetRoot(options, false), { baseDir: packageRoot });
     if (action === 'reattest') return reattestProject(options);
     if (action === 'observe') return observeProject(options);
     if (action === 'uninstall') return uninstallProject(options);

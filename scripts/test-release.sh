@@ -6,13 +6,14 @@ cd "$ROOT"
 
 node -e '
 const fs = require("fs");
-for (const file of ["schemas/project.schema.json", "schemas/project-v3.schema.json", "schemas/catalog-entry.schema.json", "schemas/context-route.schema.json", "schemas/component-entry.schema.json", "PACKAGE_REMOTE.json", "routing/context-classifier.json"]) JSON.parse(fs.readFileSync(file, "utf8"));
+for (const file of ["schemas/project.schema.json", "schemas/project-v3.schema.json", "schemas/catalog-entry.schema.json", "schemas/context-route.schema.json", "schemas/component-entry.schema.json", "schemas/package-manifest.schema.json", "PACKAGE_REMOTE.json", "RELEASE_LINES.json", "routing/context-classifier.json"]) JSON.parse(fs.readFileSync(file, "utf8"));
 for (const file of fs.readdirSync("routing").filter((name) => name.endsWith(".jsonl"))) {
   fs.readFileSync(`routing/${file}`, "utf8").split(/\r?\n/).filter(Boolean).forEach((line) => JSON.parse(line));
 }
 '
 python3 scripts/test-schema.py
 node scripts/validate-routing.mjs
+node scripts/check-release-lines.mjs
 ./scripts/test-install.sh
 node scripts/test-local-write-safety.mjs
 node scripts/test-determinism.mjs
@@ -20,6 +21,7 @@ node scripts/test-v2.mjs
 node scripts/test-v3.mjs
 node scripts/test-context-state.mjs
 node scripts/test-context-choice.mjs
+node scripts/test-registration-surface.mjs
 # ADR 0005's genericity gate was written but never wired into a runner, so the
 # cross-harness contract had a covering test that nothing invoked - it could rot
 # silently. Both of these belong in the release runner: the genericity gate scans

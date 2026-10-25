@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "evidence_digest": "sha256:208715f190839c89705d44c9a8544778bc5a8ab46470eb286da2dc984f711e8c",
+  "evidence_digest": "sha256:badd6b4e5077e2ef3903173e7d18e470b1ffa472c164e76c44ef4289ce9914a0",
   "analysis": {
     "dependencies": "Node ESM parser; compile-only, never link/evaluate",
     "anchors": "unique named declaration lines",
@@ -262,14 +262,15 @@
         "components",
         "memory",
         "observation",
-        "risk"
+        "risk",
+        "registration"
       ],
       "entries": [
         {
           "file": "scripts/apg.mjs",
           "symbol": "main",
           "change": "公共命令分派",
-          "line": 843
+          "line": 844
         },
         {
           "file": "scripts/apg-launcher.mjs",
@@ -327,6 +328,7 @@
         "memory",
         "migration",
         "observation",
+        "registration",
         "risk",
         "root-policy",
         "runtime"
@@ -739,19 +741,19 @@
           "file": "lib/core.mjs",
           "symbol": "compareCanonical",
           "change": "跨环境规范排序",
-          "line": 49
+          "line": 52
         },
         {
           "file": "lib/core.mjs",
           "symbol": "listDistributionFiles",
           "change": "发行文件边界",
-          "line": 186
+          "line": 189
         },
         {
           "file": "lib/core.mjs",
           "symbol": "resolveInside",
           "change": "项目相对路径校验",
-          "line": 99
+          "line": 102
         }
       ],
       "tests": [
@@ -1250,6 +1252,78 @@
       ]
     },
     {
+      "id": "registration",
+      "title": "对外登记面",
+      "summary": "外部消费方登记本仓前要读的只读事实：发布线与根块是否仍与钉住的发布一致",
+      "not_owned": "写路径：块的生成与校验原语属于 root-policy，文件清单摘要属于 foundation",
+      "owns": [
+        "lib/block-report.mjs",
+        "lib/release-lines.mjs",
+        "scripts/check-release-lines.mjs"
+      ],
+      "allowed_dependencies": [
+        "foundation",
+        "descriptor",
+        "root-policy"
+      ],
+      "entries": [
+        {
+          "file": "lib/block-report.mjs",
+          "symbol": "inspectRootBlock",
+          "change": "只读报告根块与钉住发布是否一致",
+          "line": 131
+        },
+        {
+          "file": "lib/release-lines.mjs",
+          "symbol": "readReleaseLines",
+          "change": "读取并校验发布线状态",
+          "line": 66
+        }
+      ],
+      "tests": [
+        "scripts/test-registration-surface.mjs"
+      ],
+      "tags": [],
+      "flow": {
+        "steps": [
+          {
+            "id": "input",
+            "label": "输入与前置条件"
+          },
+          {
+            "id": "process",
+            "label": "读取描述符、根块与发布线状态",
+            "entry": "inspectRootBlock"
+          },
+          {
+            "id": "output",
+            "label": "结果或显式失败"
+          }
+        ],
+        "edges": [
+          {
+            "from": "input",
+            "to": "process"
+          },
+          {
+            "from": "process",
+            "to": "output"
+          }
+        ]
+      },
+      "contract": "docs/architecture/OVERVIEW.md",
+      "files": [
+        "lib/block-report.mjs",
+        "lib/release-lines.mjs",
+        "scripts/check-release-lines.mjs"
+      ],
+      "dependencies": [
+        "descriptor",
+        "foundation",
+        "root-policy"
+      ]
+    },
+    {
       "id": "risk",
       "title": "风险组合",
       "summary": "单调组合声明的操作效果",
@@ -1489,7 +1563,8 @@
         "cli",
         "legacy",
         "author-tools",
-        "architecture"
+        "architecture",
+        "registration"
       ],
       "entries": [
         {
@@ -1551,6 +1626,7 @@
         "scripts/test-local-write-safety.mjs",
         "scripts/test-mnemon-index-filter.mjs",
         "scripts/test-observation-ledger.mjs",
+        "scripts/test-registration-surface.mjs",
         "scripts/test-release-pilots.mjs",
         "scripts/test-release.sh",
         "scripts/test-schema.py",
@@ -1565,6 +1641,7 @@
         "foundation",
         "generation",
         "observation",
+        "registration",
         "root-policy",
         "runtime"
       ]
@@ -1578,6 +1655,21 @@
       "imports": [],
       "external_imports": [
         "node:crypto"
+      ]
+    },
+    {
+      "file": "lib/block-report.mjs",
+      "owner": "registration",
+      "hash": "sha256:07e90f93ed69245e3e33c3eec7dc9b8c35d0b8f93d81de0a8bd00396eeb7c195",
+      "imports": [
+        "lib/block-integrity.mjs",
+        "lib/core.mjs",
+        "lib/descriptor.mjs",
+        "lib/release-lines.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
       ]
     },
     {
@@ -1719,7 +1811,7 @@
     {
       "file": "lib/core.mjs",
       "owner": "foundation",
-      "hash": "sha256:237bd1b621cd4e43cb6cc55d809013dfb0daeee448b50562bfab96527ee69b20",
+      "hash": "sha256:7c6ad5e35631b2ff337e05f153dfaf8f551bcc3a91c0507fda42b6851b04ff5c",
       "imports": [
         "lib/files.mjs"
       ],
@@ -1884,6 +1976,18 @@
       ]
     },
     {
+      "file": "lib/release-lines.mjs",
+      "owner": "registration",
+      "hash": "sha256:04255ce1b6c78c2fa672e5a6c09127516ae61348aa9c7e60615a1d3bc99603a0",
+      "imports": [
+        "lib/core.mjs"
+      ],
+      "external_imports": [
+        "node:fs",
+        "node:path"
+      ]
+    },
+    {
       "file": "lib/risk.mjs",
       "owner": "risk",
       "hash": "sha256:7a7d9ce54e965171c846bd48615a82634597ee78f50f1b105b4f398421ced92c",
@@ -1931,8 +2035,9 @@
     {
       "file": "scripts/apg.mjs",
       "owner": "cli",
-      "hash": "sha256:958a35c8fb1f0d841e4613dda8e535e5182013f51bc562bd10abc148af19adc5",
+      "hash": "sha256:bea0cc9bbe827cd46296d3fa6cd9fafa9bdd4b16ce42179f7296c4c79084b683",
       "imports": [
+        "lib/block-report.mjs",
         "lib/bootstrap.mjs",
         "lib/catalog.mjs",
         "lib/component-resolution.mjs",
@@ -1977,6 +2082,20 @@
         "lib/core.mjs"
       ],
       "external_imports": [
+        "node:fs",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
+      "file": "scripts/check-release-lines.mjs",
+      "owner": "registration",
+      "hash": "sha256:2983303f2a3ccaba910e59950950eaeed9cef58a15c5e3f442b0f500e65ee7e2",
+      "imports": [
+        "lib/release-lines.mjs"
+      ],
+      "external_imports": [
+        "node:child_process",
         "node:fs",
         "node:path",
         "node:url"
@@ -2230,6 +2349,24 @@
       ]
     },
     {
+      "file": "scripts/test-registration-surface.mjs",
+      "owner": "verification",
+      "hash": "sha256:bd6c35c15965b5e04af2bca2b3c7c55af6ea969c222ca46d806ac80245b787ff",
+      "imports": [
+        "lib/catalog.mjs",
+        "lib/core.mjs",
+        "lib/release-lines.mjs"
+      ],
+      "external_imports": [
+        "node:assert/strict",
+        "node:child_process",
+        "node:fs",
+        "node:os",
+        "node:path",
+        "node:url"
+      ]
+    },
+    {
       "file": "scripts/test-release-pilots.mjs",
       "owner": "verification",
       "hash": "sha256:4efe1ade7b26096418be9a08629304e5e6e9da1c918b672cbe86482fc9b18c63",
@@ -2247,14 +2384,14 @@
     {
       "file": "scripts/test-release.sh",
       "owner": "verification",
-      "hash": "sha256:9682e4f73aab67425d4db6b39dd0482d6f04ac4c53ba0514d0cc3269f69c5596",
+      "hash": "sha256:2ef59f3bda5197af7362f795fc9b36f1767ead1fab4a6d9a70fe91e100e5845f",
       "imports": [],
       "external_imports": []
     },
     {
       "file": "scripts/test-schema.py",
       "owner": "verification",
-      "hash": "sha256:bf21e3bf913125b57eb9a869aef470823d0641b75a17593c78847aec78160a0c",
+      "hash": "sha256:709bae1daede0d4f783ad9bb828597afa50752a63b582c270890f6fcdd3779ab",
       "imports": [],
       "external_imports": []
     },
