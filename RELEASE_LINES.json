@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "updated": "2026-10-25",
+  "default": "3.0",
+  "lines": [
+    {
+      "id": "3.0",
+      "ref": "maintenance/3.0",
+      "package_version": "3.0.11",
+      "maintainer": "agent-project-guides",
+      "status": "maintenance",
+      "loadable": true,
+      "promotable": true,
+      "preconditions": []
+    },
+    {
+      "id": "4.x",
+      "ref": "main",
+      "package_version": "4.0.0",
+      "maintainer": "agent-project-guides",
+      "status": "hold",
+      "loadable": true,
+      "promotable": false,
+      "preconditions": [
+        "consumer projects finish accepting the 4.x line",
+        "each consumer re-verifies the exact 4.x payload digest it pinned",
+        "a separate reviewed promotion round replaces the global launcher; installing a 4.x release never does it"
+      ]
+    }
+  ]
+}

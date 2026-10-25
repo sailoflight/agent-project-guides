@@ -24,6 +24,7 @@ import { addEmbeddedExclude, gitExcludeFile, installEmbedded, installRelease, lo
 import { applyMigration, planMigration, rollbackMigration } from '../lib/migration.mjs';
 import { applyV2ToV3Migration, previewV2ToV3Migration, rollbackV3Migration } from '../lib/migration-v3.mjs';
 import { applyMaterialization, previewMaterialization, validateMaterializedProject } from '../lib/materializer.mjs';
+import { inspectRootBlock } from '../lib/block-report.mjs';
 import { compileContext, renderContext, validateContextMatrix } from '../lib/context.mjs';
 import { contextErrorRecord } from '../lib/context-errors.mjs';
 export { contextErrorRecord };
@@ -101,7 +102,7 @@ function helpText(scope) {
     ...common,
     'Commands:',
     '  context                      Resolve bounded governance context',
-    '  project                      Initialize, validate, reattest, or materialize a project',
+    '  project                      Initialize, validate, verify the root block, reattest, or materialize a project',
     '  catalog                      Build or check the catalog',
     '  release                      Build, install, or verify a release',
     '  provider                     Resolve and load provider content',
@@ -880,6 +881,10 @@ export async function main(argv = process.argv.slice(2)) {
     if (action === 'init') return initProject(options);
     if (action === 'hydrate') return hydrateProject(options);
     if (action === 'validate' || action === 'status') return validateProject(options);
+    // Read-only, and deliberately not a variant of `validate`: a consumer that is
+    // deciding whether to trust this project's root block wants the disagreement
+    // list, not the first exception. It never locks, writes, or re-renders.
+    if (action === 'block-verify') return inspectRootBlock(observedTargetRoot(options, false), { baseDir: packageRoot });
     if (action === 'reattest') return reattestProject(options);
     if (action === 'uninstall') return uninstallProject(options);
     if (action === 'materialize') {

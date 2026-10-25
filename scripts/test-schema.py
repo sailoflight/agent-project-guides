@@ -119,4 +119,22 @@ for schema_name, data_name in [
             except (ValidationError, json.JSONDecodeError) as error:
                 raise AssertionError(f"{data_name}:{line_number}: {error}") from error
 
-print("Project v1/v2, catalog, and context-route JSON Schema acceptance fixtures are valid.")
+MANIFEST_SCHEMA = json.loads((ROOT / "schemas/package-manifest.schema.json").read_text(encoding="utf-8"))
+Draft202012Validator.check_schema(MANIFEST_SCHEMA)
+MANIFEST_VALIDATOR = Draft202012Validator(MANIFEST_SCHEMA)
+MANIFEST = json.loads((ROOT / "PACKAGE_MANIFEST.json").read_text(encoding="utf-8"))
+MANIFEST_VALIDATOR.validate(MANIFEST)
+
+# From 3.0.11 the permission mask is release content: a manifest that lost it must
+# not validate, or a re-published release could silently drop an exec bit.
+MODE_STRIPPED = json.loads(json.dumps(MANIFEST))
+for entry in MODE_STRIPPED["files"]:
+    entry.pop("mode", None)
+try:
+    MANIFEST_VALIDATOR.validate(MODE_STRIPPED)
+except ValidationError:
+    pass
+else:
+    raise AssertionError("manifest schema accepted a files[] entry without mode")
+
+print("Project v1/v2, catalog, context-route, and package-manifest JSON Schema acceptance fixtures are valid.")

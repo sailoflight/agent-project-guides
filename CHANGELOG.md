@@ -9,6 +9,37 @@ APG is a harness-neutral governance core: it decides *what* a project commits to
 runtime and it never executes a model. Entries below are grouped by the surface
 they change.
 
+## 3.0.11
+
+**Registration surface — three questions an external project asks before it registers
+this repository now have machine-checkable answers.**
+
+- `PACKAGE_MANIFEST.json` `files[]` carries `mode` (decimal permission mask) and the
+  field is covered by `digest`, so a lost exec bit changes the release digest instead
+  of producing an install that exits 126. Contract: `schemas/package-manifest.schema.json`.
+  A changed permission bit on an installed release is `release_corrupt`. Manifests
+  published before this release carry no mode and stay verifiable on their own shape;
+  a current manifest that omits the field is refused, because that means it was
+  removed rather than never written.
+- `RELEASE_LINES.json` answers "which line may be loaded now" with three words:
+  `default` (what to load), `loadable` (content may be resolved and pinned),
+  `promotable` (may replace the global launcher). A held line must state its
+  `preconditions`. The file ships with the package, so a frozen release describes its
+  own line, and `scripts/check-release-lines.mjs` holds the checked-out branch to
+  `PACKAGE_VERSION`.
+- `apg project block-verify --target <project>` is read-only and reports in one pass
+  whether the root block exists, still matches the descriptor's pin, and which release
+  it claims — `{field, expected, actual, line}` per disagreement instead of the first
+  exception. Markers and hash conventions are shared with the write-path guards.
+- Two write-path rules deliberately do not carry over to that report: the 16 KiB root
+  limit guards what APG may write, and a duplicate marker after the block is text, not
+  a second block. Both were measured on a real 4.x consumer whose root file exceeds
+  16 KiB and quotes its own marker in prose.
+- Regression: `scripts/test-registration-surface.mjs` builds a package fixture from the
+  published manifest, flips one permission bit on an installed release, edits one
+  character inside a root block, and asserts each is red; it also pins the legacy
+  manifest shape and the release-line invariants.
+
 ## 3.0.10
 
 **Root-block guard — the marker grammar now covers the measured field, and stops
