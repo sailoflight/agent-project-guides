@@ -854,6 +854,16 @@ export async function main(argv = process.argv.slice(2)) {
       const root = options.source ? fs.realpathSync(options.source) : packageRoot;
       validateSourceCatalog(root);
       const manifest = buildFileManifest(root);
+      // Publishing is where a mode becomes a promise. A group- or other-writable file
+      // cannot be registered as a managed capability at all - consumers reject
+      // `mode & 0o022` outright - and in practice the bit arrives from a umask rather
+      // than from a decision, so refusing here turns a silent packaging accident into
+      // a build error. Measured on catalog/catalog.jsonl, which was 0o664 under umask
+      // 002 while git recorded the same content as 100644.
+      const writable = manifest.files.filter((file) => (file.mode & 0o022) !== 0);
+      if (writable.length) {
+        fail(`release refuses group/other-writable files: ${writable.map((file) => `${file.path} (0o${file.mode.toString(8)})`).join(', ')}`);
+      }
       writeJsonAtomic(path.join(root, 'PACKAGE_MANIFEST.json'), manifest);
       return { status: 'written', manifest };
     }

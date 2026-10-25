@@ -6,7 +6,7 @@
     {
       "id": "3.0",
       "ref": "maintenance/3.0",
-      "package_version": "3.0.11",
+      "package_version": "3.0.12",
       "maintainer": "agent-project-guides",
       "status": "maintenance",
       "loadable": true,

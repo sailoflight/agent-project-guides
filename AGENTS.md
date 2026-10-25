@@ -1,8 +1,8 @@
 <!-- agent-project-guides:v2:start -->
-<!-- agent-project-guides:integrity sha256=c89278851933f160811ee30b48f19f30489d6d8f0813e895e73ba45780ce54d4 -->
+<!-- agent-project-guides:integrity sha256=3a1308a467e282f0aa3e516609ba6e0784be2beda4cbe787577cb155122d5a24 -->
 ## Project governance bootstrap
 
-Project ID: `agent-project-guides`; release: `3.0.11`; expected digest: `observe`.
+Project ID: `agent-project-guides`; release: `3.0.12`; expected digest: `observe`.
 
 1. Direct-read `.agent-project-guides.json`; it is project-owned policy, not generic package content. Mutual trust assigns disclosed call consequences to the caller and truthful effect/contract/failure reporting to the callee.
 2. Before any repository discovery or operation, run the exact `apg context --target . --task <current-task> --format context` route through the installed launcher. An explicitly assigned route must include `--plane`, `--role`, and `--mode` together.

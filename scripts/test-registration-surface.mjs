@@ -16,6 +16,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildFileManifest, canonicalJson, sha256, verifyFileManifest } from '../lib/core.mjs';
 import { validateReleaseLines } from '../lib/release-lines.mjs';
+import { writeCatalog } from '../lib/catalog.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const cli = path.join(root, 'scripts', 'apg.mjs');
@@ -74,6 +75,27 @@ const red = run(['release', 'verify', '--root', releaseRoot], { expect: 2 });
 assert.equal(red.error, 'release_corrupt', 'a changed permission bit must be red, not tolerated');
 fs.chmodSync(installedCli, 0o755);
 assert.equal(run(['release', 'verify', '--root', releaseRoot]).valid, true, 'restoring the bit restores the verdict');
+
+// A generated file must not inherit the builder's umask: the bits are release content
+// now, so "who ran the build" must not change what is published. Measured failure:
+// catalog.jsonl came out 0o664 from a umask-002 shell while git recorded 100644.
+const catalogFile = path.join(fixture, 'catalog', 'catalog.jsonl');
+const savedUmask = process.umask(0o002);
+try {
+  writeCatalog(fixture);
+} finally {
+  process.umask(savedUmask);
+}
+assert.equal(fs.statSync(catalogFile).mode & 0o777, 0o644, 'a generated catalog must not take the builder umask');
+
+// And publishing refuses a group- or other-writable file outright, because a consumer
+// rejects `mode & 0o022` and the bit is almost always a umask accident, not a decision.
+fs.chmodSync(catalogFile, 0o664);
+const refused = run(['release', 'manifest', '--source', fixture], { expect: 2 });
+assert.match(refused.message, /group\/other-writable/, 'a 0o664 file must stop the manifest, not ship');
+assert.match(refused.message, /catalog\/catalog\.jsonl/, 'the refusal must name the file');
+fs.chmodSync(catalogFile, 0o644);
+assert.equal(run(['release', 'manifest', '--source', fixture]).status, 'written', 'normalizing the bits lets publishing continue');
 
 // A manifest from before the boundary is still valid on its own shape; a current one
 // that simply lost the field is refused. Both are checked through the public verifier.

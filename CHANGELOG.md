@@ -9,6 +9,29 @@ APG is a harness-neutral governance core: it decides *what* a project commits to
 runtime and it never executes a model. Entries below are grouped by the surface
 they change.
 
+## 3.0.12
+
+**Published permission bits are deterministic, and a group-writable file stops the
+release.**
+
+- 3.0.11's manifest declared `catalog/catalog.jsonl` as `0o664`. The cause was
+  `writeCatalog`: it wrote its temporary file without an explicit mode, so
+  `0o666 & ~umask` decided what got published. A maintainer building under umask 002
+  shipped the group-writable bit, and git could not show it — git records `100644`
+  because it only tracks the exec bit. An external consumer with a hard rule against
+  `mode & 0o022` therefore could not register 3.0.11 at all. It is the only writer in
+  `lib/` that omitted the mode; every other temp-then-rename site already passes one.
+- `writeCatalog` now writes `{ mode: 0o644 }`.
+- `apg release manifest` refuses to publish any file with `mode & 0o022` and names it.
+  A group-writable bit in a distribution is a packaging accident rather than a
+  decision, and it makes the package unregistrable, so it is a build error now instead
+  of a comment in a review.
+- Regression in `scripts/test-registration-surface.mjs`: rebuilds the catalog under
+  umask 002 and asserts `0o644`; flips that file to `0o664` and asserts the manifest
+  command refuses it by name.
+- **3.0.11 is superseded.** Its manifest misstates that one mode, so its digest must
+  not be used for registration; the line's manifest is `3.0.12`.
+
 ## 3.0.11
 
 **Registration surface — three questions an external project asks before it registers
